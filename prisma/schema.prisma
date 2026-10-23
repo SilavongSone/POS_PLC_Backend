@@ -1,0 +1,207 @@
+// PLC POS — database schema
+// All money in the base currency (LAK) is stored as Decimal(18, 0).
+// Foreign-currency amounts (THB/USD) use Decimal(18, 2).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+}
+
+enum Currency {
+  LAK
+  THB
+  USD
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  QR
+  CARD
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+  REFUNDED
+}
+
+enum SerialStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+  DEFECTIVE
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  role         Role     @default(CASHIER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sales  Sale[]
+  shifts Shift[]
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
+}
+
+model Brand {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id             String   @id @default(uuid())
+  sku            String   @unique
+  barcode        String?  @unique
+  name           String
+  description    String?
+  categoryId     String?
+  brandId        String?
+  priceLak       Decimal  @db.Decimal(18, 0)
+  costLak        Decimal  @db.Decimal(18, 0)
+  stockQty       Int      @default(0)
+  lowStockAlert  Int      @default(0)
+  /// Serialized items (terminals, printers, displays) require a serial per unit sold.
+  trackSerial    Boolean  @default(false)
+  warrantyMonths Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  brand         Brand?         @relation(fields: [brandId], references: [id])
+  serialNumbers SerialNumber[]
+  saleItems     SaleItem[]
+}
+
+model SerialNumber {
+  id         String       @id @default(uuid())
+  serial     String       @unique
+  productId  String
+  status     SerialStatus @default(IN_STOCK)
+  saleItemId String?
+  createdAt  DateTime     @default(now())
+
+  product  Product   @relation(fields: [productId], references: [id])
+  saleItem SaleItem? @relation(fields: [saleItemId], references: [id])
+
+  @@index([productId, status])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?  @unique
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+
+  sales Sale[]
+}
+
+/// Units of LAK per 1 unit of `currency` (e.g. USD → 21500).
+model ExchangeRate {
+  id            String   @id @default(uuid())
+  currency      Currency
+  lakPerUnit    Decimal  @db.Decimal(18, 4)
+  effectiveFrom DateTime @default(now())
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@index([currency, effectiveFrom])
+}
+
+model Shift {
+  id          String      @id @default(uuid())
+  userId      String
+  status      ShiftStatus @default(OPEN)
+  openedAt    DateTime    @default(now())
+  closedAt    DateTime?
+  /// Opening/closing cash counted per currency, e.g. {"LAK":"500000","THB":"0","USD":"20"}.
+  openingCash Json
+  closingCash Json?
+
+  user  User   @relation(fields: [userId], references: [id])
+  sales Sale[]
+}
+
+model Sale {
+  id          String     @id @default(uuid())
+  receiptNo   String     @unique
+  status      SaleStatus @default(COMPLETED)
+  cashierId   String
+  shiftId     String?
+  customerId  String?
+  subtotalLak Decimal    @db.Decimal(18, 0)
+  discountLak Decimal    @default(0) @db.Decimal(18, 0)
+  taxLak      Decimal    @default(0) @db.Decimal(18, 0)
+  totalLak    Decimal    @db.Decimal(18, 0)
+  changeLak   Decimal    @default(0) @db.Decimal(18, 0)
+  createdAt   DateTime   @default(now())
+
+  cashier  User       @relation(fields: [cashierId], references: [id])
+  shift    Shift?     @relation(fields: [shiftId], references: [id])
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  items    SaleItem[]
+  payments Payment[]
+
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id             String  @id @default(uuid())
+  saleId         String
+  productId      String
+  /// Snapshot of product name at time of sale.
+  productName    String
+  quantity       Int
+  unitPriceLak   Decimal @db.Decimal(18, 0)
+  discountLak    Decimal @default(0) @db.Decimal(18, 0)
+  lineTotalLak   Decimal @db.Decimal(18, 0)
+  warrantyMonths Int     @default(0)
+
+  sale          Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product       Product        @relation(fields: [productId], references: [id])
+  serialNumbers SerialNumber[]
+}
+
+/// One sale may be paid with several payments in different currencies.
+model Payment {
+  id         String        @id @default(uuid())
+  saleId     String
+  method     PaymentMethod
+  currency   Currency
+  /// Amount tendered in `currency`.
+  amount     Decimal       @db.Decimal(18, 2)
+  /// Exchange-rate snapshot used for this payment (1 for LAK).
+  lakPerUnit Decimal       @db.Decimal(18, 4)
+  amountLak  Decimal       @db.Decimal(18, 0)
+  createdAt  DateTime      @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
