@@ -346,6 +346,17 @@ describe('Catalog (e2e)', () => {
         })
         .expect(400);
 
+      // Declared as PNG but not a PNG.
+      await t
+        .http()
+        .post(`/products/${p.id}/images`)
+        .set(manager.auth)
+        .attach('file', Buffer.from('<html><script>alert(1)</script></html>'), {
+          filename: 'x.png',
+          contentType: 'image/png',
+        })
+        .expect(400);
+
       const first = (
         await t
           .http()

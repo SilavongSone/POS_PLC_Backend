@@ -66,6 +66,8 @@ describe('Stock (e2e)', () => {
 
   it('manages suppliers (stock.receive only)', async () => {
     await t.http().get('/suppliers').set(cashier.auth).expect(403);
+    // Documents show costs.
+    await t.http().get('/stock-documents').set(cashier.auth).expect(403);
     const list = await t
       .http()
       .get('/suppliers?q=Supplier')

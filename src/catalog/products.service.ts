@@ -60,6 +60,21 @@ export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 };
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+/** Magic bytes of the allowed image formats. */
+function hasImageSignature(buf: Buffer, ext: string): boolean {
+  if (ext === 'jpg')
+    return buf.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
+  if (ext === 'png')
+    return buf.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+  if (ext === 'webp') {
+    return (
+      buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buf.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  return false;
+}
+
 export type PricingContext = { rates: CurrentRates; lakRounding: number };
 
 @Injectable()
@@ -460,7 +475,10 @@ export class ProductsService {
     file: { buffer: Buffer; mimetype: string; size: number },
   ) {
     const ext = ALLOWED_IMAGE_TYPES[file.mimetype];
-    if (!ext) throw new BadRequestException('Only JPEG, PNG or WebP images');
+    // Check the file's own signature too: the declared type comes from the client.
+    if (!ext || !hasImageSignature(file.buffer, ext)) {
+      throw new BadRequestException('Only JPEG, PNG or WebP images');
+    }
     if (file.size > MAX_IMAGE_BYTES)
       throw new BadRequestException('Image must be 5 MB or less');
     await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });

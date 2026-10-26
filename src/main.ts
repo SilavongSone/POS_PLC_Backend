@@ -15,6 +15,7 @@ async function bootstrap() {
     prefix: '/api/uploads/',
     index: false,
     dotfiles: 'deny',
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
   });
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',

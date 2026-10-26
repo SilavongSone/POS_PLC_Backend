@@ -81,10 +81,13 @@ export class SuppliersController {
   }
 }
 
-/** Per-type permissions (stock.receive / stock.issue / stock.adjust) are checked in the service. */
+/**
+ * Documents show costs, so reading needs stock.receive. Writing checks the per-type
+ * permission (stock.receive / stock.issue / stock.adjust) in the service.
+ */
 @ApiTags('stock')
 @ApiBearerAuth()
-@RequirePermissions('catalog.view')
+@RequirePermissions('stock.receive')
 @Controller('stock-documents')
 export class StockDocumentsController {
   constructor(private readonly docs: StockDocumentsService) {}
