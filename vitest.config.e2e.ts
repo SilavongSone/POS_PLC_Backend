@@ -25,6 +25,9 @@ export default defineConfig({
     env: {
       DATABASE_URL: process.env.DATABASE_URL,
       LOG_LEVEL: 'silent',
+      // Tests log in many times from one address; throttling has its own test.
+      THROTTLE_LIMIT: '100000',
+      THROTTLE_AUTH_LIMIT: '100000',
       UPLOAD_DIR: path.join(os.tmpdir(), 'plc-pos-e2e-uploads'),
     },
     globalSetup: ['./test/global-setup.ts'],

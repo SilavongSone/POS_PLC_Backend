@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import type { Env } from './config/env.js';
+import { HealthController } from './health.controller.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { CommonModule } from './common/common.module.js';
 import { CustomersModule } from './customers/customers.module.js';
@@ -36,6 +40,19 @@ import { UsersModule } from './users/users.module.js';
             : { target: 'pino-pretty', options: { singleLine: true } },
       },
     }),
+    // Per client IP; auth routes use the stricter "auth" limit (see @Throttle there).
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: 60_000,
+            limit: config.get('THROTTLE_LIMIT', { infer: true }),
+          },
+        ],
+      }),
+    }),
     PrismaModule,
     CommonModule,
     AuthModule,
@@ -54,7 +71,7 @@ import { UsersModule } from './users/users.module.js';
     QuotationsModule,
     RepairsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, HealthController],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

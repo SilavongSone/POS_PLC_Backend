@@ -428,7 +428,7 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
     const debtors = (
       await t
         .http()
-        .get('/customers?withDebt=true&pageSize=200')
+        .get('/customers?withDebt=true&pageSize=100')
         .set(cashier.auth)
     ).body;
     expect(debtors.items.some((c: { id: string }) => c.id === firm.id)).toBe(

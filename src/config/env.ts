@@ -14,6 +14,39 @@ const envSchema = z.object({
   PIN_SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
   /** Where uploaded product images are stored; served at /api/uploads. */
   UPLOAD_DIR: z.string().default('uploads'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  /** Comma-separated list of allowed browser origins. */
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((o) => o.trim())
+            .filter(Boolean)
+        : undefined,
+    ),
+  /** Swagger UI at /api/docs; off by default in production. */
+  SWAGGER_ENABLED: z.enum(['true', 'false']).optional(),
+  /** Number of reverse-proxy hops in front of the API (for client IPs in rate limits and logs). */
+  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+  /** Requests per minute per client IP. */
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(600),
+  /** Login / PIN / approval / refresh attempts per minute per client IP. */
+  THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
+  /** Max JSON body size, e.g. "1mb". */
+  BODY_LIMIT: z.string().default('1mb'),
+  /** Database connections per API instance. */
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
+  /** Any SQL statement running longer than this is cancelled (ms). */
+  DATABASE_STATEMENT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .default(30_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

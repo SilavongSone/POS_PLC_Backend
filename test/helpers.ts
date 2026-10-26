@@ -1,15 +1,19 @@
-import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import argon2 from 'argon2';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module.js';
+import { configureApp } from '../src/app.setup.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
 export type TestApp = {
-  app: INestApplication<App>;
+  app: NestExpressApplication;
   prisma: PrismaService;
-  http: () => ReturnType<typeof request>;
+  http: () => Record<
+    'get' | 'post' | 'put' | 'patch' | 'delete',
+    (url: string) => request.Test
+  >;
   /** Creates a user in a built-in group (or with explicit permissions) and returns a bearer header. */
   userWith: (
     group:
@@ -29,10 +33,21 @@ export async function createTestApp(): Promise<TestApp> {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleRef.createNestApplication<INestApplication<App>>();
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    bodyParser: false,
+  });
+  configureApp(app);
   await app.init();
   const prisma = app.get(PrismaService);
-  const http = () => request(app.getHttpServer());
+  // Routes live under the global /api prefix, as in production.
+  const server = app.getHttpServer() as App;
+  const http = () => ({
+    get: (url: string) => request(server).get(`/api${url}`),
+    post: (url: string) => request(server).post(`/api${url}`),
+    put: (url: string) => request(server).put(`/api${url}`),
+    patch: (url: string) => request(server).patch(`/api${url}`),
+    delete: (url: string) => request(server).delete(`/api${url}`),
+  });
   const passwordHash = await argon2.hash(TEST_PASSWORD);
 
   const userWith: TestApp['userWith'] = async (group) => {

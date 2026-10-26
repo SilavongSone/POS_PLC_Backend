@@ -4,6 +4,7 @@ import {
   openApiSchema,
   ZodValidationPipe,
 } from '../common/zod-validation.pipe.js';
+import { Throttle } from '@nestjs/throttler';
 import { ApprovalService } from './approval.service.js';
 import { AuthService } from './auth.service.js';
 import {
@@ -24,6 +25,18 @@ import type { AuthTokens, AuthUser } from './auth.types.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { Public } from './decorators/public.decorator.js';
 
+/**
+ * Credential endpoints get a tight per-IP limit (THROTTLE_AUTH_LIMIT per minute) on top of
+ * the per-account lockout, so guessing passwords or PINs across accounts is slow too.
+ */
+const AuthThrottle = () =>
+  Throttle({
+    default: {
+      ttl: 60_000,
+      limit: () => Number(process.env.THROTTLE_AUTH_LIMIT ?? 10),
+    },
+  });
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -33,6 +46,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @AuthThrottle()
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Sign in with username and password' })
@@ -44,6 +58,7 @@ export class AuthController {
   }
 
   @Public()
+  @AuthThrottle()
   @Post('pin-login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Quick sign-in at a till with username and PIN' })
@@ -55,6 +70,7 @@ export class AuthController {
   }
 
   @Public()
+  @AuthThrottle()
   @Post('refresh')
   @HttpCode(200)
   @ApiOperation({
@@ -116,6 +132,7 @@ export class AuthController {
     await this.auth.setPin(user.id, body.currentPassword, body.pin);
   }
 
+  @AuthThrottle()
   @Post('approve')
   @HttpCode(200)
   @ApiBearerAuth()

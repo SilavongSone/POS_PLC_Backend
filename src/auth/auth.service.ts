@@ -197,6 +197,11 @@ export class AuthService {
     const payload: AccessTokenPayload = { sub: user.id, typ: 'access' };
     const accessToken = await this.jwt.signAsync(payload, { expiresIn });
 
+    // Housekeeping: drop this user's expired tokens. Revoked ones are kept until they
+    // expire so reuse of a rotated token is still detected.
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId: user.id, expiresAt: { lt: new Date() } },
+    });
     const refreshToken = randomBytes(32).toString('base64url');
     await this.prisma.refreshToken.create({
       data: {

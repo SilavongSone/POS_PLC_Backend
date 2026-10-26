@@ -3,7 +3,8 @@ import { z } from 'zod';
 /** Common list query: ?page=1&pageSize=20&q=search */
 export const pageQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+  // Hard cap: lists never return more than 100 rows per request.
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(100).optional(),
 });
 export type PageQuery = z.infer<typeof pageQuerySchema>;
