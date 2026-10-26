@@ -155,16 +155,20 @@ model UserGroup {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
+  id               String    @id @default(uuid())
+  username         String    @unique
+  passwordHash     String
   /// 4–6 digit PIN (hashed) for quick cashier login and manager approval at the till.
-  pinHash      String?
-  fullName     String
-  groupId      String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  pinHash          String?
+  /// Consecutive failed password/PIN attempts; reset on success.
+  failedLoginCount Int       @default(0)
+  /// Set after 5 failed attempts; login is refused until this time.
+  lockedUntil      DateTime?
+  fullName         String
+  groupId          String
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   group           UserGroup          @relation(fields: [groupId], references: [id])
   refreshTokens   RefreshToken[]

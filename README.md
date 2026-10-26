@@ -6,7 +6,7 @@ REST API for the PLC POS system — NestJS 12 + Prisma 7 + PostgreSQL.
 
 ```bash
 pnpm install
-cp .env.example .env
+cp .env.example .env           # set JWT_SECRET (openssl rand -base64 48)
 docker compose up -d          # PostgreSQL 17 on localhost:5433 (or use a native PostgreSQL on 5432)
 npx prisma migrate dev        # on Windows with Smart App Control: .\scripts\prisma.ps1 migrate dev
 npx prisma db seed            # reference data + user admin / admin1234 (set SEED_ADMIN_PASSWORD to override)

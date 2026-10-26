@@ -7,7 +7,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api');
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' });
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('PLC POS API')
