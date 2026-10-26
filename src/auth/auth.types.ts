@@ -9,7 +9,15 @@ export type AuthUser = {
 };
 
 /** Access-token claims. Permissions are not in the token: they are reloaded per request. */
-export type AccessTokenPayload = { sub: string };
+export type AccessTokenPayload = { sub: string; typ: 'access' };
+
+/** Short-lived token proving that `sub` (a manager) approved `perm` for user `req`. */
+export type ApprovalTokenPayload = {
+  sub: string;
+  typ: 'approval';
+  perm: string;
+  req: string;
+};
 
 export type AuthTokens = {
   accessToken: string;

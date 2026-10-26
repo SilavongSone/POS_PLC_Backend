@@ -41,6 +41,10 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+    // Approval tokens are signed with the same key but must never act as a login.
+    if (payload.typ !== 'access') {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
 
     // Reloaded on every request so deactivation and permission changes apply immediately.
     const user = await this.auth.findActiveUser(payload.sub);

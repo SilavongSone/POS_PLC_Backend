@@ -143,7 +143,7 @@ export class AuthService {
    * Checks a password or PIN with lockout: after MAX_FAILED_LOGINS wrong attempts the
    * account is locked for LOCK_MINUTES. Errors never say whether the username exists.
    */
-  private async verifyCredential(
+  async verifyCredential(
     username: string,
     check: (user: User) => Promise<boolean>,
   ) {
@@ -194,7 +194,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User is inactive or missing');
 
     const expiresIn = this.config.get('ACCESS_TOKEN_TTL', { infer: true });
-    const payload: AccessTokenPayload = { sub: user.id };
+    const payload: AccessTokenPayload = { sub: user.id, typ: 'access' };
     const accessToken = await this.jwt.signAsync(payload, { expiresIn });
 
     const refreshToken = randomBytes(32).toString('base64url');

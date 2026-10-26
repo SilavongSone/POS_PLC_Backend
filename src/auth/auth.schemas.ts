@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PERMISSIONS } from '../common/permissions.js';
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1).max(50),
@@ -33,3 +34,16 @@ export const setPinSchema = z.object({
   pin,
 });
 export type SetPinInput = z.infer<typeof setPinSchema>;
+
+export const approveSchema = z
+  .object({
+    username: z.string().trim().min(1).max(50),
+    pin: pin.optional(),
+    password: z.string().min(1).max(200).optional(),
+    permission: z.enum(PERMISSIONS),
+  })
+  .refine((v) => Boolean(v.pin) !== Boolean(v.password), {
+    message: 'Send either pin or password',
+    path: ['pin'],
+  });
+export type ApproveInput = z.infer<typeof approveSchema>;

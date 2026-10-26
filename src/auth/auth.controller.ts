@@ -4,13 +4,16 @@ import {
   openApiSchema,
   ZodValidationPipe,
 } from '../common/zod-validation.pipe.js';
+import { ApprovalService } from './approval.service.js';
 import { AuthService } from './auth.service.js';
 import {
+  approveSchema,
   changePasswordSchema,
   loginSchema,
   pinLoginSchema,
   refreshSchema,
   setPinSchema,
+  type ApproveInput,
   type ChangePasswordInput,
   type LoginInput,
   type PinLoginInput,
@@ -24,7 +27,10 @@ import { Public } from './decorators/public.decorator.js';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly approvals: ApprovalService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -108,5 +114,20 @@ export class AuthController {
     @Body(new ZodValidationPipe(setPinSchema)) body: SetPinInput,
   ): Promise<void> {
     await this.auth.setPin(user.id, body.currentPassword, body.pin);
+  }
+
+  @Post('approve')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Manager approval at the till: returns a 2-minute token for one permission, bound to the signed-in user',
+  })
+  @ApiBody({ schema: openApiSchema(approveSchema) })
+  approve(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(approveSchema)) body: ApproveInput,
+  ) {
+    return this.approvals.approve(user, body);
   }
 }
