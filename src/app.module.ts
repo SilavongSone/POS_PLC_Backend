@@ -9,6 +9,7 @@ import { CommonModule } from './common/common.module.js';
 import { validateEnv } from './config/env.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { StockModule } from './stock/stock.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     SettingsModule,
     CatalogModule,
+    StockModule,
   ],
   controllers: [AppController],
   providers: [AppService],

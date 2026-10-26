@@ -55,6 +55,8 @@ enum SerialStatus {
   RETURNED
   IN_SERVICE
   DEFECTIVE
+  /// Taken out of stock by an issue/adjustment document (internal use, damaged, sent back).
+  ISSUED
 }
 
 enum StockMoveType {
@@ -500,17 +502,19 @@ model StockDocument {
 }
 
 model StockDocumentItem {
-  id          String        @id @default(uuid())
-  documentId  String
-  productId   String
+  id           String        @id @default(uuid())
+  documentId   String
+  productId    String
   /// Positive for RECEIVE/ISSUE; signed for ADJUST.
-  quantity    Int
+  quantity     Int
   /// Unit cost in the document currency (RECEIVE only).
-  unitCost    Decimal       @default(0) @db.Decimal(18, 2)
-  unitCostLak Decimal       @default(0) @db.Decimal(18, 0)
-  condition   ItemCondition @default(NEW)
-  lotNo       String?
-  expiryDate  DateTime?
+  unitCost     Decimal       @default(0) @db.Decimal(18, 2)
+  unitCostLak  Decimal       @default(0) @db.Decimal(18, 0)
+  condition    ItemCondition @default(NEW)
+  lotNo        String?
+  expiryDate   DateTime?
+  /// Serial numbers entered on the draft; turned into SerialNumber rows when posted.
+  draftSerials String[]
 
   document StockDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   product  Product        @relation(fields: [productId], references: [id])
