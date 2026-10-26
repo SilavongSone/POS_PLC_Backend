@@ -30,6 +30,7 @@ import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import { BrandsService } from './brands.service.js';
 import {
   bulkPriceSchema,
+  bundleItemsSchema,
   createBrandSchema,
   createCategorySchema,
   createProductSchema,
@@ -42,6 +43,7 @@ import {
   updateCategorySchema,
   updateProductSchema,
   type BulkPriceInput,
+  type BundleItemsInput,
   type CreateBrandInput,
   type CreateCategoryInput,
   type CreateProductInput,
@@ -227,6 +229,25 @@ export class ProductsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.products.setPrices(body, user.id);
+  }
+
+  @Put(':id/bundle-items')
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary: 'Set the components of a BUNDLE product (e.g. POS set)',
+  })
+  @ApiZodBody(bundleItemsSchema)
+  setBundleItems(
+    @Param('id', id) productId: string,
+    @Body(zod(bundleItemsSchema)) body: BundleItemsInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.products.setBundleItems(
+      productId,
+      body,
+      user.id,
+      canViewCost(user),
+    );
   }
 
   @Post(':id/images')

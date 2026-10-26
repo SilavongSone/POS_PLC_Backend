@@ -29,6 +29,13 @@ export type PricedLine = {
   productId: string;
   productName: string;
   sku: string;
+  /** Bundles: components and the serials scanned for each. */
+  components: {
+    productId: string;
+    quantity: number;
+    serials: string[];
+    warrantyMonths: number;
+  }[];
   quantity: number;
   serials: string[];
   listPriceLak: Decimal;
@@ -42,6 +49,19 @@ export type PricedLine = {
   warrantyMonths: number;
   vatExempt: boolean;
   countsStock: boolean;
+};
+
+/** What pricing needs from a cart (sales, quotes and quotations share it). */
+export type PriceInput = Pick<
+  QuoteSaleInput,
+  'customerId' | 'priceTier' | 'items' | 'discountLak'
+>;
+
+export type PriceOptions = {
+  /** false: price without scanned serials (quotations). */
+  requireSerials?: boolean;
+  /** false: keep the given prices and discounts as they are (converting a quotation). */
+  applyPromotions?: boolean;
 };
 
 export type PricedCart = {
@@ -92,7 +112,13 @@ export class SalePricingService {
     private readonly taxRates: TaxRatesService,
   ) {}
 
-  async price(db: Db, input: QuoteSaleInput): Promise<PricedCart> {
+  /** Prices a cart; see PriceOptions for quotations. */
+  async price(
+    db: Db,
+    input: PriceInput,
+    options: PriceOptions = {},
+  ): Promise<PricedCart> {
+    const requireSerials = options.requireSerials ?? true;
     const customer = input.customerId
       ? await db.customer.findUniqueOrThrow({ where: { id: input.customerId } })
       : null;
@@ -111,7 +137,10 @@ export class SalePricingService {
     ] = await Promise.all([
       db.product.findMany({
         where: { id: { in: ids } },
-        include: { taxRate: true },
+        include: {
+          taxRate: true,
+          bundleItems: { include: { component: true } },
+        },
       }),
       this.products.pricingContext(db),
       db.promotion.findMany({
@@ -142,13 +171,25 @@ export class SalePricingService {
       if (!p) throw new BadRequestException(`${at}: unknown product`);
       if (!p.isActive)
         throw new BadRequestException(`${at}: ${p.sku} is not for sale`);
-      if (p.type === 'BUNDLE') {
+      if (item.description && p.type !== 'SERVICE') {
         throw new BadRequestException(
-          `${at}: sell bundle ${p.sku} through its components`,
+          `${at}: only services take a description`,
         );
       }
+      const components = await this.bundleComponents(
+        db,
+        p,
+        item,
+        at,
+        requireSerials,
+      );
       const serials = item.serials ?? [];
-      if (p.trackSerial && countsStock(p) && serials.length !== item.quantity) {
+      if (
+        requireSerials &&
+        p.trackSerial &&
+        countsStock(p) &&
+        serials.length !== item.quantity
+      ) {
         throw new BadRequestException(
           `${at}: scan ${item.quantity} serial number(s) for ${p.sku}`,
         );
@@ -204,7 +245,7 @@ export class SalePricingService {
       // Best promotion, only on regular list prices.
       let promotionId: string | null = null;
       let promoPerUnit = new Decimal(0);
-      if (!overridden && !unitOwnPrice) {
+      if (options.applyPromotions !== false && !overridden && !unitOwnPrice) {
         const cats = ancestors(p.categoryId);
         for (const promo of promotions) {
           if (item.quantity < promo.minQty) continue;
@@ -237,8 +278,9 @@ export class SalePricingService {
 
       lines.push({
         productId: p.id,
-        productName: p.name,
+        productName: item.description ?? p.name,
         sku: p.sku,
+        components,
         quantity: item.quantity,
         serials,
         listPriceLak,
@@ -299,6 +341,70 @@ export class SalePricingService {
       totalLak: subtotalLak.sub(discountLak).add(addedLak),
       needsApproval: [...needs],
     };
+  }
+
+  /** Bundle components with the serials scanned for each serialized one. */
+  private async bundleComponents(
+    db: Db,
+    p: Prisma.ProductGetPayload<{
+      include: { bundleItems: { include: { component: true } } };
+    }>,
+    item: PriceInput['items'][number],
+    at: string,
+    requireSerials: boolean,
+  ): Promise<PricedLine['components']> {
+    if (p.type !== 'BUNDLE') {
+      if (item.componentSerials)
+        throw new BadRequestException(`${at}: ${p.sku} is not a bundle`);
+      return [];
+    }
+    if (!p.bundleItems.length)
+      throw new BadRequestException(`${at}: bundle ${p.sku} has no components`);
+    if (item.serials?.length) {
+      throw new BadRequestException(
+        `${at}: send component serials in componentSerials`,
+      );
+    }
+    const given = item.componentSerials ?? {};
+    const components = p.bundleItems.map(({ component, quantity }) => {
+      const serials = given[component.id] ?? [];
+      const needed = quantity * item.quantity;
+      if (component.trackSerial && countsStock(component)) {
+        if (requireSerials && serials.length !== needed) {
+          throw new BadRequestException(
+            `${at}: scan ${needed} serial(s) for ${component.sku}`,
+          );
+        }
+      } else if (serials.length) {
+        throw new BadRequestException(
+          `${at}: ${component.sku} has no serial numbers`,
+        );
+      }
+      return {
+        productId: component.id,
+        quantity: needed,
+        serials,
+        warrantyMonths: component.warrantyMonths,
+      };
+    });
+    const unknown = Object.keys(given).filter(
+      (id) => !components.some((c) => c.productId === id),
+    );
+    if (unknown.length)
+      throw new BadRequestException(
+        `${at}: not a component: ${unknown.join(', ')}`,
+      );
+    const all = components.flatMap((c) => c.serials);
+    if (all.length) {
+      const inStock = await db.serialNumber.count({
+        where: { serial: { in: all }, status: 'IN_STOCK' },
+      });
+      if (inStock !== new Set(all).size)
+        throw new ConflictException(
+          `${at}: some component serials are not in stock`,
+        );
+    }
+    return components;
   }
 
   /** Checks tendered payments against the total: change only from cash, credit within limit. */

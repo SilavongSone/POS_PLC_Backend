@@ -91,149 +91,192 @@ export class SalesService {
     });
   }
 
-  async create(input: CreateSaleInput, user: AuthUser) {
+  /**
+   * Completes a sale. `preApproved`: prices and discounts were approved elsewhere
+   * (an accepted quotation or a repair bill), so no manager approval is asked again.
+   * Pass `tx` to make the sale part of a larger transaction.
+   */
+  async create(
+    input: CreateSaleInput,
+    user: AuthUser,
+    options: {
+      preApproved?: boolean;
+      applyPromotions?: boolean;
+      tx?: Prisma.TransactionClient;
+    } = {},
+  ) {
+    if (options.tx) {
+      const id = await this.createIn(options.tx, input, user, options);
+      return this.get(id, options.tx);
+    }
     const saleId = await this.prisma.$transaction(
-      async (tx) => {
-        const shift = await this.shifts.requireOpenShift(
-          tx,
-          user,
-          input.registerId,
-        );
-        const cart = await this.pricing.price(tx, input);
-
-        const approvedBy: Record<string, string> = {};
-        for (const permission of cart.needsApproval) {
-          approvedBy[permission] = await this.approvals.authorize(
-            user,
-            permission,
-            input.approvals[permission],
-          );
-        }
-        const plan = await this.pricing.planPayments(tx, cart, input.payments);
-        if (plan.creditLak.isZero() && input.dueDate) {
-          throw new BadRequestException(
-            'A due date only applies to credit sales',
-          );
-        }
-
-        const now = new Date();
-        const sale = await tx.sale.create({
-          data: {
-            receiptNo: await this.docNumbers.daily(
-              tx,
-              `S-${shift.register.code}`,
-              now,
-            ),
-            paymentStatus: plan.paymentStatus,
-            cashierId: user.id,
-            registerId: shift.registerId,
-            shiftId: shift.id,
-            customerId: cart.customer?.id,
-            quotationId: input.quotationId,
-            priceTier: cart.priceTier,
-            subtotalLak: cart.subtotalLak,
-            discountLak: cart.discountLak,
-            taxRateId: cart.taxRateId,
-            vatPercent: cart.vatPercent,
-            pricesIncludeVat: cart.pricesIncludeVat,
-            vatLak: cart.vatLak,
-            totalLak: cart.totalLak,
-            paidLak: plan.paidLak,
-            changeLak: plan.changeLak,
-            dueDate: input.dueDate,
-            note: input.note,
-            createdAt: now,
-            payments: {
-              create: plan.payments.map((p) => ({
-                paymentTypeId: p.paymentTypeId,
-                currency: p.currency,
-                amount: p.amount,
-                lakPerUnit: p.lakPerUnit,
-                amountLak: p.amountLak,
-                reference: p.reference,
-              })),
-            },
-          },
-        });
-
-        const ref = { refType: 'SALE', refId: sale.id, userId: user.id };
-        for (const line of cart.lines) {
-          const item = await tx.saleItem.create({
-            data: {
-              saleId: sale.id,
-              productId: line.productId,
-              productName: line.productName,
-              quantity: line.quantity,
-              listPriceLak: line.listPriceLak,
-              unitPriceLak: line.unitPriceLak,
-              priceOverriddenById: line.overridden
-                ? approvedBy['price.override']
-                : null,
-              promotionId: line.promotionId,
-              discountLak: line.discountLak,
-              lineTotalLak: line.lineTotalLak,
-              unitCostLak: 0,
-              warrantyMonths: line.warrantyMonths,
-            },
-          });
-          const { costLak } = await this.ledger.remove(
-            tx,
-            line.productId,
-            {
-              quantity: line.quantity,
-              type: 'SALE_OUT',
-              serials: line.serials,
-              serialStatus: 'SOLD',
-              serialData: {
-                saleItemId: item.id,
-                soldAt: now,
-                warrantyEndsAt: line.warrantyMonths
-                  ? addMonths(now, line.warrantyMonths)
-                  : null,
-              },
-            },
-            ref,
-          );
-          await tx.saleItem.update({
-            where: { id: item.id },
-            data: { unitCostLak: costLak },
-          });
-        }
-
-        if (input.heldBillId) {
-          await tx.heldBill.deleteMany({ where: { id: input.heldBillId } });
-        }
-        if (input.quotationId) {
-          await tx.quotation.update({
-            where: { id: input.quotationId },
-            data: { status: 'CONVERTED' },
-          });
-        }
-        for (const [permission, approverId] of Object.entries(approvedBy)) {
-          if (approverId === user.id) continue;
-          await this.audit.log(
-            {
-              userId: user.id,
-              action:
-                permission === 'price.override'
-                  ? 'SALE_PRICE_OVERRIDE'
-                  : 'SALE_DISCOUNT',
-              entity: 'Sale',
-              entityId: sale.id,
-              after: { approvedBy: approverId },
-            },
-            tx,
-          );
-        }
-        return sale.id;
-      },
+      (tx) => this.createIn(tx, input, user, options),
       { timeout: 30_000 },
     );
     return this.get(saleId);
   }
 
-  get(id: string) {
-    return this.prisma.sale.findUniqueOrThrow({
+  private async createIn(
+    tx: Prisma.TransactionClient,
+    input: CreateSaleInput,
+    user: AuthUser,
+    options: { preApproved?: boolean; applyPromotions?: boolean },
+  ): Promise<string> {
+    const shift = await this.shifts.requireOpenShift(
+      tx,
+      user,
+      input.registerId,
+    );
+    const cart = await this.pricing.price(tx, input, {
+      applyPromotions: options.applyPromotions,
+    });
+
+    const approvedBy: Record<string, string> = {};
+    for (const permission of options.preApproved ? [] : cart.needsApproval) {
+      approvedBy[permission] = await this.approvals.authorize(
+        user,
+        permission,
+        input.approvals[permission],
+      );
+    }
+    const plan = await this.pricing.planPayments(tx, cart, input.payments);
+    if (plan.creditLak.isZero() && input.dueDate) {
+      throw new BadRequestException('A due date only applies to credit sales');
+    }
+
+    const now = new Date();
+    const sale = await tx.sale.create({
+      data: {
+        receiptNo: await this.docNumbers.daily(
+          tx,
+          `S-${shift.register.code}`,
+          now,
+        ),
+        paymentStatus: plan.paymentStatus,
+        cashierId: user.id,
+        registerId: shift.registerId,
+        shiftId: shift.id,
+        customerId: cart.customer?.id,
+        quotationId: input.quotationId,
+        priceTier: cart.priceTier,
+        subtotalLak: cart.subtotalLak,
+        discountLak: cart.discountLak,
+        taxRateId: cart.taxRateId,
+        vatPercent: cart.vatPercent,
+        pricesIncludeVat: cart.pricesIncludeVat,
+        vatLak: cart.vatLak,
+        totalLak: cart.totalLak,
+        paidLak: plan.paidLak,
+        changeLak: plan.changeLak,
+        dueDate: input.dueDate,
+        note: input.note,
+        createdAt: now,
+        payments: {
+          create: plan.payments.map((p) => ({
+            paymentTypeId: p.paymentTypeId,
+            currency: p.currency,
+            amount: p.amount,
+            lakPerUnit: p.lakPerUnit,
+            amountLak: p.amountLak,
+            reference: p.reference,
+          })),
+        },
+      },
+    });
+
+    const ref = { refType: 'SALE', refId: sale.id, userId: user.id };
+    for (const line of cart.lines) {
+      const item = await tx.saleItem.create({
+        data: {
+          saleId: sale.id,
+          productId: line.productId,
+          productName: line.productName,
+          quantity: line.quantity,
+          listPriceLak: line.listPriceLak,
+          unitPriceLak: line.unitPriceLak,
+          priceOverriddenById: line.overridden
+            ? approvedBy['price.override']
+            : null,
+          promotionId: line.promotionId,
+          discountLak: line.discountLak,
+          lineTotalLak: line.lineTotalLak,
+          unitCostLak: 0,
+          warrantyMonths: line.warrantyMonths,
+        },
+      });
+      // A bundle takes its components out of stock; each keeps its own warranty.
+      const parts = line.components.length
+        ? line.components
+        : [
+            {
+              productId: line.productId,
+              quantity: line.quantity,
+              serials: line.serials,
+              warrantyMonths: line.warrantyMonths,
+            },
+          ];
+      let lineCost = new Prisma.Decimal(0);
+      for (const part of parts) {
+        const { costLak } = await this.ledger.remove(
+          tx,
+          part.productId,
+          {
+            quantity: part.quantity,
+            type: 'SALE_OUT',
+            serials: part.serials,
+            serialStatus: 'SOLD',
+            serialData: {
+              saleItemId: item.id,
+              soldAt: now,
+              warrantyEndsAt: part.warrantyMonths
+                ? addMonths(now, part.warrantyMonths)
+                : null,
+            },
+          },
+          ref,
+        );
+        lineCost = lineCost.add(costLak.mul(part.quantity));
+      }
+      await tx.saleItem.update({
+        where: { id: item.id },
+        data: {
+          unitCostLak: lineCost
+            .div(line.quantity)
+            .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP),
+        },
+      });
+    }
+
+    if (input.heldBillId) {
+      await tx.heldBill.deleteMany({ where: { id: input.heldBillId } });
+    }
+    if (input.quotationId) {
+      await tx.quotation.update({
+        where: { id: input.quotationId },
+        data: { status: 'CONVERTED' },
+      });
+    }
+    for (const [permission, approverId] of Object.entries(approvedBy)) {
+      if (approverId === user.id) continue;
+      await this.audit.log(
+        {
+          userId: user.id,
+          action:
+            permission === 'price.override'
+              ? 'SALE_PRICE_OVERRIDE'
+              : 'SALE_DISCOUNT',
+          entity: 'Sale',
+          entityId: sale.id,
+          after: { approvedBy: approverId },
+        },
+        tx,
+      );
+    }
+    return sale.id;
+  }
+
+  get(id: string, db: Prisma.TransactionClient = this.prisma) {
+    return db.sale.findUniqueOrThrow({
       where: { id },
       include: saleInclude,
     });
@@ -371,24 +414,17 @@ export class SalesService {
 
         const ref = { refType: 'SALE', refId: id, userId: user.id };
         for (const item of sale.items) {
-          if (item.serialNumbers.length) {
-            await this.ledger.restoreSerials(
-              tx,
-              item.productId,
-              item.serialNumbers.map((s) => s.id),
-              'VOID_IN',
-              ref,
-            );
-          } else {
-            await this.ledger.restoreQuantity(
-              tx,
-              item.productId,
-              item.quantity,
-              item.unitCostLak,
-              'VOID_IN',
-              ref,
-            );
-          }
+          await this.ledger.restoreSoldUnits(
+            tx,
+            {
+              productId: item.productId,
+              quantity: item.quantity,
+              serialIds: item.serialNumbers.map((s) => s.id),
+              unitCostLak: item.unitCostLak,
+              type: 'VOID_IN',
+            },
+            ref,
+          );
         }
         if (sale.quotationId) {
           await tx.quotation.update({

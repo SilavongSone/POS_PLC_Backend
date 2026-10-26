@@ -62,7 +62,15 @@ export class ReturnsService {
         const sale = await tx.sale.findUniqueOrThrow({
           where: { id: saleId },
           include: {
-            items: { include: { serialNumbers: true, returnItems: true } },
+            items: {
+              include: {
+                serialNumbers: true,
+                returnItems: true,
+                product: {
+                  include: { bundleItems: { include: { component: true } } },
+                },
+              },
+            },
             returns: { include: { paymentType: true } },
           },
         });
@@ -83,18 +91,29 @@ export class ReturnsService {
             );
           }
           const serials = line.serials ?? [];
-          if (item.serialNumbers.length || serials.length) {
+          // Serials per unit: 1 for a serialized product, the serialized components for a bundle.
+          const perUnit =
+            item.product.type === 'BUNDLE'
+              ? item.product.bundleItems
+                  .filter((b) => b.component.trackSerial)
+                  .reduce((n, b) => n + b.quantity, 0)
+              : item.product.trackSerial
+                ? 1
+                : 0;
+          if (perUnit || serials.length) {
             const sold = new Set(
               item.serialNumbers
                 .filter((s) => s.status === 'SOLD')
                 .map((s) => s.serial),
             );
+            const needed = perUnit * line.quantity;
             if (
-              serials.length !== line.quantity ||
+              serials.length !== needed ||
+              new Set(serials).size !== needed ||
               serials.some((s) => !sold.has(s))
             ) {
               throw new BadRequestException(
-                `${at}: list the ${line.quantity} sold serial(s) being returned`,
+                `${at}: list the ${needed} sold serial(s) being returned`,
               );
             }
           }
@@ -191,28 +210,20 @@ export class ReturnsService {
           userId: user.id,
         };
         for (const { line, item, serials } of lines) {
-          if (serials.length) {
-            const ids = item.serialNumbers
-              .filter((s) => serials.includes(s.serial))
-              .map((s) => s.id);
-            await this.ledger.restoreSerials(
-              tx,
-              item.productId,
-              ids,
-              'RETURN_IN',
-              ref,
-              line.restock ? 'IN_STOCK' : 'DEFECTIVE',
-            );
-          } else if (line.restock) {
-            await this.ledger.restoreQuantity(
-              tx,
-              item.productId,
-              line.quantity,
-              item.unitCostLak,
-              'RETURN_IN',
-              ref,
-            );
-          }
+          await this.ledger.restoreSoldUnits(
+            tx,
+            {
+              productId: item.productId,
+              quantity: line.quantity,
+              serialIds: item.serialNumbers
+                .filter((s) => serials.includes(s.serial))
+                .map((s) => s.id),
+              unitCostLak: item.unitCostLak,
+              type: 'RETURN_IN',
+              status: line.restock ? 'IN_STOCK' : 'DEFECTIVE',
+            },
+            ref,
+          );
         }
         await this.audit.log(
           {

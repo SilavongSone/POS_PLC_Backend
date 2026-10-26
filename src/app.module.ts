@@ -12,6 +12,8 @@ import { ExpensesModule } from './expenses/expenses.module.js';
 import { validateEnv } from './config/env.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
+import { QuotationsModule } from './quotations/quotations.module.js';
+import { RepairsModule } from './repairs/repairs.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { ReturnsModule } from './returns/returns.module.js';
 import { SalesModule } from './sales/sales.module.js';
@@ -49,6 +51,8 @@ import { UsersModule } from './users/users.module.js';
     ReturnsModule,
     PromotionsModule,
     ExpensesModule,
+    QuotationsModule,
+    RepairsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

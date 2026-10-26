@@ -20,6 +20,7 @@ import {
 import { SettingsService } from '../settings/settings.service.js';
 import type {
   BulkPriceInput,
+  BundleItemsInput,
   CreateProductInput,
   ListProductsQuery,
   SetPricesInput,
@@ -401,6 +402,51 @@ export class ProductsService {
       after: input.items,
     });
     return { updated: input.items.length };
+  }
+
+  /** Sets what a BUNDLE product is made of (replaces the previous list). */
+  async setBundleItems(
+    id: string,
+    input: BundleItemsInput,
+    actorId: string,
+    canViewCost: boolean,
+  ) {
+    const bundle = await this.prisma.product.findUniqueOrThrow({
+      where: { id },
+    });
+    if (bundle.type !== 'BUNDLE')
+      throw new BadRequestException('Only BUNDLE products have components');
+    const ids = input.items.map((i) => i.componentId);
+    if (new Set(ids).size !== ids.length)
+      throw new BadRequestException('A component is listed twice');
+    if (ids.includes(id))
+      throw new BadRequestException('A bundle cannot contain itself');
+    const components = await this.prisma.product.findMany({
+      where: { id: { in: ids } },
+    });
+    if (components.length !== ids.length)
+      throw new BadRequestException('Unknown component');
+    if (components.some((c) => c.type === 'BUNDLE')) {
+      throw new BadRequestException('Bundles cannot contain other bundles');
+    }
+    await this.prisma.$transaction([
+      this.prisma.productBundleItem.deleteMany({ where: { bundleId: id } }),
+      this.prisma.productBundleItem.createMany({
+        data: input.items.map((i) => ({
+          bundleId: id,
+          componentId: i.componentId,
+          quantity: i.quantity,
+        })),
+      }),
+    ]);
+    await this.audit.log({
+      userId: actorId,
+      action: 'BUNDLE_ITEMS_SET',
+      entity: 'Product',
+      entityId: id,
+      after: input.items,
+    });
+    return this.get(id, canViewCost);
   }
 
   // ── Images ──

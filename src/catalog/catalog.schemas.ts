@@ -151,3 +151,16 @@ export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsSchema>;
 export type BulkPriceInput = z.infer<typeof bulkPriceSchema>;
 export type SetPricesInput = z.infer<typeof setPricesSchema>;
+
+export const bundleItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        componentId: z.uuid(),
+        quantity: z.number().int().min(1).max(1000),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type BundleItemsInput = z.infer<typeof bundleItemsSchema>;

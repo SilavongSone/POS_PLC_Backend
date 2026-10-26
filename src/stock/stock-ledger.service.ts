@@ -297,6 +297,82 @@ export class StockLedgerService {
     await this.apply(tx, product, -quantity, type, ref, { lotId });
   }
 
+  /**
+   * Takes back sold units (void or return). Bundles put back their components; serials
+   * go back as IN_STOCK, or DEFECTIVE (recorded, not stock); non-serial items are only
+   * restocked when the status is IN_STOCK.
+   */
+  async restoreSoldUnits(
+    tx: Tx,
+    input: {
+      productId: string;
+      quantity: number;
+      serialIds: string[];
+      unitCostLak: Prisma.Decimal;
+      type: StockMoveType;
+      status?: 'IN_STOCK' | 'DEFECTIVE';
+    },
+    ref: MoveRef,
+  ) {
+    const status = input.status ?? 'IN_STOCK';
+    const product = await tx.product.findUniqueOrThrow({
+      where: { id: input.productId },
+      include: { bundleItems: { include: { component: true } } },
+    });
+    if (product.type !== 'BUNDLE') {
+      if (input.serialIds.length) {
+        await this.restoreSerials(
+          tx,
+          product.id,
+          input.serialIds,
+          input.type,
+          ref,
+          status,
+        );
+      } else if (status === 'IN_STOCK') {
+        await this.restoreQuantity(
+          tx,
+          product.id,
+          input.quantity,
+          input.unitCostLak,
+          input.type,
+          ref,
+        );
+      }
+      return;
+    }
+    const serials = await tx.serialNumber.findMany({
+      where: { id: { in: input.serialIds } },
+      select: { id: true, productId: true },
+    });
+    for (const { component, quantity } of product.bundleItems) {
+      if (!countsStock(component)) continue;
+      if (component.trackSerial) {
+        const ids = serials
+          .filter((s) => s.productId === component.id)
+          .map((s) => s.id);
+        if (ids.length)
+          await this.restoreSerials(
+            tx,
+            component.id,
+            ids,
+            input.type,
+            ref,
+            status,
+          );
+      } else if (status === 'IN_STOCK') {
+        await this.restoreQuantity(
+          tx,
+          component.id,
+          input.quantity * quantity,
+          component.avgCostLak,
+          input.type,
+          ref,
+        );
+      }
+    }
+  }
+
   /** Puts previously removed serials back in stock (void, return, cancelled issue). */
   async restoreSerials(
     tx: Tx,

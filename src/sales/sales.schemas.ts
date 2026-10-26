@@ -14,6 +14,12 @@ export const saleItemSchema = z.object({
   unitPriceLak: lakAmount.optional(),
   /** Manual discount for the whole line (needs sale.discount). */
   discountLak: lakAmount.default(0),
+  /** Bundles: serials of the serialized components, by component product id. */
+  componentSerials: z
+    .record(z.uuid(), z.array(text(100).min(1)).max(1000))
+    .optional(),
+  /** Services only: the text printed instead of the product name (e.g. "Install 2 POS"). */
+  description: text(200).optional(),
 });
 
 export const paymentSchema = z.object({

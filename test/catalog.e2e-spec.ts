@@ -219,7 +219,7 @@ describe('Catalog (e2e)', () => {
     it('lists products at or below their low-stock alert', async () => {
       const res = await t
         .http()
-        .get('/products?lowStock=true&pageSize=100')
+        .get('/products?lowStock=true&q=CON-PAPER&pageSize=100')
         .set(viewer.auth)
         .expect(200);
       const skus = res.body.items.map((p: { sku: string }) => p.sku);
