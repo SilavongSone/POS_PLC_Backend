@@ -371,6 +371,8 @@ model Product {
   /// Trigram indexes (pg_trgm) make "contains" searches fast on large catalogs.
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_name_trgm_idx")
   @@index([sku(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_sku_trgm_idx")
+  @@index([barcode(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_barcode_trgm_idx")
+  @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm_idx")
 }
 
 model ProductImage {

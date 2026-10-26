@@ -304,13 +304,23 @@ export class SalesService {
           customer: { select: { id: true, name: true } },
           cashier: { select: { id: true, fullName: true } },
           register: { select: { id: true, code: true } },
-          _count: { select: { items: true } },
         },
         ...pageArgs(query),
       }),
       this.prisma.sale.count({ where }),
     ]);
-    return toPage(items, total, query);
+    // Line counts for this page only (Prisma's _count would aggregate the whole table).
+    const counts = await this.prisma.saleItem.groupBy({
+      by: ['saleId'],
+      where: { saleId: { in: items.map((r) => r.id) } },
+      _count: true,
+    });
+    const byId = new Map(counts.map((c) => [c.saleId, c._count]));
+    return toPage(
+      items.map((r) => ({ ...r, _count: { items: byId.get(r.id) ?? 0 } })),
+      total,
+      query,
+    );
   }
 
   /** Everything a receipt needs (store details, lines, payments, warranties). */

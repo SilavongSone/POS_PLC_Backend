@@ -10,8 +10,8 @@
 | Base URL | `/api` · ทุก route ต้องมี `Authorization: Bearer <accessToken>` ยกเว้น login, pin-login, refresh, logout |
 | เงิน | ส่งกลับเป็น **string** ทศนิยม (`"1300000"`, `"21800.5"`) ห้ามใช้ float คำนวณยอด · LAK เป็นจำนวนเต็ม · THB/USD มีทศนิยม 2 ตำแหน่ง |
 | วันที่ | query `from`/`to` ใช้รูปแบบ `YYYY-MM-DD` ตามเวลา **Asia/Vientiane** (นับรวมทั้งสองวัน) · timestamp เป็น ISO UTC |
-| แบ่งหน้า | `?page=1&pageSize=20&q=` → `{ items, total, page, pageSize }` |
-| Error | `400` ข้อมูลไม่ถูกต้อง (`errors[]` ระบุ path) · `401` ยังไม่ล็อกอิน/token หมดอายุ · `403` ไม่มีสิทธิ์ · `404` ไม่พบ · `409` ขัดกับสถานะ (สต็อกไม่พอ, ซ้ำ ฯลฯ) · `423` บัญชีถูกล็อก |
+| แบ่งหน้า | `?page=1&pageSize=20&q=` → `{ items, total, page, pageSize }` · `pageSize` สูงสุด 100 · รายงานที่แบ่งหน้าจะมี `totals` รวมทุกแถว |
+| Error | `400` ข้อมูลไม่ถูกต้อง (`errors[]` ระบุ path) · `401` ยังไม่ล็อกอิน/token หมดอายุ · `403` ไม่มีสิทธิ์ · `404` ไม่พบ · `409` ขัดกับสถานะ (สต็อกไม่พอ, ซ้ำ ฯลฯ) · `413` ข้อมูลใหญ่เกิน · `423` บัญชีถูกล็อก · `429` เรียกถี่เกินไป (ดู `Retry-After`) |
 | Error code ที่ต้องดักจับ | `APPROVAL_REQUIRED` (403: ต้องให้ผู้จัดการใส่ PIN อนุมัติ) · `NO_OPEN_SHIFT` (404/409: ต้องเปิดกะก่อน) · `CREDIT_LIMIT` (409: เกินวงเงินเชื่อ) |
 | เลขเอกสาร | `S-R1-261026-0001` ขาย · `R-` คืน · `DP-` ชำระหนี้ · `GR-`/`GI-`/`ADJ-` สต็อก · `Q-` เสนอราคา · `T-` ซ่อม · `INV-2026-000001` ใบกำกับภาษี · `C00001` ลูกค้า |
 
@@ -19,6 +19,7 @@
 
 | โมดูล | Route หลัก | สิทธิ์ |
 |---|---|---|
+| Health | `GET /health` (ไม่ต้องล็อกอิน) | — |
 | Auth | `POST /auth/login`, `/auth/pin-login`, `/auth/refresh`, `/auth/logout`, `GET /auth/me`, `POST /auth/change-password`, `PUT /auth/pin`, `POST /auth/approve` | — |
 | ผู้ใช้/กลุ่ม | `/users` (CRUD, reset-password, pin, unlock), `/user-groups`, `/user-groups/permissions` | `users.manage` |
 | ตั้งค่า | `GET/PATCH /settings`, `/tax-rates` (+`/:id/default`), `/exchange-rates` (`/current`), `/payment-types`, `/registers` | อ่าน: ทุกคน · แก้: `settings.manage` (อัตราแลกเปลี่ยน: `exchangeRate.manage`) |

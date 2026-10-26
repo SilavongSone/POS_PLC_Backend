@@ -101,13 +101,23 @@ export class StockDocumentsService {
         include: {
           supplier: { select: { id: true, name: true } },
           createdBy: { select: { id: true, fullName: true } },
-          _count: { select: { items: true } },
         },
         ...pageArgs(query),
       }),
       this.prisma.stockDocument.count({ where }),
     ]);
-    return toPage(items, total, query);
+    // Line counts for this page only (Prisma's _count would aggregate the whole table).
+    const counts = await this.prisma.stockDocumentItem.groupBy({
+      by: ['documentId'],
+      where: { documentId: { in: items.map((r) => r.id) } },
+      _count: true,
+    });
+    const byId = new Map(counts.map((c) => [c.documentId, c._count]));
+    return toPage(
+      items.map((r) => ({ ...r, _count: { items: byId.get(r.id) ?? 0 } })),
+      total,
+      query,
+    );
   }
 
   get(id: string) {

@@ -5,7 +5,8 @@ REST API for the PLC POS system — NestJS 12 + Prisma 7 + PostgreSQL.
 POS for a shop selling POS equipment (LAK with THB/USD, VAT 12%): auth with PIN and manager approval,
 catalog with serials/lots/bundles, stock documents and ledger, multi-register shifts, sales with
 promotions, credit and tax invoices, returns, debts, expenses, quotations, repairs and reports.
-See `docs/api-overview.md` for the API map and till flows.
+See `docs/api-overview.md` for the API map and till flows, and `docs/operations.md` for
+production settings, security and benchmark results.
 
 ## Setup
 

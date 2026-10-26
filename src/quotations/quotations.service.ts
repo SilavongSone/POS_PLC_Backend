@@ -184,13 +184,23 @@ export class QuotationsService {
         orderBy: { createdAt: 'desc' },
         include: {
           customer: { select: { id: true, name: true } },
-          _count: { select: { items: true } },
         },
         ...pageArgs(query),
       }),
       this.prisma.quotation.count({ where }),
     ]);
-    return toPage(items, total, query);
+    // Line counts for this page only (Prisma's _count would aggregate the whole table).
+    const counts = await this.prisma.quotationItem.groupBy({
+      by: ['quotationId'],
+      where: { quotationId: { in: items.map((r) => r.id) } },
+      _count: true,
+    });
+    const byId = new Map(counts.map((c) => [c.quotationId, c._count]));
+    return toPage(
+      items.map((r) => ({ ...r, _count: { items: byId.get(r.id) ?? 0 } })),
+      total,
+      query,
+    );
   }
 
   /** Turns a sent/accepted quotation into a sale at the quoted prices (no extra approval). */
