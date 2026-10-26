@@ -119,11 +119,21 @@ export class ReportsService {
       groups = rows.map((row) => this.withProfit(row, canViewCost));
     }
 
+    const returns = await this.prisma.saleReturn.aggregate({
+      where: { createdAt: { gte: r.start, lt: r.end } },
+      _count: true,
+      _sum: { refundLak: true },
+    });
     return {
       from: r.fromDate,
       to: r.toDate,
       groupBy: q.groupBy,
       totals: this.withProfit(totals[0], canViewCost),
+      /** Refunds given in the period (for sales of any date); not deducted from the totals above. */
+      returns: {
+        count: returns._count,
+        refundLak: returns._sum.refundLak ?? zero(),
+      },
       groups,
     };
   }

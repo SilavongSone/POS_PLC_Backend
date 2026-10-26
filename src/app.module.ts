@@ -8,9 +8,12 @@ import { CatalogModule } from './catalog/catalog.module.js';
 import { CommonModule } from './common/common.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DebtsModule } from './debts/debts.module.js';
+import { ExpensesModule } from './expenses/expenses.module.js';
 import { validateEnv } from './config/env.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { PromotionsModule } from './promotions/promotions.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { ReturnsModule } from './returns/returns.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { ShiftsModule } from './shifts/shifts.module.js';
@@ -43,6 +46,9 @@ import { UsersModule } from './users/users.module.js';
     SalesModule,
     DebtsModule,
     ReportsModule,
+    ReturnsModule,
+    PromotionsModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
