@@ -12,6 +12,8 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   /** Refresh token lifetime for PIN logins at a till, in hours. */
   PIN_SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
+  /** Where uploaded product images are stored; served at /api/uploads. */
+  UPLOAD_DIR: z.string().default('uploads'),
 });
 
 export type Env = z.infer<typeof envSchema>;

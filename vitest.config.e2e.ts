@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { defineConfig } from 'vitest/config';
 
@@ -20,7 +22,11 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
-    env: { DATABASE_URL: process.env.DATABASE_URL, LOG_LEVEL: 'silent' },
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL,
+      LOG_LEVEL: 'silent',
+      UPLOAD_DIR: path.join(os.tmpdir(), 'plc-pos-e2e-uploads'),
+    },
     globalSetup: ['./test/global-setup.ts'],
     // Files share one database; run them one at a time.
     fileParallelism: false,

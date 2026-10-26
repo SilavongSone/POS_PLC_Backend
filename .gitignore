@@ -14,3 +14,6 @@ node_modules
 # logs
 *.log
 .DS_Store
+
+# uploaded product images (UPLOAD_DIR)
+/uploads
