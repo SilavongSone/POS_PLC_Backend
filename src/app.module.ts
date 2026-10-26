@@ -6,9 +6,12 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { CommonModule } from './common/common.module.js';
+import { CustomersModule } from './customers/customers.module.js';
 import { validateEnv } from './config/env.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { SalesModule } from './sales/sales.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { ShiftsModule } from './shifts/shifts.module.js';
 import { StockModule } from './stock/stock.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -33,6 +36,9 @@ import { UsersModule } from './users/users.module.js';
     SettingsModule,
     CatalogModule,
     StockModule,
+    CustomersModule,
+    ShiftsModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

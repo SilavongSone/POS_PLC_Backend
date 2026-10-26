@@ -775,10 +775,13 @@ model SaleReturn {
   reason        String
   refundLak     Decimal  @db.Decimal(18, 0)
   paymentTypeId String
+  /// Shift the refund was paid from (cash refunds lower the drawer's expected cash).
+  shiftId       String?
   createdById   String
   createdAt     DateTime @default(now())
 
   sale        Sale             @relation(fields: [saleId], references: [id])
+  shift       Shift?           @relation(fields: [shiftId], references: [id])
   paymentType PaymentType      @relation(fields: [paymentTypeId], references: [id])
   createdBy   User             @relation(fields: [createdById], references: [id])
   items       SaleReturnItem[]
@@ -836,6 +839,7 @@ model Shift {
   debtPayments  DebtPayment[]
   cashMovements CashMovement[]
   expenses      Expense[]
+  saleReturns   SaleReturn[]
 }
 
 /// Cash put into / taken out of the drawer during a shift (not an expense).
