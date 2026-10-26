@@ -186,6 +186,7 @@ model User {
   ticketsReceived ServiceTicket[]
   ticketLogs      ServiceTicketLog[]
   auditLogs       AuditLog[]
+  taxInvoices     TaxInvoice[]
 }
 
 model RefreshToken {
@@ -614,11 +615,10 @@ model QuotationItem {
 model Sale {
   id            String        @id @default(uuid())
   receiptNo     String        @unique
-  /// Formal VAT invoice number, issued on request for business customers.
-  taxInvoiceNo  String?       @unique
   status        SaleStatus    @default(COMPLETED)
   paymentStatus PaymentStatus @default(PAID)
   cashierId     String
+  registerId    String?
   shiftId       String?
   customerId    String?
   quotationId   String?       @unique
@@ -646,6 +646,7 @@ model Sale {
 
   cashier      User           @relation("SaleCashier", fields: [cashierId], references: [id])
   voidedBy     User?          @relation("SaleVoidedBy", fields: [voidedById], references: [id])
+  register     Register?      @relation(fields: [registerId], references: [id])
   shift        Shift?         @relation(fields: [shiftId], references: [id])
   customer     Customer?      @relation(fields: [customerId], references: [id])
   quotation    Quotation?     @relation(fields: [quotationId], references: [id])
@@ -655,9 +656,33 @@ model Sale {
   returns      SaleReturn[]
   debtPayments DebtPayment[]
   ticket       ServiceTicket?
+  taxInvoices  TaxInvoice[]
 
   @@index([createdAt])
   @@index([customerId, paymentStatus])
+}
+
+/// Formal VAT invoice (A4) for a sale. Buyer details are snapshotted so later customer edits don't change issued invoices.
+/// At most one non-cancelled invoice per sale (partial unique index in the migration).
+model TaxInvoice {
+  id           String    @id @default(uuid())
+  /// Own running sequence, separate from receipt numbers, e.g. "INV-2026-000123".
+  invoiceNo    String    @unique
+  saleId       String
+  buyerName    String
+  buyerTaxId   String?
+  buyerAddress String?
+  buyerPhone   String?
+  issuedById   String
+  issuedAt     DateTime  @default(now())
+  /// Cancelled invoices keep their number; a new invoice is issued instead.
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  sale     Sale @relation(fields: [saleId], references: [id])
+  issuedBy User @relation(fields: [issuedById], references: [id])
+
+  @@index([saleId])
 }
 
 model SaleItem {
@@ -763,8 +788,25 @@ model SaleReturnItem {
 
 // ───────────────────────── Shifts, cash & expenses ─────────────────────────
 
+/// A till / checkout counter. Each has its own receipt printer, cash drawer and shift.
+model Register {
+  id       String  @id @default(uuid())
+  /// Short code used in document numbers, e.g. "R1".
+  code     String  @unique
+  name     String
+  /// ESC/POS printer settings used by the local print bridge,
+  /// e.g. {"connection":"usb|lan","host":"192.168.1.50","port":9100,"paperWidth":80,"openDrawer":true}.
+  printer  Json?
+  isActive Boolean @default(true)
+
+  shifts Shift[]
+  sales  Sale[]
+}
+
+/// At most one OPEN shift per register (enforced by a partial unique index in the migration).
 model Shift {
   id           String      @id @default(uuid())
+  registerId   String
   userId       String
   status       ShiftStatus @default(OPEN)
   openedAt     DateTime    @default(now())
@@ -776,6 +818,7 @@ model Shift {
   expectedCash Json?
   note         String?
 
+  register      Register       @relation(fields: [registerId], references: [id])
   user          User           @relation(fields: [userId], references: [id])
   sales         Sale[]
   debtPayments  DebtPayment[]
