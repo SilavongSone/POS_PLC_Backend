@@ -160,6 +160,8 @@ model User {
   id           String   @id @default(uuid())
   username     String   @unique
   passwordHash String
+  /// 4–6 digit PIN (hashed) for quick cashier login and manager approval at the till.
+  pinHash      String?
   fullName     String
   groupId      String
   isActive     Boolean  @default(true)
@@ -408,21 +410,23 @@ model PromotionItem {
 // ───────────────────────────── Stock ─────────────────────────────
 
 model SerialNumber {
-  id             String        @id @default(uuid())
-  serial         String        @unique
-  productId      String
-  status         SerialStatus  @default(IN_STOCK)
-  condition      ItemCondition @default(NEW)
+  id                     String        @id @default(uuid())
+  serial                 String        @unique
+  productId              String
+  status                 SerialStatus  @default(IN_STOCK)
+  condition              ItemCondition @default(NEW)
   /// Own selling price for this unit (demo units); null = product price.
-  priceLak       Decimal?      @db.Decimal(18, 0)
-  costLak        Decimal?      @db.Decimal(18, 0)
+  priceLak               Decimal?      @db.Decimal(18, 0)
+  costLak                Decimal?      @db.Decimal(18, 0)
   /// Stock document line it was received on.
-  receivedItemId String?
+  receivedItemId         String?
   /// Latest sale line; full history lives in StockMovement.
-  saleItemId     String?
-  soldAt         DateTime?
-  warrantyEndsAt DateTime?
-  createdAt      DateTime      @default(now())
+  saleItemId             String?
+  soldAt                 DateTime?
+  warrantyEndsAt         DateTime?
+  /// Warranty the supplier gives the shop (for claims back to the vendor).
+  supplierWarrantyEndsAt DateTime?
+  createdAt              DateTime      @default(now())
 
   product      Product            @relation(fields: [productId], references: [id])
   receivedItem StockDocumentItem? @relation(fields: [receivedItemId], references: [id])
@@ -459,6 +463,7 @@ model Supplier {
   createdAt DateTime @default(now())
 
   stockDocuments StockDocument[]
+  serviceTickets ServiceTicket[]
 }
 
 /// Goods receipt / stock issue / stock adjustment document.
@@ -609,6 +614,8 @@ model QuotationItem {
 model Sale {
   id            String        @id @default(uuid())
   receiptNo     String        @unique
+  /// Formal VAT invoice number, issued on request for business customers.
+  taxInvoiceNo  String?       @unique
   status        SaleStatus    @default(COMPLETED)
   paymentStatus PaymentStatus @default(PAID)
   cashierId     String
@@ -844,12 +851,15 @@ model ServiceTicket {
   warrantyTerms String?
   /// Payment bill for the repair.
   saleId        String?      @unique
+  /// Vendor the device was sent to for a warranty claim (status SENT_TO_VENDOR).
+  supplierId    String?
   receivedById  String
   receivedAt    DateTime     @default(now())
   promisedAt    DateTime?
   deliveredAt   DateTime?
 
   customer   Customer            @relation(fields: [customerId], references: [id])
+  supplier   Supplier?           @relation(fields: [supplierId], references: [id])
   serial     SerialNumber?       @relation(fields: [serialId], references: [id])
   sale       Sale?               @relation(fields: [saleId], references: [id])
   receivedBy User                @relation(fields: [receivedById], references: [id])
