@@ -210,6 +210,12 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+/// Running counters for document numbers, keyed by prefix + scope, e.g. "S-R1-261026" or "INV-2026".
+model DocSequence {
+  key   String @id
+  value Int
+}
+
 model AuditLog {
   id        String   @id @default(uuid())
   userId    String?

@@ -17,7 +17,7 @@ pnpm start:dev                # http://localhost:4000/api  ·  Swagger: /api/doc
 ## Scripts
 
 - `pnpm build` / `pnpm start:prod`
-- `pnpm test` / `pnpm test:e2e`
+- `pnpm test` / `pnpm test:e2e` — e2e runs against `<DATABASE_URL db>_test` (or `TEST_DATABASE_URL`), migrated and seeded automatically; it is never reset, so tests use unique data
 - `pnpm lint`
 - `npx prisma generate` — regenerate the client after editing `prisma/schema.prisma`
 
