@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CommonModule } from './common/common.module.js';
 import { validateEnv } from './config/env.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { SettingsModule } from './settings/settings.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module.js';
     CommonModule,
     AuthModule,
     UsersModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

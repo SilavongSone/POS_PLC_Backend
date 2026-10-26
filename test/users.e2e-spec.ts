@@ -17,16 +17,12 @@ describe('Users and groups (e2e)', () => {
   afterAll(() => t.close());
 
   const createUser = (username = uniq()) =>
-    t
-      .http()
-      .post('/users')
-      .set(admin.auth)
-      .send({
-        username,
-        fullName: 'New Cashier',
-        password: 'password-123',
-        groupId: cashierGroupId,
-      });
+    t.http().post('/users').set(admin.auth).send({
+      username,
+      fullName: 'New Cashier',
+      password: 'password-123',
+      groupId: cashierGroupId,
+    });
 
   it('requires users.manage', async () => {
     const manager = await t.userWith('Manager');

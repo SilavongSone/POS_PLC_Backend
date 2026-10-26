@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   'repair.receive',
   'repair.manage',
   'report.view',
+  'exchangeRate.manage',
   'settings.manage',
   'users.manage',
 ] as const;
