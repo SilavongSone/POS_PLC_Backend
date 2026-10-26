@@ -1,488 +1,241 @@
 # PLC POS — การวิเคราะห์และออกแบบฐานข้อมูล
 
-> สถานะ: **ร่างออกแบบ (รอยืนยันจากเจ้าของโปรเจกต์ก่อนแก้ `prisma/schema.prisma`)**
+> สถานะ: **ร่างออกแบบรอบที่ 2 — ใช้คำตอบของเจ้าของโปรเจกต์และรายการฟีเจอร์ "UNIK POS" เป็นข้อกำหนด**
 > อัปเดตล่าสุด: 2026-10-26
 >
-> เอกสารนี้เป็น "แหล่งความจริง" ของการออกแบบระบบ — ก่อนเพิ่ม/แก้ตาราง ให้อ่านและอัปเดตไฟล์นี้ก่อนเสมอ
+> - เอกสารนี้เป็น "แหล่งความจริง" ของการออกแบบ — ก่อนเพิ่มหรือแก้ตารางต้องอ่านและอัปเดตไฟล์นี้ก่อนเสมอ
+> - Schema ฉบับเต็มที่เสนอ (ผ่าน `prisma validate` แล้ว): [`docs/schema.draft.prisma`](./schema.draft.prisma) — เมื่ออนุมัติจะนำไปแทน `prisma/schema.prisma`
 
 ## 1. ขอบเขตธุรกิจ
 
-ร้านขาย **อุปกรณ์ POS และสินค้าไอทีที่เกี่ยวข้อง** ใน สปป. ลาว (สกุลเงินหลัก LAK, รับ THB/USD)
+ร้านขาย **อุปกรณ์ POS และสินค้าไอทีที่เกี่ยวข้อง** ใน สปป. ลาว ใช้ LAK เป็นสกุลเงินหลัก และรับ THB/USD ด้วย
 
-| กลุ่มสินค้า | ตัวอย่าง | ติดตาม Serial? | ประกัน |
+| กลุ่มสินค้า | ตัวอย่าง | Serial | หมดอายุ | ประกัน |
+|---|---|---|---|---|
+| เครื่อง POS | POS จอคู่ (Sunmi T2s, iMin D4), POS มือถือ, All-in-One | ✅ | — | 12 เดือน |
+| เครื่องพิมพ์ | ปริ้นเตอร์ใบเสร็จ Thermal 58/80mm, ปริ้นเตอร์ฉลาก, ปริ้นเตอร์ทั่วไป | ✅ | — | 6–12 เดือน |
+| จอภาพ | จอทั่วไป (Samsung, MSI, LG, Dell), จอสัมผัส, จอแสดงผลลูกค้า | ✅ | — | 12–36 เดือน |
+| เครื่องสแกน | สแกนบาร์โค้ด 1D/2D แบบมีสาย/ไร้สาย/ตั้งโต๊ะ | ✅ | — | 12 เดือน |
+| คอมพิวเตอร์ | Mini PC, โน้ตบุ๊ก (MSI ฯลฯ) | ✅ | — | 12–24 เดือน |
+| ลิ้นชักเก็บเงิน | Cash drawer RJ11 | เลือกได้ | — | 3–12 เดือน |
+| อุปกรณ์เสริม | สาย, Hub, ขาตั้งจอ, UPS, เครื่องชั่ง | ❌ | — | 0–6 เดือน |
+| วัสดุสิ้นเปลือง | กระดาษความร้อน, สติกเกอร์, ริบบอน, หมึก, แบตเตอรี่ | ❌ | ✅ | — |
+| บริการ/ซอฟต์แวร์ | ค่าติดตั้ง, ค่าซ่อม, License | ❌ ไม่นับสต็อก | — | — |
+
+**สภาพสินค้า:** มือหนึ่ง (NEW) และตัวโชว์ (DEMO) ซึ่งขายในราคาของตัวเองได้
+
+## 2. คำตอบของเจ้าของโปรเจกต์ → การตัดสินใจออกแบบ
+
+| # | คำถาม | คำตอบ | การตัดสินใจ |
 |---|---|---|---|
-| เครื่อง POS | POS จอคู่ (Sunmi T2s, iMin D4), POS มือถือ (Sunmi V2 Pro), All-in-One | ✅ | 12 เดือน |
-| เครื่องพิมพ์ | ปริ้นเตอร์ใบเสร็จ Thermal 58/80mm, ปริ้นเตอร์ฉลาก, ปริ้นเตอร์ทั่วไป (Laser/Inkjet) | ✅ | 6–12 เดือน |
-| จอภาพ | จอทั่วไป (Samsung, MSI, LG, Dell), จอสัมผัส, จอแสดงผลลูกค้า (VFD/LCD) | ✅ | 12–36 เดือน |
-| เครื่องสแกน | สแกนบาร์โค้ด 1D/2D แบบมีสาย/ไร้สาย/ตั้งโต๊ะ | ✅ | 12 เดือน |
-| คอมพิวเตอร์ | Mini PC, โน้ตบุ๊ก, PC (MSI ฯลฯ) | ✅ | 12–24 เดือน |
-| ลิ้นชักเก็บเงิน | Cash drawer RJ11 | ❌ (เลือกได้) | 3–12 เดือน |
-| อุปกรณ์เสริม | USB hub, สาย LAN/USB, ขาตั้งจอ, UPS, เครื่องชั่ง | ❌ | 0–6 เดือน |
-| วัสดุสิ้นเปลือง | กระดาษความร้อน, สติกเกอร์บาร์โค้ด, ริบบอน, หมึก | ❌ | — |
-| ซอฟต์แวร์/บริการ | License โปรแกรม POS, ค่าติดตั้ง, ค่าซ่อม | ❌ (ไม่มีสต็อก) | — |
+| 1 | หลายสาขา? | ตอนนี้มีสาขาเดียว | ยังไม่ทำตาราง `Branch`/`Warehouse` ทุกตารางเป็นสาขาเดียว ถ้าจะขยายภายหลังให้เพิ่ม `branchId` ในตารางสต็อก ขาย และกะ |
+| 2 | VAT? | ต้องการตาราง VAT | เพิ่มตาราง `TaxRate` ตั้งค่า VAT ได้หลายอัตรา มีค่าเริ่มต้นหนึ่งตัว ใบขายเก็บ snapshot `vatPercent`/`vatLak` และตั้งได้ว่าราคารวม VAT แล้วหรือยัง |
+| 3 | ขายเชื่อ? | ยังไม่แน่ใจ | รองรับไว้ เพราะรายการฟีเจอร์มี "ติดหนี้ / ลูกค้าชำระหนี้ / รายงานชำระหนี้" ใช้ประเภทชำระเงิน `CREDIT` + `DebtPayment` และ**ปิดได้**ด้วยการตั้ง `PaymentType.isActive = false` |
+| 4 | โปรโมชั่น/ราคาส่ง? | ต้องการ | `Product.wholesalePrice` + `wholesaleMinQty`, `Customer.priceTier` (RETAIL/WHOLESALE), ตาราง `Promotion` + `PromotionItem` |
+| 5 | มือหนึ่ง/ตัวโชว์? | ขายมือหนึ่งและตัวโชว์ | `SerialNumber.condition` (NEW/DEMO) + `SerialNumber.priceLak` (ราคาเฉพาะชิ้น) |
 
-แบรนด์ตัวอย่าง: Sunmi, iMin, Epson, Xprinter, Zebra, Honeywell, MSI, Samsung, LG, Dell, HP, Canon, Brother, Generic
+## 3. ข้อกำหนดฟีเจอร์ (จาก UNIK POS) → ตาราง
 
-### ลักษณะเฉพาะของร้านประเภทนี้ (ส่งผลต่อการออกแบบ)
-1. **สินค้ามี Serial และประกัน** → ต้องติดตามว่า serial ไหน รับเข้าจากใคร ขายให้ใคร หมดประกันวันไหน
-2. **รับเคลมและงานซ่อม** → ลูกค้านำเครื่องกลับมาเคลม/ซ่อมบ่อย
-3. **ขายเป็นชุด (Bundle)** → เช่น "ชุด POS ร้านอาหาร" = เครื่อง POS + ลิ้นชัก + ปริ้นเตอร์ + สแกนเนอร์
-4. **ลูกค้าธุรกิจ (B2B)** → ต้องออก**ใบเสนอราคา**ก่อนขาย, ต้องมีเลขผู้เสียภาษี/ชื่อบริษัท
-5. **สเปกสินค้าต่างกันมากตามหมวด** → จอ (ขนาด/ความละเอียด), ปริ้นเตอร์ (ความกว้างกระดาษ/ความเร็ว) → เก็บเป็น JSON
-6. **รับสินค้าจากผู้จำหน่ายหลายราย ต้นทุนเปลี่ยนตามล็อต** → ต้องมีใบสั่งซื้อ/รับสินค้า และประวัติการเคลื่อนไหวสต็อก
+### 3.1 ระบบขาย
+| ฟีเจอร์ | รองรับโดย |
+|---|---|
+| เปิด-ปิดกะ | `Shift` (+ `CashMovement`, `expectedCash`) |
+| ขายด้วยการยิงบาร์โค้ดหรือเลือกสินค้า | `Product.barcode`/`sku`, `SerialNumber.serial` |
+| ขายเป็น กีบ / บาท / ดอลลาร์ | `Payment.currency` + snapshot `lakPerUnit` |
+| แสดงสินค้าพร้อมรูปและราคา | `ProductImage` |
+| จอแสดงผลสำหรับลูกค้า | ฟีเจอร์ฝั่ง frontend (ไม่ต้องมีตาราง) |
+| ส่วนลดรายสินค้าหรือส่วนลดรวมบิล | `SaleItem.discountLak`, `Sale.discountLak`, `Promotion` |
+| แก้ราคาตอนขาย (เฉพาะผู้มีสิทธิ์) | `SaleItem.listPriceLak` เทียบกับ `unitPriceLak` + `priceOverriddenById` + สิทธิ์ `price.override` |
+| แสดงยอดรวม VAT | `TaxRate`, `Sale.vatPercent`/`vatLak` |
+| พักบิล | `HeldBill` |
+| เลือกลูกค้าตอนขาย | `Sale.customerId` |
+| รับเงินหลายประเภท: เงินสด, ติดหนี้, เงินโอน, QR | `PaymentType` (kind: CASH/CREDIT/BANK_TRANSFER/QR/CARD) + `Payment` |
+| พิมพ์บิล 58mm / 80mm / A5 / A4 | `Setting` `receipt.defaultSize` (ฝั่ง frontend เลือกตอนพิมพ์) |
+| พิมพ์บิลย้อนหลัง | `Sale.printCount` + `AuditLog` (SALE_REPRINT) |
+| ยกเลิกการขาย (เฉพาะผู้มีสิทธิ์) | `Sale.status = VOIDED`, `voidedById`, `voidReason` + สิทธิ์ `sale.void` |
 
-## 2. วิเคราะห์ schema ปัจจุบัน (`prisma/schema.prisma`)
+### 3.2 ระบบสต็อก
+| ฟีเจอร์ | รองรับโดย |
+|---|---|
+| เพิ่มสินค้า, ใส่รูป | `Product`, `ProductImage` |
+| ใส่ราคาต้นทุนเป็น บาท/ดอลลาร์/กีบ แล้วแปลงเป็นกีบ | `Product.costCurrency` + `costPrice` → `avgCostLak` |
+| อัปเดตราคาได้ทุกเวลา, ปรับราคาหลายสินค้าพร้อมกัน | อัปเดต `Product` + `AuditLog` (PRODUCT_PRICE_BULK_UPDATE) |
+| ราคาขายส่งและขายปลีก | `retailPrice`, `wholesalePrice`, `wholesaleMinQty` |
+| จัดประเภทสินค้า | `Category` (แบบต้นไม้) + `Brand` |
+| ใส่บาร์โค้ดหรือรหัสสินค้า | `Product.barcode`, `Product.sku` |
+| แจ้งเตือนเมื่อสินค้าใกล้หมด | `Product.lowStockAlert` |
+| รับสินค้าเข้าสต็อก | `StockDocument` (RECEIVE) + `StockDocumentItem` + `Supplier` |
+| เบิกสินค้าออกจากสต็อก | `StockDocument` (ISSUE) |
+| จัดการสินค้าหมดอายุ | `Product.trackExpiry` + `StockLot` |
+| สินค้าไม่ระบุจำนวน (ขายโดยไม่นับสต็อก) | `Product.trackStock = false` |
 
-มีอยู่แล้ว 11 ตาราง: `User`, `Category`, `Brand`, `Product`, `SerialNumber`, `Customer`, `ExchangeRate`, `Shift`, `Sale`, `SaleItem`, `Payment`
+### 3.3 ระบบจัดการ/ตั้งค่า
+| ฟีเจอร์ | รองรับโดย |
+|---|---|
+| ข้อมูลร้าน: เบอร์โทร, ที่อยู่, โลโก้ | `Setting` (`store.*`) |
+| อัปเดตอัตราแลกเปลี่ยน (ราคาเปลี่ยนตามอัตรา) | `ExchangeRate` + `Product.priceCurrency` (สินค้าที่ตั้งราคาเป็น USD/THB จะได้ราคากีบตามอัตราปัจจุบัน) |
+| อัปเดต VAT | `TaxRate` |
+| เปิด/ปิดประเภทชำระเงิน | `PaymentType.isActive` |
+| เพิ่มผู้ใช้, เพิ่มกลุ่มผู้ใช้, จัดการสิทธิ์กลุ่ม | `User`, `UserGroup.permissions` |
+| ตั้งค่าขนาดใบบิล | `Setting` (`receipt.*`) |
 
-**จุดแข็ง:** โครงหน้าร้านพื้นฐานใช้ได้แล้ว — แยกสกุลเงินพร้อม snapshot อัตราแลกเปลี่ยนต่อการชำระ, จ่ายหลายสกุลต่อบิลได้, เงินใช้ `Decimal` ถูกต้อง, มี serial และกะการขาย
+### 3.4 งานอื่น ๆ
+| ฟีเจอร์ | รองรับโดย |
+|---|---|
+| บันทึกรายจ่าย, เพิ่มประเภทรายจ่าย | `Expense`, `ExpenseCategory` |
+| แสดงรายการลูกหนี้, ลูกค้าชำระหนี้ | `Sale.paymentStatus`/`totalLak − paidLak`, `DebtPayment` |
+| พิมพ์บาร์โค้ด | ฟีเจอร์ฝั่ง frontend (ใช้ `Product.barcode`) |
 
-**ช่องว่าง / ปัญหาที่พบ:**
+### 3.5 ระบบซ่อม
+| ฟีเจอร์ | รองรับโดย |
+|---|---|
+| รับเครื่องซ่อม, ออกใบรับซ่อม | `ServiceTicket` |
+| อัปเดตสถานะงานซ่อม | `ServiceTicket.status` + `ServiceTicketLog` |
+| ออกใบเสนอราคาซ่อม | `ServiceTicketLine` (อะไหล่/ค่าแรง) → `quotedLak` (สถานะ QUOTED) |
+| ออกบิลรับเงินค่าซ่อม | สร้าง `Sale` จากใบงาน (`ServiceTicket.saleId`) |
+| ใส่เงื่อนไขรับประกันในบิลซ่อม | `ServiceTicket.warrantyDays`/`warrantyTerms` (ค่าเริ่มต้นจาก `Setting` `repair.warrantyTerms`) |
 
-| # | ปัญหา | ผลกระทบ | วิธีแก้ |
-|---|---|---|---|
-| G1 | `Category` เป็นแบบชั้นเดียว | แยก "ปริ้นเตอร์ > Thermal / Label / ทั่วไป" ไม่ได้ | เพิ่ม `parentId` (ต้นไม้หมวดหมู่) |
-| G2 | `Product` ไม่มี specs / รูป / ตำแหน่งชั้นวาง / รุ่น | frontend (mock-data) ใช้ `specs`, `location` อยู่แล้ว | เพิ่ม `model`, `specs Json`, `location`, `ProductImage` |
-| G3 | `stockQty` เปลี่ยนตรง ๆ ไม่มีประวัติ | ตรวจสอบย้อนหลังไม่ได้ว่าสต็อกหายไปไหน | เพิ่ม `StockMovement` (สมุดบัญชีสต็อก) |
-| G4 | ไม่มีผู้จำหน่าย/ใบสั่งซื้อ/รับสินค้า | ไม่รู้ต้นทุนจริง ไม่รู้ serial มาจากล็อตไหน | เพิ่ม `Supplier`, `PurchaseOrder`, `PurchaseOrderItem` |
-| G5 | `SaleItem` ไม่เก็บต้นทุน ณ วันขาย | รายงานกำไรผิดเมื่อต้นทุนเปลี่ยน | เพิ่ม `unitCostLak` ใน `SaleItem` |
-| G6 | คืนสินค้าทำได้แค่เปลี่ยน `Sale.status` | คืนบางรายการ/บางชิ้นไม่ได้ ไม่มีบันทึกการคืนเงิน | เพิ่ม `SaleReturn`, `SaleReturnItem` |
-| G7 | `SerialNumber.saleItemId` ช่องเดียว | ถ้าเครื่องถูกคืนแล้วขายใหม่ ประวัติการขายครั้งแรกหาย | ประวัติดูจาก `StockMovement`; เพิ่ม `purchaseItemId`, `warrantyEndsAt` |
-| G8 | ไม่มีระบบเคลม/ซ่อม | งานหลักของร้านอุปกรณ์ทำไม่ได้ | เพิ่ม `ServiceTicket` |
-| G9 | ไม่มีชุดสินค้า | ขายชุด POS ไม่สะดวก ตัดสต็อกผิด | เพิ่ม `ProductBundleItem` |
-| G10 | ไม่มีใบเสนอราคา | ลูกค้า B2B ต้องการ | เพิ่ม `Quotation`, `QuotationItem` |
-| G11 | `Customer` ไม่มีข้อมูลบริษัท | ออกใบกำกับให้ธุรกิจไม่ได้ | เพิ่ม `type`, `companyName`, `taxId` |
-| G12 | `Payment` ไม่มีเลขอ้างอิง | ตรวจสอบยอดโอน/QR ไม่ได้ | เพิ่ม `reference` |
-| G13 | `Sale` ไม่มีผู้ยกเลิก/เหตุผล/หมายเหตุ | ตรวจสอบการ void ไม่ได้ | เพิ่ม `note`, `voidedById`, `voidedAt`, `voidReason` |
-| G14 | ไม่มีเงินเข้า-ออกลิ้นชักระหว่างกะ | ปิดกะแล้วเงินไม่ตรง | เพิ่ม `CashMovement` |
-| G15 | ไม่มีการตั้งค่าร้าน / audit log / refresh token | หัวใบเสร็จ, VAT, การล็อกอิน, ตรวจสอบย้อนหลัง | เพิ่ม `Setting`, `AuditLog`, `RefreshToken` |
-| G16 | `ExchangeRate.createdById` ไม่มี relation | ข้อมูลไม่สมบูรณ์ | เพิ่ม relation กับ `User` |
+### 3.6 รายงาน (query จากตารางที่มีอยู่ ไม่ต้องมีตารางเพิ่ม)
+| รายงาน | แหล่งข้อมูล |
+|---|---|
+| ยอดขาย / ยอดขายแบบสรุป | `Sale`, `SaleItem`, `Payment` |
+| สินค้าขายดี | `SaleItem` group by product |
+| สินค้า (คงเหลือ, มูลค่าสต็อก) | `Product`, `StockMovement` |
+| รับสินค้า / เบิกสินค้า | `StockDocument` (RECEIVE / ISSUE) |
+| ชำระหนี้ | `DebtPayment` |
+| รายจ่าย | `Expense` |
+| งานซ่อม | `ServiceTicket` |
+| บิลที่ถูกยกเลิก | `Sale` where `status = VOIDED` |
+| ยอดซื้อของลูกค้า | `Sale` group by customer |
+| สินค้าหมดอายุ / ใกล้หมดอายุ | `StockLot.expiryDate` |
+| กำไร | `SaleItem.unitPriceLak − unitCostLak` |
 
-## 3. รายการตารางที่ควรมี (ข้อเสนอ)
+## 4. รายการตารางทั้งหมด (38 ตาราง)
 
-แบ่งเป็นโมดูล — ✅ = มีแล้ว, ✏️ = มีแล้วแต่ต้องแก้, 🆕 = ตารางใหม่
+✅ = มีใน schema ปัจจุบัน (อาจมีฟิลด์เพิ่ม), 🆕 = ตารางใหม่
 
-### 3.1 ผู้ใช้และระบบ
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `User` | ✏️ | พนักงาน + บทบาท (ADMIN/MANAGER/CASHIER/USER) |
-| `RefreshToken` | 🆕 | เก็บ refresh token (hash) สำหรับ JWT, เพิกถอนได้ |
-| `Setting` | 🆕 | key–value: ชื่อร้าน, ที่อยู่, หัว/ท้ายใบเสร็จ, อัตรา VAT, prefix เลขเอกสาร |
-| `AuditLog` | 🆕 | ใครทำอะไร เมื่อไร (แก้ราคา, void บิล, ปรับสต็อก) |
+| โมดูล | ตาราง |
+|---|---|
+| ผู้ใช้และระบบ (8) | 🆕 `UserGroup`, ✅ `User` (เปลี่ยน enum `role` เป็น `groupId`), 🆕 `RefreshToken`, 🆕 `Setting`, 🆕 `AuditLog`, 🆕 `PaymentType` (แทน enum `PaymentMethod`), 🆕 `TaxRate`, ✅ `ExchangeRate` |
+| แคตตาล็อก (7) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
+| สต็อก (6) | ✅ `SerialNumber`, 🆕 `StockLot`, 🆕 `Supplier`, 🆕 `StockDocument`, 🆕 `StockDocumentItem`, 🆕 `StockMovement` |
+| การขาย (10) | ✅ `Customer`, 🆕 `HeldBill`, 🆕 `Quotation`, 🆕 `QuotationItem`, ✅ `Sale`, ✅ `SaleItem`, ✅ `Payment`, 🆕 `DebtPayment`, 🆕 `SaleReturn`, 🆕 `SaleReturnItem` |
+| กะ เงินสด รายจ่าย (4) | ✅ `Shift`, 🆕 `CashMovement`, 🆕 `ExpenseCategory`, 🆕 `Expense` |
+| ซ่อม/รับประกัน (3) | 🆕 `ServiceTicket`, 🆕 `ServiceTicketLine`, 🆕 `ServiceTicketLog` |
 
-### 3.2 แคตตาล็อกสินค้า
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `Category` | ✏️ | หมวดหมู่แบบต้นไม้ (`parentId`, `slug`, `sortOrder`) |
-| `Brand` | ✅ (+`logoUrl`) | แบรนด์ (MSI, Samsung, Epson …) |
-| `Product` | ✏️ | สินค้า + `type` (STANDARD/BUNDLE/SERVICE), `model`, `specs`, `location`, `unit` |
-| `ProductImage` | 🆕 | รูปสินค้าหลายรูป |
-| `ProductBundleItem` | 🆕 | ส่วนประกอบของชุดสินค้า (ชุด POS = เครื่อง + ลิ้นชัก + ปริ้นเตอร์ …) |
+**สิ่งที่เปลี่ยนจากร่างรอบแรก:** เพิ่ม `UserGroup`, `PaymentType`, `TaxRate`, `Promotion(Item)`, `StockLot`, `HeldBill`, `DebtPayment`, `Expense(Category)`, `ServiceTicketLine/Log` และเปลี่ยน `PurchaseOrder` เป็น `StockDocument` ที่ใช้ได้ทั้งรับเข้า เบิกออก และปรับยอด (ฟีเจอร์ที่ต้องการไม่มีขั้น "สั่งซื้อ" แยก)
 
-### 3.3 สต็อกและการจัดซื้อ
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `SerialNumber` | ✏️ | serial ต่อชิ้น + `purchaseItemId`, `warrantyEndsAt`, `soldAt` |
-| `StockMovement` | 🆕 | ทุกการเปลี่ยนแปลงสต็อก (รับเข้า/ขาย/คืน/ปรับ/เคลม) — `Product.stockQty` เป็นยอดสะสมที่ต้องตรงกับผลรวมตารางนี้ |
-| `Supplier` | 🆕 | ผู้จำหน่าย/ตัวแทนจำหน่าย |
-| `PurchaseOrder` | 🆕 | ใบสั่งซื้อ/ใบรับสินค้า (สถานะ DRAFT → ORDERED → PARTIAL → RECEIVED) |
-| `PurchaseOrderItem` | 🆕 | รายการสั่ง/รับ + ต้นทุนต่อหน่วย (รองรับต้นทุน USD/THB) |
-
-### 3.4 การขาย
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `Customer` | ✏️ | + `type` (INDIVIDUAL/BUSINESS), `companyName`, `taxId`, `note` |
-| `Quotation` | 🆕 | ใบเสนอราคา (DRAFT/SENT/ACCEPTED/EXPIRED/CONVERTED) |
-| `QuotationItem` | 🆕 | รายการในใบเสนอราคา |
-| `Sale` | ✏️ | + `quotationId`, `note`, ข้อมูล void |
-| `SaleItem` | ✏️ | + `unitCostLak` (snapshot ต้นทุน) |
-| `Payment` | ✏️ | + `reference` |
-| `SaleReturn` | 🆕 | ใบคืนสินค้า/คืนเงิน |
-| `SaleReturnItem` | 🆕 | รายการที่คืน (ระบุ serial ได้) |
-| `ExchangeRate` | ✏️ | + relation `createdBy` |
-
-### 3.5 เงินสดและกะ
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `Shift` | ✏️ | + `expectedCash Json`, `note` |
-| `CashMovement` | 🆕 | นำเงินเข้า/เบิกเงินออกจากลิ้นชักระหว่างกะ |
-
-### 3.6 บริการหลังการขาย
-| ตาราง | สถานะ | หน้าที่ |
-|---|---|---|
-| `ServiceTicket` | 🆕 | ใบรับเคลม/ซ่อม: serial, อาการ, สถานะ, ค่าใช้จ่าย, อยู่ในประกันหรือไม่ |
-
-**รวม: 27 ตาราง** (ของเดิม 11 + ใหม่ 16)
-
-## 4. ER Diagram (ภาพรวม)
+## 5. ER Diagram (ภาพรวม)
 
 ```mermaid
 erDiagram
+  UserGroup ||--o{ User : has
   Category ||--o{ Category : parent
   Category ||--o{ Product : has
   Brand ||--o{ Product : has
+  TaxRate ||--o{ Product : default_vat
   Product ||--o{ ProductImage : has
   Product ||--o{ ProductBundleItem : "bundle of"
+  Promotion ||--o{ PromotionItem : targets
   Product ||--o{ SerialNumber : units
+  Product ||--o{ StockLot : lots
   Product ||--o{ StockMovement : ledger
-  Supplier ||--o{ PurchaseOrder : supplies
-  PurchaseOrder ||--o{ PurchaseOrderItem : lines
-  PurchaseOrderItem ||--o{ SerialNumber : received
+  Supplier ||--o{ StockDocument : supplies
+  StockDocument ||--o{ StockDocumentItem : lines
+  StockDocumentItem ||--o{ SerialNumber : received
   Customer ||--o{ Quotation : requests
   Quotation ||--o{ QuotationItem : lines
   Quotation |o--o| Sale : "converted to"
   Customer ||--o{ Sale : buys
-  User ||--o{ Sale : cashier
+  Customer ||--o{ HeldBill : parked
   Shift ||--o{ Sale : during
   Shift ||--o{ CashMovement : has
+  Shift ||--o{ Expense : paid_from
   Sale ||--o{ SaleItem : lines
   Sale ||--o{ Payment : paid_by
+  PaymentType ||--o{ Payment : type
+  Sale ||--o{ DebtPayment : "debt paid"
   SaleItem ||--o{ SerialNumber : sold
   Sale ||--o{ SaleReturn : returns
   SaleReturn ||--o{ SaleReturnItem : lines
-  SerialNumber ||--o{ ServiceTicket : claims
+  ExpenseCategory ||--o{ Expense : has
   Customer ||--o{ ServiceTicket : owns
-```
-
-## 5. ร่าง Prisma (ส่วนที่เพิ่ม/แก้)
-
-> กติกาเดิมยังใช้: เงิน LAK = `Decimal(18, 0)`, เงินต่างประเทศ = `Decimal(18, 2)`, อัตราแลกเปลี่ยน = `Decimal(18, 4)`, id = uuid
-
-```prisma
-enum ProductType     { STANDARD  BUNDLE  SERVICE }          // SERVICE = ค่าติดตั้ง/ค่าซ่อม ไม่มีสต็อก
-enum CustomerType    { INDIVIDUAL  BUSINESS }
-enum StockMoveType   { PURCHASE_IN  SALE_OUT  RETURN_IN  ADJUST_IN  ADJUST_OUT  CLAIM_OUT  CLAIM_IN }
-enum PurchaseStatus  { DRAFT  ORDERED  PARTIAL  RECEIVED  CANCELLED }
-enum QuotationStatus { DRAFT  SENT  ACCEPTED  REJECTED  EXPIRED  CONVERTED }
-enum CashMoveType    { PAY_IN  PAY_OUT }
-enum TicketType      { WARRANTY_CLAIM  REPAIR }
-enum TicketStatus    { RECEIVED  DIAGNOSING  SENT_TO_VENDOR  REPAIRING  READY  DELIVERED  CANCELLED }
-// SerialStatus เพิ่ม: IN_SERVICE (อยู่ระหว่างเคลม/ซ่อม)
-
-model Category {
-  id        String     @id @default(uuid())
-  name      String
-  slug      String     @unique              // ใช้เป็น key ใน frontend เช่น "printer-thermal"
-  parentId  String?
-  sortOrder Int        @default(0)
-  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryTree")
-  products  Product[]
-  @@unique([parentId, name])
-}
-
-model Product {
-  // ... ฟิลด์เดิม ...
-  type        ProductType @default(STANDARD)
-  model       String?                      // รุ่นจากผู้ผลิต เช่น "TM-T82X"
-  unit        String      @default("pcs")  // pcs / box / roll / set
-  location    String?                      // ชั้นวาง เช่น "A1"
-  specs       Json?                        // {"Size":"24\"","Resolution":"1920x1080"}
-  images      ProductImage[]
-  bundleItems ProductBundleItem[] @relation("Bundle")
-  partOf      ProductBundleItem[] @relation("Component")
-  stockMoves  StockMovement[]
-  // costLak = ต้นทุนเฉลี่ยถ่วงน้ำหนัก อัปเดตทุกครั้งที่รับสินค้า
-}
-
-model ProductImage {
-  id        String  @id @default(uuid())
-  productId String
-  url       String
-  sortOrder Int     @default(0)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-}
-
-model ProductBundleItem {
-  bundleId    String
-  componentId String
-  quantity    Int     @default(1)
-  bundle      Product @relation("Bundle", fields: [bundleId], references: [id], onDelete: Cascade)
-  component   Product @relation("Component", fields: [componentId], references: [id])
-  @@id([bundleId, componentId])
-}
-
-model SerialNumber {
-  // ... ฟิลด์เดิม ...
-  purchaseItemId String?
-  soldAt         DateTime?
-  warrantyEndsAt DateTime?                 // คำนวณตอนขาย = soldAt + warrantyMonths
-  purchaseItem   PurchaseOrderItem? @relation(fields: [purchaseItemId], references: [id])
-  tickets        ServiceTicket[]
-}
-
-/// สมุดบัญชีสต็อก — insert อย่างเดียว ห้ามแก้/ลบ
-model StockMovement {
-  id          String        @id @default(uuid())
-  productId   String
-  type        StockMoveType
-  quantity    Int                           // + เข้า / - ออก
-  balanceAfter Int
-  unitCostLak Decimal?      @db.Decimal(18, 0)
-  serialId    String?
-  refType     String?                       // "SALE" | "PURCHASE" | "RETURN" | "TICKET" | "ADJUST"
-  refId       String?
-  note        String?
-  userId      String
-  createdAt   DateTime      @default(now())
-  product     Product       @relation(fields: [productId], references: [id])
-  user        User          @relation(fields: [userId], references: [id])
-  @@index([productId, createdAt])
-  @@index([refType, refId])
-}
-
-model Supplier {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String?
-  email     String?
-  address   String?
-  taxId     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  purchaseOrders PurchaseOrder[]
-}
-
-model PurchaseOrder {
-  id          String         @id @default(uuid())
-  poNo        String         @unique
-  supplierId  String
-  status      PurchaseStatus @default(DRAFT)
-  currency    Currency       @default(LAK)
-  lakPerUnit  Decimal        @default(1) @db.Decimal(18, 4)
-  totalLak    Decimal        @default(0) @db.Decimal(18, 0)
-  note        String?
-  orderedAt   DateTime?
-  receivedAt  DateTime?
-  createdById String
-  createdAt   DateTime       @default(now())
-  supplier    Supplier       @relation(fields: [supplierId], references: [id])
-  createdBy   User           @relation(fields: [createdById], references: [id])
-  items       PurchaseOrderItem[]
-}
-
-model PurchaseOrderItem {
-  id          String  @id @default(uuid())
-  poId        String
-  productId   String
-  orderedQty  Int
-  receivedQty Int     @default(0)
-  unitCost    Decimal @db.Decimal(18, 2)    // ในสกุลเงินของ PO
-  unitCostLak Decimal @db.Decimal(18, 0)
-  po          PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
-  product     Product        @relation(fields: [productId], references: [id])
-  serials     SerialNumber[]
-}
-
-model Customer {
-  // ... ฟิลด์เดิม ...
-  type        CustomerType @default(INDIVIDUAL)
-  companyName String?
-  taxId       String?
-  note        String?
-  quotations  Quotation[]
-  tickets     ServiceTicket[]
-}
-
-model Quotation {
-  id          String          @id @default(uuid())
-  quoteNo     String          @unique
-  customerId  String
-  status      QuotationStatus @default(DRAFT)
-  validUntil  DateTime
-  subtotalLak Decimal         @db.Decimal(18, 0)
-  discountLak Decimal         @default(0) @db.Decimal(18, 0)
-  taxLak      Decimal         @default(0) @db.Decimal(18, 0)
-  totalLak    Decimal         @db.Decimal(18, 0)
-  note        String?
-  createdById String
-  createdAt   DateTime        @default(now())
-  customer    Customer        @relation(fields: [customerId], references: [id])
-  createdBy   User            @relation(fields: [createdById], references: [id])
-  items       QuotationItem[]
-  sale        Sale?
-}
-
-model QuotationItem {
-  id           String    @id @default(uuid())
-  quotationId  String
-  productId    String
-  productName  String
-  quantity     Int
-  unitPriceLak Decimal   @db.Decimal(18, 0)
-  discountLak  Decimal   @default(0) @db.Decimal(18, 0)
-  lineTotalLak Decimal   @db.Decimal(18, 0)
-  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  product      Product   @relation(fields: [productId], references: [id])
-}
-
-model Sale {
-  // ... ฟิลด์เดิม ...
-  quotationId String?   @unique
-  note        String?
-  voidedById  String?
-  voidedAt    DateTime?
-  voidReason  String?
-  returns     SaleReturn[]
-}
-
-model SaleItem {
-  // ... ฟิลด์เดิม ...
-  unitCostLak Decimal @db.Decimal(18, 0)   // snapshot ต้นทุน ณ วันขาย สำหรับรายงานกำไร
-  returnItems SaleReturnItem[]
-}
-
-model Payment {
-  // ... ฟิลด์เดิม ...
-  reference String?                        // เลขอ้างอิงการโอน/QR/บัตร
-}
-
-model SaleReturn {
-  id          String   @id @default(uuid())
-  returnNo    String   @unique
-  saleId      String
-  reason      String
-  refundLak   Decimal  @db.Decimal(18, 0)
-  refundMethod PaymentMethod
-  createdById String
-  createdAt   DateTime @default(now())
-  sale        Sale     @relation(fields: [saleId], references: [id])
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  items       SaleReturnItem[]
-}
-
-model SaleReturnItem {
-  id         String   @id @default(uuid())
-  returnId   String
-  saleItemId String
-  quantity   Int
-  serials    String[]                       // serial ที่คืน
-  restock    Boolean  @default(true)        // false = ของเสีย → DEFECTIVE
-  amountLak  Decimal  @db.Decimal(18, 0)
-  saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  saleItem   SaleItem   @relation(fields: [saleItemId], references: [id])
-}
-
-model CashMovement {
-  id        String       @id @default(uuid())
-  shiftId   String
-  type      CashMoveType
-  currency  Currency
-  amount    Decimal      @db.Decimal(18, 2)
-  reason    String
-  userId    String
-  createdAt DateTime     @default(now())
-  shift     Shift        @relation(fields: [shiftId], references: [id])
-  user      User         @relation(fields: [userId], references: [id])
-}
-
-model ServiceTicket {
-  id           String       @id @default(uuid())
-  ticketNo     String       @unique
-  type         TicketType
-  status       TicketStatus @default(RECEIVED)
-  customerId   String
-  serialId     String?                      // null = เครื่องที่ไม่ได้ซื้อจากร้าน
-  deviceName   String                       // ชื่อเครื่อง (กรณีไม่มี serial ในระบบ)
-  problem      String
-  diagnosis    String?
-  underWarranty Boolean     @default(false)
-  costLak      Decimal      @default(0) @db.Decimal(18, 0)
-  chargeLak    Decimal      @default(0) @db.Decimal(18, 0)
-  saleId       String?                      // บิลเก็บค่าซ่อม (ถ้ามี)
-  receivedById String
-  receivedAt   DateTime     @default(now())
-  deliveredAt  DateTime?
-  customer     Customer      @relation(fields: [customerId], references: [id])
-  serial       SerialNumber? @relation(fields: [serialId], references: [id])
-  receivedBy   User          @relation(fields: [receivedById], references: [id])
-}
-
-model Setting {
-  key       String   @id                    // "store.name", "receipt.footer", "tax.vatPercent"
-  value     Json
-  updatedAt DateTime @updatedAt
-}
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  action    String                          // "SALE_VOID", "PRODUCT_PRICE_CHANGE", ...
-  entity    String
-  entityId  String?
-  before    Json?
-  after     Json?
-  createdAt DateTime @default(now())
-  @@index([entity, entityId])
-  @@index([createdAt])
-}
-
-model RefreshToken {
-  id        String    @id @default(uuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+  SerialNumber ||--o{ ServiceTicket : repairs
+  ServiceTicket ||--o{ ServiceTicketLine : quote
+  ServiceTicket ||--o{ ServiceTicketLog : history
+  ServiceTicket |o--o| Sale : "paid by"
 ```
 
 ## 6. กฎทางธุรกิจหลัก
 
-1. **ขายสินค้า serial**: ต้องสแกน serial ครบตามจำนวน, serial ต้องเป็น `IN_STOCK` → เปลี่ยนเป็น `SOLD`, ตั้ง `soldAt`, `warrantyEndsAt`
-2. **ทุกการเปลี่ยนสต็อกต้องผ่าน transaction เดียว**: อัปเดต `Product.stockQty` + insert `StockMovement` (+ อัปเดต `SerialNumber`)
-3. **ขายชุด (BUNDLE)**: ชุดไม่มีสต็อกของตัวเอง — ตัดสต็อกของส่วนประกอบแต่ละตัว; ส่วนประกอบที่มี serial ต้องสแกนตอนขาย
-4. **SERVICE**: ไม่ตัดสต็อก ไม่มี serial
-5. **ต้นทุน**: ใช้ต้นทุนเฉลี่ยถ่วงน้ำหนัก (moving average) คำนวณใหม่ทุกครั้งที่รับสินค้า; `SaleItem.unitCostLak` เก็บ snapshot
-6. **ชำระเงิน**: ผลรวม `Payment.amountLak` ≥ `Sale.totalLak`; เงินทอนคืนเป็น LAK (`changeLak`)
-7. **Void** ได้เฉพาะ MANAGER/ADMIN ภายในกะเดียวกัน → คืนสต็อก + บันทึก AuditLog; หลังจากนั้นต้องใช้ `SaleReturn`
-8. **เลขเอกสาร**: `S-YYMMDD-0001` (ขาย), `PO-…`, `Q-…`, `R-…` (คืน), `T-…` (ใบงานซ่อม) — prefix ตั้งใน `Setting`
-9. **สิทธิ์**: USER = ดูแคตตาล็อก (ไม่เห็นต้นทุน); CASHIER = ขาย, เปิด/ปิดกะ, รับเคลม; MANAGER = + จัดซื้อ, ปรับสต็อก, void, คืนสินค้า, รายงาน; ADMIN = ทั้งหมด + ผู้ใช้/ตั้งค่า
+**เงินและราคา**
+1. เงิน LAK = `Decimal(18,0)`, THB/USD = `Decimal(18,2)`, อัตราแลกเปลี่ยน = `Decimal(18,4)`, เปอร์เซ็นต์ = `Decimal(5,2)`
+2. ราคาสินค้าเก็บใน `priceCurrency` ถ้าเป็น USD/THB ราคากีบจะเท่ากับ `price × อัตราปัจจุบัน` ปัดขึ้นเป็นกีบเต็มจำนวน (ปัดหลักพันได้ตาม `Setting`) แล้ว snapshot ไว้ใน `SaleItem`
+3. ลำดับการเลือกราคา: ราคาเฉพาะชิ้นของตัวโชว์ (`SerialNumber.priceLak`) → ราคาส่ง (ถ้าลูกค้าเป็น WHOLESALE หรือจำนวนถึง `wholesaleMinQty`) → ราคาปลีก จากนั้นจึงหักโปรโมชั่นที่ใช้ได้และดีที่สุด**หนึ่งรายการ**
+4. แก้ราคาด้วยมือได้เฉพาะผู้มีสิทธิ์ `price.override` โดยบันทึก `priceOverriddenById` + `AuditLog`
+5. VAT: ใบขาย snapshot `vatPercent` จาก `TaxRate` ที่เป็นค่าเริ่มต้น ถ้าราคารวม VAT แล้ว `vatLak = total × p / (100 + p)` ถ้ายังไม่รวม `vatLak = (subtotal − discount) × p / 100`
 
-## 7. แผนการพัฒนา (ลำดับ)
+**การขายและการชำระเงิน**
+6. ผลรวมของ `Payment.amountLak` ต้องไม่น้อยกว่า `Sale.totalLak` โดยการชำระแบบ `CREDIT` นับเป็นหนี้ และเงินทอนคืนเป็น LAK เท่านั้น
+7. ขายเชื่อต้องเลือกลูกค้าทุกครั้ง และยอดค้างชำระรวมต้องไม่เกิน `creditLimitLak` (ถ้าเป็น 0 แปลว่าไม่อนุญาต) สถานะคำนวณจาก `paidLak` เป็น `PAID`/`PARTIAL`/`UNPAID`
+8. `DebtPayment` เพิ่ม `Sale.paidLak` และอัปเดต `paymentStatus` ใน transaction เดียวกัน
+9. บิลที่พักไว้ (`HeldBill`) ไม่ตัดสต็อกและไม่จอง serial แต่จะตรวจสอบใหม่ตอนเปิดกลับมาขาย
+10. ยกเลิกบิล (Void): ต้องมีสิทธิ์ `sale.void` → คืนสต็อก (`VOID_IN`) และคืน serial เป็น `IN_STOCK` + `AuditLog` ถ้าเป็นบิลข้ามวันหรือคืนบางรายการให้ใช้ `SaleReturn`
 
-| เฟส | เนื้อหา | ตาราง |
-|---|---|---|
-| **1 — แกนหลัก** | Auth, แคตตาล็อก, ขายหน้าร้าน, กะ | `User`, `RefreshToken`, `Setting`, `AuditLog`, `Category`, `Brand`, `Product`, `ProductImage`, `SerialNumber`, `StockMovement`, `Customer`, `ExchangeRate`, `Shift`, `CashMovement`, `Sale`, `SaleItem`, `Payment` |
-| **2 — สต็อกและจัดซื้อ** | รับสินค้า, ผู้จำหน่าย, ปรับสต็อก, คืนสินค้า | `Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `SaleReturn`, `SaleReturnItem` |
-| **3 — B2B และบริการ** | ใบเสนอราคา, ชุดสินค้า, เคลม/ซ่อม | `Quotation`, `QuotationItem`, `ProductBundleItem`, `ServiceTicket` |
-| **ภายหลัง (ยังไม่ทำ)** | โปรโมชั่น, ขายเชื่อ/ลูกหนี้, หลายสาขา | — |
+**สต็อก**
+11. ทุกการเปลี่ยนสต็อกต้องอยู่ใน transaction เดียว: `Product.stockQty` + `StockMovement` (+ `SerialNumber` / `StockLot`)
+12. สินค้าที่มี serial ต้องสแกน serial ครบตามจำนวน และ serial ต้องมีสถานะ `IN_STOCK` → เมื่อขายเปลี่ยนเป็น `SOLD` และตั้ง `soldAt` กับ `warrantyEndsAt = soldAt + warrantyMonths`
+13. `BUNDLE` ไม่มีสต็อกของตัวเอง ให้ตัดสต็อกจากส่วนประกอบ ถ้าส่วนประกอบมี serial ต้องสแกน · `SERVICE` และ `trackStock = false` ไม่ตัดสต็อก
+14. สินค้าที่มีวันหมดอายุตัดสต็อกแบบ FEFO (ล็อตที่หมดอายุก่อนออกก่อน)
+15. ต้นทุนใช้ค่าเฉลี่ยถ่วงน้ำหนัก (`avgCostLak`) คำนวณใหม่ทุกครั้งที่ POST เอกสารรับสินค้า
+16. `StockDocument` แก้ไขได้เฉพาะตอนเป็น DRAFT เมื่อ POST แล้วจะสร้าง movement และยกเลิกได้ด้วยเอกสารกลับรายการเท่านั้น
 
-แนะนำให้สร้าง schema ทั้ง 27 ตารางใน migration เดียวตั้งแต่ตอนนี้ (ยังไม่มีข้อมูลจริง) แล้วค่อยพัฒนา API ไปทีละเฟส
+**สิทธิ์ (UserGroup เริ่มต้น)**
+| กลุ่ม | สิทธิ์หลัก |
+|---|---|
+| Admin | ทั้งหมด |
+| Manager | ขาย, void, แก้ราคา, คืนสินค้า, สต็อก, รายจ่าย, รายงาน, ซ่อม |
+| Cashier | ขาย, พักบิล, เปิด/ปิดกะ, รับชำระหนี้, รับเครื่องซ่อม |
+| Viewer | ดูแคตตาล็อกและสแกนดูรายละเอียด (ไม่เห็นต้นทุน) — เดิมคือ role `USER` |
 
-## 8. ข้อมูลเริ่มต้น (seed) — หมวดหมู่ที่เสนอ
+**เลขเอกสาร:** `S-YYMMDD-0001` (ขาย), `DP-` (ชำระหนี้), `GR-` (รับเข้า), `GI-` (เบิกออก), `ADJ-`, `Q-` (เสนอราคา), `R-` (คืนสินค้า), `T-` (ใบงานซ่อม) โดยตั้ง prefix ได้ใน `Setting`
 
+## 7. แผนการพัฒนา
+
+สร้าง schema ทั้ง 38 ตารางใน migration เดียว (ยังไม่มีข้อมูลจริง) แล้วพัฒนา API ไปทีละเฟส
+
+| เฟส | เนื้อหา |
+|---|---|
+| **1 — แกนหลัก** | Auth + กลุ่ม/สิทธิ์, ตั้งค่าร้าน, VAT, ประเภทชำระเงิน, อัตราแลกเปลี่ยน, หมวดหมู่/แบรนด์/สินค้า/รูป, รับสินค้าเข้า, ขายหน้าร้าน (serial, หลายสกุลเงิน, ส่วนลด, พักบิล, void), กะ, รายงานยอดขาย |
+| **2 — สต็อกและลูกหนี้** | เบิกออก/ปรับยอด, ล็อตหมดอายุ, ขายเชื่อ + ชำระหนี้, คืนสินค้า, ราคาส่ง + โปรโมชั่น, รายจ่าย, ปรับราคาหลายรายการ, รายงานที่เหลือ |
+| **3 — ซ่อมและ B2B** | ใบงานซ่อม (รับเครื่อง, เสนอราคา, สถานะ, บิล, รับประกัน), ใบเสนอราคาขาย, ชุดสินค้า |
+| **ภายหลัง** | หลายสาขา (`Branch`), สะสมแต้มลูกค้า |
+
+## 8. ข้อมูลเริ่มต้น (seed)
+
+**หมวดหมู่**
 ```
-pos-terminal        เครื่อง POS
-  ├─ pos-dual-screen     POS จอคู่
-  ├─ pos-single-screen   POS จอเดียว / All-in-One
-  └─ pos-handheld        POS มือถือ
-printer             เครื่องพิมพ์
-  ├─ printer-receipt     ปริ้นเตอร์ใบเสร็จ (Thermal)
-  ├─ printer-label       ปริ้นเตอร์ฉลาก/บาร์โค้ด
-  └─ printer-office      ปริ้นเตอร์ทั่วไป (Laser/Inkjet)
-display             จอภาพ
-  ├─ display-monitor     จอคอมพิวเตอร์ทั่วไป
-  ├─ display-touch       จอสัมผัส
-  └─ display-customer    จอแสดงผลลูกค้า
-scanner             เครื่องสแกนบาร์โค้ด
-  ├─ scanner-handheld    แบบมือถือ (มีสาย/ไร้สาย)
-  └─ scanner-desktop     แบบตั้งโต๊ะ
-computer            คอมพิวเตอร์ (Mini PC / โน้ตบุ๊ก / PC)
+pos-terminal        เครื่อง POS          → pos-dual-screen, pos-single-screen, pos-handheld
+printer             เครื่องพิมพ์          → printer-receipt, printer-label, printer-office
+display             จอภาพ               → display-monitor, display-touch, display-customer
+scanner             เครื่องสแกน           → scanner-handheld, scanner-desktop
+computer            คอมพิวเตอร์ (Mini PC / โน้ตบุ๊ก)
 cash-drawer         ลิ้นชักเก็บเงิน
-accessory           อุปกรณ์เสริม (สาย, Hub, ขาตั้ง, UPS, เครื่องชั่ง)
-consumable          วัสดุสิ้นเปลือง (กระดาษ, สติกเกอร์, ริบบอน, หมึก)
+accessory           อุปกรณ์เสริม
+consumable          วัสดุสิ้นเปลือง
 software            ซอฟต์แวร์ / License
 service             บริการ (ติดตั้ง, ซ่อม)
 ```
+**แบรนด์:** Sunmi, iMin, Epson, Xprinter, Zebra, Honeywell, MSI, Samsung, LG, Dell, HP, Canon, Brother, Generic
+**ประเภทชำระเงิน:** เงินสด (CASH), เงินโอน (BANK_TRANSFER), QR (QR), บัตร (CARD, ปิดไว้), ติดหนี้ (CREDIT)
+**VAT:** "VAT 10%" (ค่าเริ่มต้น), "ไม่มี VAT 0%"
+**ประเภทรายจ่าย:** ค่าเช่า, ค่าไฟ/น้ำ, เงินเดือน, ค่าขนส่ง, อื่น ๆ
+**กลุ่มผู้ใช้:** Admin, Manager, Cashier, Viewer
 
-หมายเหตุ: frontend (`src/features/products/mock-data.ts`) ใช้ `CATEGORY_IDS` 6 ค่า (`terminal`, `printer`, `display`, `scanner`, `accessory`, `consumable`) — เมื่อเชื่อม API จริงต้องเปลี่ยนไปใช้ `Category.slug` จาก backend
+หมายเหตุ frontend: `CATEGORY_IDS` ใน `src/features/products/mock-data.ts` ต้องเปลี่ยนไปใช้ `Category.slug` และ `priceLak` จะมาจาก API (คำนวณจาก `priceCurrency` + อัตราแลกเปลี่ยน)
 
-## 9. คำถามที่ยังเปิดอยู่ (รอเจ้าของโปรเจกต์ตอบ)
+## 9. คำถามที่ยังเปิดอยู่
 
-1. มีหลายสาขา/หลายคลังหรือไม่? (ถ้ามี ต้องเพิ่ม `Branch`/`Warehouse` และสต็อกแยกตามสาขา)
-2. ต้องคิด VAT หรือไม่ และกี่ %? ราคาที่ตั้งรวม VAT แล้วหรือยัง?
-3. มีการขายเชื่อ (ลูกค้าธุรกิจจ่ายทีหลัง) หรือไม่?
-4. ต้องการระบบโปรโมชั่น/ราคาส่ง (ราคาตามกลุ่มลูกค้า) หรือไม่?
-5. ต้องรองรับสินค้ามือสอง/สินค้าตัวโชว์หรือไม่?
+1. อัตรา VAT ที่ใช้จริง (ร่างนี้ใส่ค่าเริ่มต้นไว้ 10%) และราคาที่ตั้งไว้รวม VAT แล้วหรือยัง?
+2. ราคากีบที่แปลงจาก USD/THB ต้องปัดเป็นหลักพันหรือไม่?
+3. ขายเชื่อ: เปิดใช้ตั้งแต่เฟส 1 หรือรอเฟส 2? (ร่างนี้วางไว้เฟส 2)

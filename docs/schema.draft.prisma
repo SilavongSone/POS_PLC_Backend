@@ -1,0 +1,888 @@
+// PLC POS — proposed full schema (design draft, see docs/database-design.md).
+// Not used by the app yet: once approved it replaces prisma/schema.prisma.
+// Validate with: npx prisma validate --schema docs/schema.draft.prisma
+//
+// Money rules: LAK = Decimal(18, 0), THB/USD = Decimal(18, 2), rates = Decimal(18, 4), percents = Decimal(5, 2).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Currency {
+  LAK
+  THB
+  USD
+}
+
+/// Behaviour behind a configurable payment type.
+enum PaymentKind {
+  CASH
+  BANK_TRANSFER
+  QR
+  CARD
+  /// Sale on credit: the amount becomes customer debt.
+  CREDIT
+}
+
+enum ProductType {
+  /// Physical item with stock.
+  STANDARD
+  /// Set of other products; stock is taken from its components.
+  BUNDLE
+  /// Installation, repair labour, software licence: no stock.
+  SERVICE
+}
+
+enum PriceTier {
+  RETAIL
+  WHOLESALE
+}
+
+enum ItemCondition {
+  NEW
+  /// Display/demo unit sold at its own price.
+  DEMO
+}
+
+enum SerialStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+  IN_SERVICE
+  DEFECTIVE
+}
+
+enum StockMoveType {
+  RECEIVE_IN
+  ISSUE_OUT
+  ADJUST_IN
+  ADJUST_OUT
+  SALE_OUT
+  RETURN_IN
+  VOID_IN
+}
+
+enum StockDocType {
+  /// Goods received (from a supplier or other source).
+  RECEIVE
+  /// Goods taken out of stock (internal use, damaged, expired, sent back).
+  ISSUE
+  /// Stock count correction.
+  ADJUST
+}
+
+enum DocStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+enum DiscountType {
+  PERCENT
+  AMOUNT
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMoveType {
+  PAY_IN
+  PAY_OUT
+}
+
+enum TicketStatus {
+  RECEIVED
+  DIAGNOSING
+  QUOTED
+  WAITING_PARTS
+  SENT_TO_VENDOR
+  REPAIRING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum TicketLineType {
+  PART
+  LABOR
+}
+
+// ───────────────────────── Users & system ─────────────────────────
+
+/// Configurable user group with a list of permission codes, e.g. ["sale.create","sale.void","price.override"].
+model UserGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  permissions String[]
+  /// Built-in groups (Admin, Manager, Cashier, Viewer) cannot be deleted.
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  groupId      String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  group           UserGroup          @relation(fields: [groupId], references: [id])
+  refreshTokens   RefreshToken[]
+  shifts          Shift[]
+  sales           Sale[]             @relation("SaleCashier")
+  voidedSales     Sale[]             @relation("SaleVoidedBy")
+  priceOverrides  SaleItem[]
+  heldBills       HeldBill[]
+  quotations      Quotation[]
+  saleReturns     SaleReturn[]
+  debtPayments    DebtPayment[]
+  stockDocuments  StockDocument[]
+  stockMovements  StockMovement[]
+  cashMovements   CashMovement[]
+  expenses        Expense[]
+  exchangeRates   ExchangeRate[]
+  ticketsReceived ServiceTicket[]
+  ticketLogs      ServiceTicketLog[]
+  auditLogs       AuditLog[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Key–value settings: "store.name", "store.phone", "store.address", "store.logoUrl",
+/// "receipt.defaultSize" (58mm|80mm|A5|A4), "receipt.footer", "repair.warrantyTerms", "tax.pricesIncludeVat", "docNo.prefix.sale" …
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  /// e.g. "SALE_VOID", "SALE_REPRINT", "PRICE_OVERRIDE", "PRODUCT_PRICE_BULK_UPDATE"
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+/// Payment types the shop accepts; can be switched on/off. e.g. "Cash", "BCEL One QR", "LDB transfer", "Credit (debt)".
+model PaymentType {
+  id                String      @id @default(uuid())
+  name              String      @unique
+  kind              PaymentKind
+  requiresReference Boolean     @default(false)
+  isActive          Boolean     @default(true)
+  sortOrder         Int         @default(0)
+
+  payments     Payment[]
+  debtPayments DebtPayment[]
+  expenses     Expense[]
+  saleReturns  SaleReturn[]
+}
+
+/// VAT/tax rates. Exactly one should be the default.
+model TaxRate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  percent   Decimal  @db.Decimal(5, 2)
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  products   Product[]
+  sales      Sale[]
+  quotations Quotation[]
+}
+
+/// Units of LAK per 1 unit of `currency` (e.g. USD → 21800). The latest row per currency is current.
+model ExchangeRate {
+  id            String   @id @default(uuid())
+  currency      Currency
+  lakPerUnit    Decimal  @db.Decimal(18, 4)
+  effectiveFrom DateTime @default(now())
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+
+  @@index([currency, effectiveFrom])
+}
+
+// ───────────────────────────── Catalog ─────────────────────────────
+
+model Category {
+  id        String  @id @default(uuid())
+  name      String
+  /// Stable key used by the frontend, e.g. "printer-receipt".
+  slug      String  @unique
+  parentId  String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  parent     Category?       @relation("CategoryTree", fields: [parentId], references: [id])
+  children   Category[]      @relation("CategoryTree")
+  products   Product[]
+  promotions PromotionItem[]
+
+  @@unique([parentId, name])
+}
+
+model Brand {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  logoUrl  String?
+  products Product[]
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  sku         String      @unique
+  barcode     String?     @unique
+  name        String
+  description String?
+  type        ProductType @default(STANDARD)
+  categoryId  String?
+  brandId     String?
+  /// Manufacturer model, e.g. "TM-T82X".
+  model       String?
+  /// pcs / box / roll / set
+  unit        String      @default("pcs")
+  /// Shelf/zone, e.g. "A1".
+  location    String?
+  /// Category-specific specs, e.g. {"Size":"24\"","Resolution":"1920x1080"}.
+  specs       Json?
+
+  /// Prices are kept in `priceCurrency`; when it is THB/USD the LAK price follows the current exchange rate.
+  priceCurrency   Currency @default(LAK)
+  retailPrice     Decimal  @db.Decimal(18, 2)
+  wholesalePrice  Decimal? @db.Decimal(18, 2)
+  /// Minimum quantity for the wholesale price to apply automatically (null = wholesale customers only).
+  wholesaleMinQty Int?
+
+  /// Latest purchase cost as entered (any currency) …
+  costCurrency Currency @default(LAK)
+  costPrice    Decimal  @default(0) @db.Decimal(18, 2)
+  /// … and the moving-average cost in LAK used for profit reports.
+  avgCostLak   Decimal  @default(0) @db.Decimal(18, 0)
+
+  /// false = "unspecified quantity" item (sold without counting stock).
+  trackStock     Boolean  @default(true)
+  stockQty       Int      @default(0)
+  lowStockAlert  Int      @default(0)
+  /// Serialized items (terminals, printers, monitors) require a serial per unit sold.
+  trackSerial    Boolean  @default(false)
+  /// Consumables with expiry dates are received in lots.
+  trackExpiry    Boolean  @default(false)
+  warrantyMonths Int      @default(0)
+  taxRateId      String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  brand          Brand?              @relation(fields: [brandId], references: [id])
+  taxRate        TaxRate?            @relation(fields: [taxRateId], references: [id])
+  images         ProductImage[]
+  bundleItems    ProductBundleItem[] @relation("Bundle")
+  partOfBundles  ProductBundleItem[] @relation("Component")
+  serialNumbers  SerialNumber[]
+  lots           StockLot[]
+  stockMovements StockMovement[]
+  stockDocItems  StockDocumentItem[]
+  saleItems      SaleItem[]
+  quotationItems QuotationItem[]
+  promotions     PromotionItem[]
+  ticketLines    ServiceTicketLine[]
+
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String
+  url       String
+  sortOrder Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+/// Components of a BUNDLE product, e.g. "Restaurant POS set" = terminal + drawer + printer + scanner.
+model ProductBundleItem {
+  bundleId    String
+  componentId String
+  quantity    Int    @default(1)
+
+  bundle    Product @relation("Bundle", fields: [bundleId], references: [id], onDelete: Cascade)
+  component Product @relation("Component", fields: [componentId], references: [id])
+
+  @@id([bundleId, componentId])
+}
+
+model Promotion {
+  id           String       @id @default(uuid())
+  name         String
+  discountType DiscountType
+  /// Percent (0–100) or LAK amount per unit.
+  value        Decimal      @db.Decimal(18, 2)
+  minQty       Int          @default(1)
+  startsAt     DateTime
+  endsAt       DateTime?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  /// No items = applies to every product.
+  items     PromotionItem[]
+  saleItems SaleItem[]
+}
+
+/// Promotion target: either one product or a whole category.
+model PromotionItem {
+  id          String  @id @default(uuid())
+  promotionId String
+  productId   String?
+  categoryId  String?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id])
+  category  Category? @relation(fields: [categoryId], references: [id])
+}
+
+// ───────────────────────────── Stock ─────────────────────────────
+
+model SerialNumber {
+  id             String        @id @default(uuid())
+  serial         String        @unique
+  productId      String
+  status         SerialStatus  @default(IN_STOCK)
+  condition      ItemCondition @default(NEW)
+  /// Own selling price for this unit (demo units); null = product price.
+  priceLak       Decimal?      @db.Decimal(18, 0)
+  costLak        Decimal?      @db.Decimal(18, 0)
+  /// Stock document line it was received on.
+  receivedItemId String?
+  /// Latest sale line; full history lives in StockMovement.
+  saleItemId     String?
+  soldAt         DateTime?
+  warrantyEndsAt DateTime?
+  createdAt      DateTime      @default(now())
+
+  product      Product            @relation(fields: [productId], references: [id])
+  receivedItem StockDocumentItem? @relation(fields: [receivedItemId], references: [id])
+  saleItem     SaleItem?          @relation(fields: [saleItemId], references: [id])
+  movements    StockMovement[]
+  tickets      ServiceTicket[]
+
+  @@index([productId, status])
+}
+
+/// Received lot with an expiry date (thermal paper, ink, batteries …).
+model StockLot {
+  id         String   @id @default(uuid())
+  productId  String
+  lotNo      String?
+  expiryDate DateTime
+  qty        Int
+  receivedAt DateTime @default(now())
+
+  product   Product         @relation(fields: [productId], references: [id])
+  movements StockMovement[]
+
+  @@index([expiryDate])
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  taxId     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stockDocuments StockDocument[]
+}
+
+/// Goods receipt / stock issue / stock adjustment document.
+model StockDocument {
+  id          String       @id @default(uuid())
+  docNo       String       @unique
+  type        StockDocType
+  status      DocStatus    @default(DRAFT)
+  supplierId  String?
+  /// Supplier invoice no. for RECEIVE, reason for ISSUE/ADJUST.
+  reference   String?
+  note        String?
+  currency    Currency     @default(LAK)
+  lakPerUnit  Decimal      @default(1) @db.Decimal(18, 4)
+  totalLak    Decimal      @default(0) @db.Decimal(18, 0)
+  createdById String
+  postedAt    DateTime?
+  createdAt   DateTime     @default(now())
+
+  supplier  Supplier?           @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation(fields: [createdById], references: [id])
+  items     StockDocumentItem[]
+
+  @@index([type, createdAt])
+}
+
+model StockDocumentItem {
+  id          String        @id @default(uuid())
+  documentId  String
+  productId   String
+  /// Positive for RECEIVE/ISSUE; signed for ADJUST.
+  quantity    Int
+  /// Unit cost in the document currency (RECEIVE only).
+  unitCost    Decimal       @default(0) @db.Decimal(18, 2)
+  unitCostLak Decimal       @default(0) @db.Decimal(18, 0)
+  condition   ItemCondition @default(NEW)
+  lotNo       String?
+  expiryDate  DateTime?
+
+  document StockDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  product  Product        @relation(fields: [productId], references: [id])
+  serials  SerialNumber[]
+}
+
+/// Stock ledger — insert-only. Product.stockQty must equal the sum of `quantity` per product.
+model StockMovement {
+  id           String        @id @default(uuid())
+  productId    String
+  type         StockMoveType
+  /// + in / − out
+  quantity     Int
+  balanceAfter Int
+  unitCostLak  Decimal?      @db.Decimal(18, 0)
+  serialId     String?
+  lotId        String?
+  /// "STOCK_DOC" | "SALE" | "SALE_RETURN" | "SERVICE_TICKET"
+  refType      String
+  refId        String
+  userId       String
+  createdAt    DateTime      @default(now())
+
+  product Product       @relation(fields: [productId], references: [id])
+  serial  SerialNumber? @relation(fields: [serialId], references: [id])
+  lot     StockLot?     @relation(fields: [lotId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([refType, refId])
+}
+
+// ───────────────────────────── Sales ─────────────────────────────
+
+model Customer {
+  id             String       @id @default(uuid())
+  code           String       @unique
+  name           String
+  type           CustomerType @default(INDIVIDUAL)
+  companyName    String?
+  taxId          String?
+  phone          String?      @unique
+  email          String?
+  address        String?
+  priceTier      PriceTier    @default(RETAIL)
+  /// 0 = no credit allowed.
+  creditLimitLak Decimal      @default(0) @db.Decimal(18, 0)
+  note           String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  sales        Sale[]
+  heldBills    HeldBill[]
+  quotations   Quotation[]
+  debtPayments DebtPayment[]
+  tickets      ServiceTicket[]
+}
+
+/// Parked ("held") cart that does not touch stock until it is completed as a Sale.
+model HeldBill {
+  id         String   @id @default(uuid())
+  label      String?
+  cashierId  String
+  customerId String?
+  /// Cart snapshot: [{productId, quantity, unitPriceLak, discountLak, serials[]}], bill discount, note.
+  cart       Json
+  createdAt  DateTime @default(now())
+
+  cashier  User      @relation(fields: [cashierId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+}
+
+model Quotation {
+  id          String          @id @default(uuid())
+  quoteNo     String          @unique
+  customerId  String
+  status      QuotationStatus @default(DRAFT)
+  validUntil  DateTime
+  subtotalLak Decimal         @db.Decimal(18, 0)
+  discountLak Decimal         @default(0) @db.Decimal(18, 0)
+  taxRateId   String?
+  vatPercent  Decimal         @default(0) @db.Decimal(5, 2)
+  vatLak      Decimal         @default(0) @db.Decimal(18, 0)
+  totalLak    Decimal         @db.Decimal(18, 0)
+  note        String?
+  createdById String
+  createdAt   DateTime        @default(now())
+
+  customer  Customer        @relation(fields: [customerId], references: [id])
+  taxRate   TaxRate?        @relation(fields: [taxRateId], references: [id])
+  createdBy User            @relation(fields: [createdById], references: [id])
+  items     QuotationItem[]
+  sale      Sale?
+}
+
+model QuotationItem {
+  id           String  @id @default(uuid())
+  quotationId  String
+  productId    String
+  productName  String
+  quantity     Int
+  unitPriceLak Decimal @db.Decimal(18, 0)
+  discountLak  Decimal @default(0) @db.Decimal(18, 0)
+  lineTotalLak Decimal @db.Decimal(18, 0)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+}
+
+model Sale {
+  id            String        @id @default(uuid())
+  receiptNo     String        @unique
+  status        SaleStatus    @default(COMPLETED)
+  paymentStatus PaymentStatus @default(PAID)
+  cashierId     String
+  shiftId       String?
+  customerId    String?
+  quotationId   String?       @unique
+  priceTier     PriceTier     @default(RETAIL)
+
+  subtotalLak      Decimal   @db.Decimal(18, 0)
+  /// Whole-bill discount (line discounts are on SaleItem).
+  discountLak      Decimal   @default(0) @db.Decimal(18, 0)
+  taxRateId        String?
+  vatPercent       Decimal   @default(0) @db.Decimal(5, 2)
+  pricesIncludeVat Boolean   @default(true)
+  vatLak           Decimal   @default(0) @db.Decimal(18, 0)
+  totalLak         Decimal   @db.Decimal(18, 0)
+  /// Sum of non-credit payments (+ later debt payments); totalLak − paidLak = outstanding debt.
+  paidLak          Decimal   @default(0) @db.Decimal(18, 0)
+  changeLak        Decimal   @default(0) @db.Decimal(18, 0)
+  dueDate          DateTime?
+
+  note       String?
+  printCount Int       @default(0)
+  voidedById String?
+  voidedAt   DateTime?
+  voidReason String?
+  createdAt  DateTime  @default(now())
+
+  cashier      User           @relation("SaleCashier", fields: [cashierId], references: [id])
+  voidedBy     User?          @relation("SaleVoidedBy", fields: [voidedById], references: [id])
+  shift        Shift?         @relation(fields: [shiftId], references: [id])
+  customer     Customer?      @relation(fields: [customerId], references: [id])
+  quotation    Quotation?     @relation(fields: [quotationId], references: [id])
+  taxRate      TaxRate?       @relation(fields: [taxRateId], references: [id])
+  items        SaleItem[]
+  payments     Payment[]
+  returns      SaleReturn[]
+  debtPayments DebtPayment[]
+  ticket       ServiceTicket?
+
+  @@index([createdAt])
+  @@index([customerId, paymentStatus])
+}
+
+model SaleItem {
+  id                  String  @id @default(uuid())
+  saleId              String
+  productId           String
+  /// Snapshot of product name at time of sale.
+  productName         String
+  quantity            Int
+  /// List price for the tier at sale time …
+  listPriceLak        Decimal @db.Decimal(18, 0)
+  /// … and the price actually charged (differs when overridden or a demo unit).
+  unitPriceLak        Decimal @db.Decimal(18, 0)
+  priceOverriddenById String?
+  promotionId         String?
+  discountLak         Decimal @default(0) @db.Decimal(18, 0)
+  lineTotalLak        Decimal @db.Decimal(18, 0)
+  /// Cost snapshot for profit reports.
+  unitCostLak         Decimal @db.Decimal(18, 0)
+  warrantyMonths      Int     @default(0)
+
+  sale              Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product           Product          @relation(fields: [productId], references: [id])
+  priceOverriddenBy User?            @relation(fields: [priceOverriddenById], references: [id])
+  promotion         Promotion?       @relation(fields: [promotionId], references: [id])
+  serialNumbers     SerialNumber[]
+  returnItems       SaleReturnItem[]
+}
+
+/// One sale may be paid with several payments in different currencies and types.
+model Payment {
+  id            String   @id @default(uuid())
+  saleId        String
+  paymentTypeId String
+  currency      Currency
+  /// Amount tendered in `currency`.
+  amount        Decimal  @db.Decimal(18, 2)
+  /// Exchange-rate snapshot (1 for LAK).
+  lakPerUnit    Decimal  @db.Decimal(18, 4)
+  amountLak     Decimal  @db.Decimal(18, 0)
+  /// Transfer / QR / card reference.
+  reference     String?
+  createdAt     DateTime @default(now())
+
+  sale        Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  paymentType PaymentType @relation(fields: [paymentTypeId], references: [id])
+}
+
+/// Customer paying off credit-sale debt (may be partial).
+model DebtPayment {
+  id            String   @id @default(uuid())
+  receiptNo     String   @unique
+  customerId    String
+  saleId        String
+  paymentTypeId String
+  currency      Currency
+  amount        Decimal  @db.Decimal(18, 2)
+  lakPerUnit    Decimal  @db.Decimal(18, 4)
+  amountLak     Decimal  @db.Decimal(18, 0)
+  reference     String?
+  shiftId       String?
+  receivedById  String
+  createdAt     DateTime @default(now())
+
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  sale        Sale        @relation(fields: [saleId], references: [id])
+  paymentType PaymentType @relation(fields: [paymentTypeId], references: [id])
+  shift       Shift?      @relation(fields: [shiftId], references: [id])
+  receivedBy  User        @relation(fields: [receivedById], references: [id])
+
+  @@index([customerId, createdAt])
+}
+
+model SaleReturn {
+  id            String   @id @default(uuid())
+  returnNo      String   @unique
+  saleId        String
+  reason        String
+  refundLak     Decimal  @db.Decimal(18, 0)
+  paymentTypeId String
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  sale        Sale             @relation(fields: [saleId], references: [id])
+  paymentType PaymentType      @relation(fields: [paymentTypeId], references: [id])
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  items       SaleReturnItem[]
+}
+
+model SaleReturnItem {
+  id         String   @id @default(uuid())
+  returnId   String
+  saleItemId String
+  quantity   Int
+  serials    String[]
+  /// false = defective, not put back on sale.
+  restock    Boolean  @default(true)
+  amountLak  Decimal  @db.Decimal(18, 0)
+
+  saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItem   SaleItem   @relation(fields: [saleItemId], references: [id])
+}
+
+// ───────────────────────── Shifts, cash & expenses ─────────────────────────
+
+model Shift {
+  id           String      @id @default(uuid())
+  userId       String
+  status       ShiftStatus @default(OPEN)
+  openedAt     DateTime    @default(now())
+  closedAt     DateTime?
+  /// Cash counted per currency, e.g. {"LAK":"500000","THB":"0","USD":"20"}.
+  openingCash  Json
+  closingCash  Json?
+  /// System-calculated cash per currency at close.
+  expectedCash Json?
+  note         String?
+
+  user          User           @relation(fields: [userId], references: [id])
+  sales         Sale[]
+  debtPayments  DebtPayment[]
+  cashMovements CashMovement[]
+  expenses      Expense[]
+}
+
+/// Cash put into / taken out of the drawer during a shift (not an expense).
+model CashMovement {
+  id        String       @id @default(uuid())
+  shiftId   String
+  type      CashMoveType
+  currency  Currency
+  amount    Decimal      @db.Decimal(18, 2)
+  reason    String
+  userId    String
+  createdAt DateTime     @default(now())
+
+  shift Shift @relation(fields: [shiftId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
+
+model ExpenseCategory {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  isActive Boolean   @default(true)
+  expenses Expense[]
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  categoryId    String
+  description   String
+  currency      Currency
+  amount        Decimal  @db.Decimal(18, 2)
+  lakPerUnit    Decimal  @db.Decimal(18, 4)
+  amountLak     Decimal  @db.Decimal(18, 0)
+  paymentTypeId String
+  /// Set when paid from the drawer, so shift cash balances.
+  shiftId       String?
+  attachmentUrl String?
+  spentAt       DateTime @default(now())
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  paymentType PaymentType     @relation(fields: [paymentTypeId], references: [id])
+  shift       Shift?          @relation(fields: [shiftId], references: [id])
+  createdBy   User            @relation(fields: [createdById], references: [id])
+
+  @@index([spentAt])
+}
+
+// ───────────────────────────── Repair / warranty ─────────────────────────────
+
+model ServiceTicket {
+  id            String       @id @default(uuid())
+  ticketNo      String       @unique
+  status        TicketStatus @default(RECEIVED)
+  customerId    String
+  /// Set when the device was sold by this shop.
+  serialId      String?
+  deviceName    String
+  deviceSerial  String?
+  accessories   String?
+  problem       String
+  diagnosis     String?
+  underWarranty Boolean      @default(false)
+  /// Repair quotation total (from lines).
+  quotedLak     Decimal      @default(0) @db.Decimal(18, 0)
+  /// Warranty given on this repair.
+  warrantyDays  Int          @default(0)
+  warrantyTerms String?
+  /// Payment bill for the repair.
+  saleId        String?      @unique
+  receivedById  String
+  receivedAt    DateTime     @default(now())
+  promisedAt    DateTime?
+  deliveredAt   DateTime?
+
+  customer   Customer            @relation(fields: [customerId], references: [id])
+  serial     SerialNumber?       @relation(fields: [serialId], references: [id])
+  sale       Sale?               @relation(fields: [saleId], references: [id])
+  receivedBy User                @relation(fields: [receivedById], references: [id])
+  lines      ServiceTicketLine[]
+  logs       ServiceTicketLog[]
+
+  @@index([status])
+}
+
+/// Parts and labour on a repair quotation / bill.
+model ServiceTicketLine {
+  id           String         @id @default(uuid())
+  ticketId     String
+  type         TicketLineType
+  productId    String?
+  description  String
+  quantity     Int            @default(1)
+  unitPriceLak Decimal        @db.Decimal(18, 0)
+  lineTotalLak Decimal        @db.Decimal(18, 0)
+
+  ticket  ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  product Product?      @relation(fields: [productId], references: [id])
+}
+
+/// Status history of a repair ticket.
+model ServiceTicketLog {
+  id        String       @id @default(uuid())
+  ticketId  String
+  status    TicketStatus
+  note      String?
+  userId    String
+  createdAt DateTime     @default(now())
+
+  ticket ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id])
+}
