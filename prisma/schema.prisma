@@ -202,6 +202,8 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// Key–value settings: "store.name", "store.phone", "store.address", "store.logoUrl",
@@ -366,6 +368,9 @@ model Product {
 
   @@index([categoryId])
   @@index([brandId])
+  /// Trigram indexes (pg_trgm) make "contains" searches fast on large catalogs.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_name_trgm_idx")
+  @@index([sku(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_sku_trgm_idx")
 }
 
 model ProductImage {
@@ -375,6 +380,8 @@ model ProductImage {
   sortOrder Int    @default(0)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 /// Components of a BUNDLE product, e.g. "Restaurant POS set" = terminal + drawer + printer + scanner.
@@ -416,6 +423,8 @@ model PromotionItem {
   promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
   product   Product?  @relation(fields: [productId], references: [id])
   category  Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([promotionId])
 }
 
 // ───────────────────────────── Stock ─────────────────────────────
@@ -446,6 +455,8 @@ model SerialNumber {
   tickets      ServiceTicket[]
 
   @@index([productId, status])
+  @@index([saleItemId])
+  @@index([receivedItemId])
 }
 
 /// Received lot with an expiry date (thermal paper, ink, batteries …).
@@ -461,6 +472,7 @@ model StockLot {
   movements StockMovement[]
 
   @@index([expiryDate])
+  @@index([productId, expiryDate])
 }
 
 model Supplier {
@@ -519,6 +531,9 @@ model StockDocumentItem {
   document StockDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   product  Product        @relation(fields: [productId], references: [id])
   serials  SerialNumber[]
+
+  @@index([documentId])
+  @@index([productId])
 }
 
 /// Stock ledger — insert-only. Product.stockQty must equal the sum of `quantity` per product.
@@ -571,6 +586,9 @@ model Customer {
   quotations   Quotation[]
   debtPayments DebtPayment[]
   tickets      ServiceTicket[]
+
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm_idx")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_phone_trgm_idx")
 }
 
 /// Parked ("held") cart that does not touch stock until it is completed as a Sale.
@@ -585,6 +603,8 @@ model HeldBill {
 
   cashier  User      @relation(fields: [cashierId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([cashierId])
 }
 
 model Quotation {
@@ -608,6 +628,8 @@ model Quotation {
   createdBy User            @relation(fields: [createdById], references: [id])
   items     QuotationItem[]
   sale      Sale?
+
+  @@index([customerId])
 }
 
 model QuotationItem {
@@ -622,6 +644,8 @@ model QuotationItem {
 
   quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])
+
+  @@index([quotationId])
 }
 
 model Sale {
@@ -672,6 +696,9 @@ model Sale {
 
   @@index([createdAt])
   @@index([customerId, paymentStatus])
+  @@index([shiftId])
+  @@index([status, createdAt])
+  @@index([cashierId, createdAt])
 }
 
 /// Formal VAT invoice (A4) for a sale. Buyer details are snapshotted so later customer edits don't change issued invoices.
@@ -695,6 +722,7 @@ model TaxInvoice {
   issuedBy User @relation(fields: [issuedById], references: [id])
 
   @@index([saleId])
+  @@index([issuedAt])
 }
 
 model SaleItem {
@@ -722,6 +750,9 @@ model SaleItem {
   promotion         Promotion?       @relation(fields: [promotionId], references: [id])
   serialNumbers     SerialNumber[]
   returnItems       SaleReturnItem[]
+
+  @@index([saleId])
+  @@index([productId])
 }
 
 /// One sale may be paid with several payments in different currencies and types.
@@ -741,6 +772,8 @@ model Payment {
 
   sale        Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
   paymentType PaymentType @relation(fields: [paymentTypeId], references: [id])
+
+  @@index([saleId])
 }
 
 /// Customer paying off credit-sale debt (may be partial).
@@ -766,6 +799,8 @@ model DebtPayment {
   receivedBy  User        @relation(fields: [receivedById], references: [id])
 
   @@index([customerId, createdAt])
+  @@index([saleId])
+  @@index([shiftId])
 }
 
 model SaleReturn {
@@ -785,6 +820,10 @@ model SaleReturn {
   paymentType PaymentType      @relation(fields: [paymentTypeId], references: [id])
   createdBy   User             @relation(fields: [createdById], references: [id])
   items       SaleReturnItem[]
+
+  @@index([saleId])
+  @@index([shiftId])
+  @@index([createdAt])
 }
 
 model SaleReturnItem {
@@ -799,6 +838,9 @@ model SaleReturnItem {
 
   saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   saleItem   SaleItem   @relation(fields: [saleItemId], references: [id])
+
+  @@index([returnId])
+  @@index([saleItemId])
 }
 
 // ───────────────────────── Shifts, cash & expenses ─────────────────────────
@@ -840,6 +882,8 @@ model Shift {
   cashMovements CashMovement[]
   expenses      Expense[]
   saleReturns   SaleReturn[]
+
+  @@index([registerId, status])
 }
 
 /// Cash put into / taken out of the drawer during a shift (not an expense).
@@ -855,6 +899,8 @@ model CashMovement {
 
   shift Shift @relation(fields: [shiftId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
+
+  @@index([shiftId])
 }
 
 model ExpenseCategory {
@@ -886,6 +932,8 @@ model Expense {
   createdBy   User            @relation(fields: [createdById], references: [id])
 
   @@index([spentAt])
+  @@index([shiftId])
+  @@index([categoryId])
 }
 
 // ───────────────────────────── Repair / warranty ─────────────────────────────
@@ -926,6 +974,7 @@ model ServiceTicket {
   logs       ServiceTicketLog[]
 
   @@index([status])
+  @@index([customerId])
 }
 
 /// Parts and labour on a repair quotation / bill.
@@ -941,6 +990,8 @@ model ServiceTicketLine {
 
   ticket  ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   product Product?      @relation(fields: [productId], references: [id])
+
+  @@index([ticketId])
 }
 
 /// Status history of a repair ticket.
@@ -954,4 +1005,6 @@ model ServiceTicketLog {
 
   ticket ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user   User          @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
 }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
+import { TtlCache } from '../common/ttl-cache.js';
 import { Prisma, type Currency } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
@@ -19,9 +20,15 @@ export class ExchangeRatesService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Latest rate per currency (LAK is always 1). */
-  async current(tx?: Prisma.TransactionClient): Promise<CurrentRates> {
-    const db = tx ?? this.prisma;
+  private readonly cache = new TtlCache<CurrentRates>(10_000);
+
+  /** Latest rate per currency (LAK is always 1). Cached briefly; cleared when a rate is set. */
+  current(_tx?: Prisma.TransactionClient): Promise<CurrentRates> {
+    return this.cache.get('current', () => this.load());
+  }
+
+  private async load(): Promise<CurrentRates> {
+    const db = this.prisma;
     const [thb, usd] = await Promise.all(
       (['THB', 'USD'] as const).map((currency) =>
         db.exchangeRate.findFirst({
@@ -57,6 +64,7 @@ export class ExchangeRatesService {
         createdById: actorId,
       },
     });
+    this.cache.clear();
     await this.audit.log({
       userId: actorId,
       action: 'EXCHANGE_RATE_SET',

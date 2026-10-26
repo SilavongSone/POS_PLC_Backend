@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
-import { pageArgs, toPage } from '../common/pagination.js';
+import { pageArgs, toPage, type PageQuery } from '../common/pagination.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
@@ -169,18 +169,27 @@ export class StockQueriesService {
   }
 
   /** Lots with stock left that expire within `withinDays` (already expired ones included). */
-  expiringLots(withinDays: number) {
-    return this.prisma.stockLot.findMany({
-      where: {
-        qty: { gt: 0 },
-        expiryDate: { lte: new Date(Date.now() + withinDays * 86_400_000) },
-      },
-      orderBy: { expiryDate: 'asc' },
-      include: {
-        product: {
-          select: { id: true, sku: true, name: true, location: true },
+  async expiringLots(
+    query: { withinDays: number; productId?: string } & PageQuery,
+  ) {
+    const where: Prisma.StockLotWhereInput = {
+      productId: query.productId,
+      qty: { gt: 0 },
+      expiryDate: { lte: new Date(Date.now() + query.withinDays * 86_400_000) },
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.stockLot.findMany({
+        where,
+        orderBy: { expiryDate: 'asc' },
+        include: {
+          product: {
+            select: { id: true, sku: true, name: true, location: true },
+          },
         },
-      },
-    });
+        ...pageArgs(query),
+      }),
+      this.prisma.stockLot.count({ where }),
+    ]);
+    return toPage(items, total, query);
   }
 }

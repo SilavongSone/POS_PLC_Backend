@@ -289,12 +289,23 @@ describe('Debt payments and reports (e2e)', () => {
         profitLak: '2400000',
       });
 
+      const sku = (
+        await t.prisma.product.findUniqueOrThrow({ where: { id: p.id } })
+      ).sku;
       const stock = (
-        await t.http().get('/reports/stock-value').set(manager.auth).expect(200)
+        await t
+          .http()
+          .get(`/reports/stock-value?q=${sku}`)
+          .set(manager.auth)
+          .expect(200)
       ).body;
-      expect(
-        stock.items.find((x: { id: string }) => x.id === p.id),
-      ).toMatchObject({ stockQty: 100, valueLak: '400000' });
+      expect(stock).toMatchObject({ total: 1, pageSize: 20 });
+      expect(stock.items[0]).toMatchObject({
+        id: p.id,
+        stockQty: 100,
+        valueLak: '400000',
+      });
+      expect(stock.totals.products).toBeGreaterThan(1);
     });
 
     it('reports receipts, debt aging, voids, customers and the dashboard', async () => {
@@ -311,6 +322,12 @@ describe('Debt payments and reports (e2e)', () => {
         await t.http().get('/reports/debt-aging').set(manager.auth).expect(200)
       ).body;
       expect(aging.totals).toHaveProperty('over90');
+      expect(aging).toMatchObject({
+        page: 1,
+        pageSize: 20,
+        total: expect.any(Number),
+      });
+      expect(aging.items.length).toBeLessThanOrEqual(20);
 
       const dash = (
         await t.http().get('/reports/dashboard').set(manager.auth).expect(200)

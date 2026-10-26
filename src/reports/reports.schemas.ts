@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pageQuerySchema } from '../common/pagination.js';
 
 const isoDate = z.iso.date();
 
@@ -19,7 +20,7 @@ export const salesSummarySchema = dateRangeSchema.and(
 
 export const bestSellersSchema = dateRangeSchema.and(
   z.object({
-    limit: z.coerce.number().int().min(1).max(200).default(20),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
     categoryId: z.uuid().optional(),
     by: z.enum(['quantity', 'revenue', 'profit']).default('quantity'),
   }),
@@ -33,3 +34,6 @@ export type DateRange = z.infer<typeof dateRangeSchema>;
 export type SalesSummaryQuery = z.infer<typeof salesSummarySchema>;
 export type BestSellersQuery = z.infer<typeof bestSellersSchema>;
 export type StockDocsReportQuery = z.infer<typeof stockDocsReportSchema>;
+
+/** Date range + page (?page, pageSize ≤ 100). */
+export const pagedRangeSchema = dateRangeSchema.and(pageQuerySchema);

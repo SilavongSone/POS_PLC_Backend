@@ -30,7 +30,7 @@ export class DebtsController {
   @Get('customers/:id/debts')
   @ApiOperation({ summary: "A customer's unpaid credit sales, oldest first" })
   openDebts(@Param('id', new ParseUUIDPipe()) customerId: string) {
-    return this.debts.openDebts(customerId);
+    return this.debts.openDebts(customerId, undefined, 500);
   }
 
   @Post('debt-payments')

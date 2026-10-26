@@ -205,7 +205,10 @@ export class StockController {
   @ApiOperation({
     summary: 'Lots with stock expiring within ?withinDays (default 30)',
   })
-  expiring(@Query(zod(expiringLotsSchema)) query: { withinDays: number }) {
-    return this.queries.expiringLots(query.withinDays);
+  expiring(
+    @Query(zod(expiringLotsSchema))
+    query: { withinDays: number; productId?: string } & PageQuery,
+  ) {
+    return this.queries.expiringLots(query);
   }
 }

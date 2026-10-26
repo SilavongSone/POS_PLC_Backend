@@ -112,7 +112,8 @@ export const updateSerialSchema = z.object({
   supplierWarrantyEndsAt: isoDate.nullable().optional(),
 });
 
-export const expiringLotsSchema = z.object({
+export const expiringLotsSchema = pageQuerySchema.extend({
+  productId: z.uuid().optional(),
   withinDays: z.coerce.number().int().min(0).max(3650).default(30),
 });
 

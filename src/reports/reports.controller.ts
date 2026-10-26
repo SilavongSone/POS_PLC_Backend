@@ -4,10 +4,12 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import { hasPermission } from '../common/permissions.js';
+import { pageQuerySchema, type PageQuery } from '../common/pagination.js';
 import { zod } from '../common/zod-validation.pipe.js';
 import {
   bestSellersSchema,
   dateRangeSchema,
+  pagedRangeSchema,
   salesSummarySchema,
   stockDocsReportSchema,
   type BestSellersQuery,
@@ -60,8 +62,8 @@ export class ReportsController {
   @Get('stock-value')
   @RequirePermissions('report.view', 'product.viewCost')
   @ApiOperation({ summary: 'Stock on hand valued at average cost' })
-  stockValue() {
-    return this.reports.stockValue();
+  stockValue(@Query(zod(pageQuerySchema)) q: PageQuery) {
+    return this.reports.stockValue(q);
   }
 
   @Get('stock-documents')
@@ -79,8 +81,8 @@ export class ReportsController {
 
   @Get('debt-aging')
   @ApiOperation({ summary: 'Outstanding credit per customer by days overdue' })
-  debtAging() {
-    return this.reports.debtAging();
+  debtAging(@Query(zod(pageQuerySchema)) q: PageQuery) {
+    return this.reports.debtAging(q);
   }
 
   @Get('expenses')
@@ -89,12 +91,12 @@ export class ReportsController {
   }
 
   @Get('voided-sales')
-  voidedSales(@Query(zod(dateRangeSchema)) q: DateRange) {
+  voidedSales(@Query(zod(pagedRangeSchema)) q: DateRange & PageQuery) {
     return this.reports.voidedSales(q);
   }
 
   @Get('customer-purchases')
-  customerPurchases(@Query(zod(dateRangeSchema)) q: DateRange) {
+  customerPurchases(@Query(zod(pagedRangeSchema)) q: DateRange & PageQuery) {
     return this.reports.customerPurchases(q);
   }
 

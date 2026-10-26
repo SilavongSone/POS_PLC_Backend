@@ -60,12 +60,22 @@ export class CustomersService {
       }),
       this.prisma.customer.count({ where }),
     ]);
-    const items = await Promise.all(
-      rows.map(async (c) => ({
-        ...c,
-        outstandingLak: await this.outstandingLak(c.id),
-      })),
+    // One grouped query for the whole page instead of one per customer.
+    const debts = await this.prisma.sale.groupBy({
+      by: ['customerId'],
+      where: { customerId: { in: rows.map((c) => c.id) }, ...openDebtWhere },
+      _sum: { totalLak: true, paidLak: true },
+    });
+    const owed = new Map(
+      debts.map((d) => [
+        d.customerId,
+        new Prisma.Decimal(d._sum.totalLak ?? 0).sub(d._sum.paidLak ?? 0),
+      ]),
     );
+    const items = rows.map((c) => ({
+      ...c,
+      outstandingLak: owed.get(c.id) ?? new Prisma.Decimal(0),
+    }));
     return toPage(items, total, query);
   }
 

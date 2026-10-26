@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma, TaxRate } from '../generated/prisma/client.js';
+import { TtlCache } from '../common/ttl-cache.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateTaxRateInput,
@@ -20,11 +21,15 @@ export class TaxRatesService {
     });
   }
 
-  /** The VAT rate applied to new sales; null when none is set. */
-  getDefault(tx?: Prisma.TransactionClient) {
-    return (tx ?? this.prisma).taxRate.findFirst({
-      where: { isDefault: true, isActive: true },
-    });
+  private readonly cache = new TtlCache<TaxRate | null>(10_000);
+
+  /** The VAT rate applied to new sales; null when none is set. Cached briefly. */
+  getDefault(_tx?: Prisma.TransactionClient): Promise<TaxRate | null> {
+    return this.cache.get('default', () =>
+      this.prisma.taxRate.findFirst({
+        where: { isDefault: true, isActive: true },
+      }),
+    );
   }
 
   async create(input: CreateTaxRateInput, actorId: string) {
@@ -73,6 +78,7 @@ export class TaxRatesService {
     before: unknown,
     after: unknown,
   ) {
+    this.cache.clear();
     return this.audit.log({
       userId,
       action,

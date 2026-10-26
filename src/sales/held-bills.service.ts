@@ -13,6 +13,7 @@ export class HeldBillsService {
   list() {
     return this.prisma.heldBill.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 100,
       include: {
         cashier: { select: { id: true, fullName: true } },
         customer: { select: { id: true, name: true } },

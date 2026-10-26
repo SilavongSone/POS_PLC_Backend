@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
+import { TtlCache } from '../common/ttl-cache.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -16,29 +17,30 @@ export class SettingsService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Hot path (every sale and receipt): served from a short cache, cleared on change. */
+  private readonly cache = new TtlCache<Settings>(10_000);
+
   /** All settings, with defaults for keys that were never saved or hold invalid data. */
-  async getAll(tx?: Prisma.TransactionClient): Promise<Settings> {
-    const rows = await (tx ?? this.prisma).setting.findMany();
-    const settings = { ...SETTING_DEFAULTS } as Record<string, unknown>;
-    for (const row of rows) {
-      const schema = settingsShape[row.key as SettingKey];
-      const parsed = schema?.safeParse(row.value);
-      if (parsed?.success) settings[row.key] = parsed.data;
-    }
-    return settings as Settings;
+  async getAll(_tx?: Prisma.TransactionClient): Promise<Settings> {
+    const settings = await this.cache.get('all', async () => {
+      const rows = await this.prisma.setting.findMany();
+      const all = { ...SETTING_DEFAULTS } as Record<string, unknown>;
+      for (const row of rows) {
+        const parsed = settingsShape[row.key as SettingKey]?.safeParse(
+          row.value,
+        );
+        if (parsed?.success) all[row.key] = parsed.data;
+      }
+      return all as Settings;
+    });
+    return { ...settings };
   }
 
   async get<K extends SettingKey>(
     key: K,
     tx?: Prisma.TransactionClient,
   ): Promise<Settings[K]> {
-    const row = await (tx ?? this.prisma).setting.findUnique({
-      where: { key },
-    });
-    const parsed = row && settingsShape[key].safeParse(row.value);
-    return parsed?.success
-      ? (parsed.data as Settings[K])
-      : SETTING_DEFAULTS[key];
+    return (await this.getAll(tx))[key];
   }
 
   async update(changes: Partial<Settings>, actorId: string): Promise<Settings> {
@@ -52,6 +54,7 @@ export class SettingsService {
         }),
       ),
     );
+    this.cache.clear();
     const changedBefore = Object.fromEntries(
       Object.keys(changes).map((k) => [k, before[k as SettingKey]]),
     );

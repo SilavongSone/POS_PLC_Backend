@@ -30,13 +30,16 @@ export class DebtsService {
   ) {}
 
   /** A customer's unpaid credit sales, oldest first, with what is still due. */
+  /** `take` limits the list for display; payment allocation always sees every debt. */
   async openDebts(
     customerId: string,
     db: Prisma.TransactionClient = this.prisma,
+    take?: number,
   ) {
     const sales = await db.sale.findMany({
       where: { customerId, ...openDebtWhere },
       orderBy: { createdAt: 'asc' },
+      take,
       select: {
         id: true,
         receiptNo: true,

@@ -365,12 +365,14 @@ describe('Stock (e2e)', () => {
 
     const expiring = await t
       .http()
-      .get('/stock/lots/expiring?withinDays=3650')
+      .get(`/stock/lots/expiring?withinDays=3650&productId=${p.id}`)
       .set(cashier.auth)
       .expect(200);
-    expect(
-      expiring.body.some((l: { productId: string }) => l.productId === p.id),
-    ).toBe(true);
+    // The drained SOON lot is gone; the LATE lot still has 3.
+    expect(expiring.body).toMatchObject({
+      total: 1,
+      items: [{ lotNo: 'LATE', qty: 3 }],
+    });
   });
 
   it('adjusts up and down', async () => {

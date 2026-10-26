@@ -34,6 +34,7 @@ export class PromotionsService {
           }
         : undefined,
       orderBy: [{ isActive: 'desc' }, { startsAt: 'desc' }],
+      take: 200,
       include,
     });
   }

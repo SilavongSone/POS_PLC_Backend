@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CategoriesService } from '../catalog/categories.service.js';
+import { pageArgs, toPage, type PageQuery } from '../common/pagination.js';
 import { APP_TIMEZONE, localToday, startOfLocalDay } from '../common/time.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -71,10 +72,18 @@ export class ReportsService {
   /** Sales totals with VAT, discounts, cost and profit, grouped by day/month/cashier/register/payment type. */
   async salesSummary(q: SalesSummaryQuery, canViewCost: boolean) {
     const r = this.range(q);
+    // Sales in range joined once to their line costs (indexed on Sale(status, createdAt)
+    // and SaleItem(saleId)), instead of a subquery per sale.
     const sales = Prisma.sql`
-      SELECT s.*, (SELECT COALESCE(SUM(i."unitCostLak" * i."quantity"), 0)
-                   FROM "SaleItem" i WHERE i."saleId" = s."id") AS cost
+      SELECT s.*, COALESCE(c.cost, 0) AS cost
       FROM "Sale" s
+      LEFT JOIN (
+        SELECT i."saleId", SUM(i."unitCostLak" * i."quantity") AS cost
+        FROM "SaleItem" i
+        JOIN "Sale" x ON x."id" = i."saleId"
+        WHERE x."status" = 'COMPLETED' AND x."createdAt" >= ${r.start} AND x."createdAt" < ${r.end}
+        GROUP BY i."saleId"
+      ) c ON c."saleId" = s."id"
       WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}`;
 
     const totals = await this.prisma.$queryRaw<
@@ -181,35 +190,60 @@ export class ReportsService {
     };
   }
 
-  /** Stock on hand and its value at average cost. */
-  async stockValue() {
-    const products = await this.prisma.product.findMany({
-      where: { type: 'STANDARD', trackStock: true, isActive: true },
-      orderBy: { sku: 'asc' },
-      select: {
-        id: true,
-        sku: true,
-        name: true,
-        stockQty: true,
-        lowStockAlert: true,
-        avgCostLak: true,
-        category: { select: { name: true } },
-      },
-    });
+  /** Stock on hand valued at average cost: one page of products, totals over all of them. */
+  async stockValue(q: PageQuery) {
+    const where: Prisma.ProductWhereInput = {
+      type: 'STANDARD',
+      trackStock: true,
+      isActive: true,
+      ...(q.q && {
+        OR: [
+          { sku: { contains: q.q, mode: 'insensitive' } },
+          { name: { contains: q.q, mode: 'insensitive' } },
+        ],
+      }),
+    };
+    const [products, count, totals] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        orderBy: { sku: 'asc' },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          stockQty: true,
+          lowStockAlert: true,
+          avgCostLak: true,
+          category: { select: { name: true } },
+        },
+        ...pageArgs(q),
+      }),
+      this.prisma.product.count({ where }),
+      this.prisma.$queryRaw<
+        {
+          units: number;
+          valueLak: Decimal;
+          lowStock: number;
+          outOfStock: number;
+        }[]
+      >`
+        SELECT count(*)::int AS products,
+               COALESCE(SUM(GREATEST("stockQty", 0)), 0)::int AS units,
+               COALESCE(SUM("avgCostLak" * GREATEST("stockQty", 0)), 0) AS "valueLak",
+               count(*) FILTER (WHERE "stockQty" <= "lowStockAlert")::int AS "lowStock",
+               count(*) FILTER (WHERE "stockQty" <= 0)::int AS "outOfStock"
+        FROM "Product"
+        WHERE "type" = 'STANDARD' AND "trackStock" AND "isActive"`,
+    ]);
     const items = products.map((p) => ({
       ...p,
       valueLak: p.avgCostLak.mul(Math.max(p.stockQty, 0)),
       low: p.stockQty <= p.lowStockAlert,
     }));
     return {
-      items,
-      totals: {
-        products: items.length,
-        units: items.reduce((s, p) => s + Math.max(p.stockQty, 0), 0),
-        valueLak: items.reduce((s, p) => s.add(p.valueLak), zero()),
-        lowStock: items.filter((p) => p.low).length,
-        outOfStock: items.filter((p) => p.stockQty <= 0).length,
-      },
+      ...toPage(items, count, q),
+      /** Over all stocked products, regardless of the search. */
+      totals: totals[0],
     };
   }
 
@@ -273,71 +307,40 @@ export class ReportsService {
     };
   }
 
-  /** Outstanding credit per customer, aged by due date (or sale date when no due date). */
-  async debtAging() {
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        status: 'COMPLETED',
-        paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
-      },
-      select: {
-        customerId: true,
-        createdAt: true,
-        dueDate: true,
-        totalLak: true,
-        paidLak: true,
-        customer: { select: { code: true, name: true, phone: true } },
-      },
-    });
-    const buckets = ['notDue', 'd1_30', 'd31_60', 'd61_90', 'over90'] as const;
-    type Row = {
-      customerId: string;
-      code?: string;
-      name?: string;
-      phone?: string | null;
-      totalLak: Decimal;
-    } & Record<(typeof buckets)[number], Decimal>;
-    const byCustomer = new Map<string, Row>();
-    const now = Date.now();
-    for (const s of sales) {
-      const due = s.totalLak.sub(s.paidLak);
-      const days = Math.floor(
-        (now - (s.dueDate ?? s.createdAt).getTime()) / DAY,
-      );
-      const bucket =
-        days <= 0
-          ? 'notDue'
-          : days <= 30
-            ? 'd1_30'
-            : days <= 60
-              ? 'd31_60'
-              : days <= 90
-                ? 'd61_90'
-                : 'over90';
-      const row =
-        byCustomer.get(s.customerId!) ??
-        ({
-          customerId: s.customerId!,
-          ...s.customer,
-          totalLak: zero(),
-          ...Object.fromEntries(buckets.map((b) => [b, zero()])),
-        } as Row);
-      row[bucket] = row[bucket].add(due);
-      row.totalLak = row.totalLak.add(due);
-      byCustomer.set(s.customerId!, row);
-    }
-    const items = [...byCustomer.values()].sort((a, b) =>
-      b.totalLak.comparedTo(a.totalLak),
-    );
-    return {
-      items,
-      totals: Object.fromEntries(
-        [...buckets, 'totalLak' as const].map((b) => [
-          b,
-          items.reduce((s, x) => s.add(x[b]), zero()),
-        ]),
-      ),
-    };
+  /**
+   * Outstanding credit per customer, aged by due date (or sale date when no due date).
+   * Aggregated in SQL; one page of customers (largest debt first) plus overall totals.
+   */
+  async debtAging(q: PageQuery) {
+    const aged = Prisma.sql`
+      SELECT s."customerId",
+             s."totalLak" - s."paidLak" AS due,
+             floor(extract(epoch FROM (now() AT TIME ZONE 'UTC') - COALESCE(s."dueDate", s."createdAt")) / 86400) AS days
+      FROM "Sale" s
+      WHERE s."status" = 'COMPLETED' AND s."paymentStatus" IN ('UNPAID', 'PARTIAL')`;
+    const buckets = Prisma.sql`
+      COALESCE(SUM(due) FILTER (WHERE days <= 0), 0) AS "notDue",
+      COALESCE(SUM(due) FILTER (WHERE days BETWEEN 1 AND 30), 0) AS "d1_30",
+      COALESCE(SUM(due) FILTER (WHERE days BETWEEN 31 AND 60), 0) AS "d31_60",
+      COALESCE(SUM(due) FILTER (WHERE days BETWEEN 61 AND 90), 0) AS "d61_90",
+      COALESCE(SUM(due) FILTER (WHERE days > 90), 0) AS "over90",
+      COALESCE(SUM(due), 0) AS "totalLak"`;
+    const { skip, take } = pageArgs(q);
+    const [items, totals, count] = await Promise.all([
+      this.prisma.$queryRaw<Record<string, unknown>[]>`
+        WITH a AS (${aged})
+        SELECT a."customerId", c."code", c."name", c."phone", ${buckets}
+        FROM a JOIN "Customer" c ON c."id" = a."customerId"
+        GROUP BY a."customerId", c."code", c."name", c."phone"
+        ORDER BY "totalLak" DESC
+        LIMIT ${take} OFFSET ${skip}`,
+      this.prisma.$queryRaw<
+        Record<string, unknown>[]
+      >`WITH a AS (${aged}) SELECT ${buckets} FROM a`,
+      this.prisma.$queryRaw<{ n: number }[]>`
+        WITH a AS (${aged}) SELECT count(DISTINCT "customerId")::int AS n FROM a`,
+    ]);
+    return { ...toPage(items, count[0].n, q), totals: totals[0] };
   }
 
   async expenses(q: DateRange) {
@@ -366,47 +369,64 @@ export class ReportsService {
     };
   }
 
-  async voidedSales(q: DateRange) {
+  async voidedSales(q: DateRange & PageQuery) {
     const r = this.range(q);
-    const items = await this.prisma.sale.findMany({
-      where: { status: 'VOIDED', voidedAt: { gte: r.start, lt: r.end } },
-      orderBy: { voidedAt: 'desc' },
-      select: {
-        id: true,
-        receiptNo: true,
-        createdAt: true,
-        voidedAt: true,
-        voidReason: true,
-        totalLak: true,
-        cashier: { select: { id: true, fullName: true } },
-        voidedBy: { select: { id: true, fullName: true } },
-      },
-    });
+    const where: Prisma.SaleWhereInput = {
+      status: 'VOIDED',
+      voidedAt: { gte: r.start, lt: r.end },
+    };
+    const [items, totals] = await Promise.all([
+      this.prisma.sale.findMany({
+        where,
+        orderBy: { voidedAt: 'desc' },
+        select: {
+          id: true,
+          receiptNo: true,
+          createdAt: true,
+          voidedAt: true,
+          voidReason: true,
+          totalLak: true,
+          cashier: { select: { id: true, fullName: true } },
+          voidedBy: { select: { id: true, fullName: true } },
+        },
+        ...pageArgs(q),
+      }),
+      this.prisma.sale.aggregate({
+        where,
+        _count: true,
+        _sum: { totalLak: true },
+      }),
+    ]);
     return {
       from: r.fromDate,
       to: r.toDate,
-      items,
+      ...toPage(items, totals._count, q),
       totals: {
-        count: items.length,
-        totalLak: items.reduce((s, x) => s.add(x.totalLak), zero()),
+        count: totals._count,
+        totalLak: totals._sum.totalLak ?? zero(),
       },
     };
   }
 
-  async customerPurchases(q: DateRange) {
+  async customerPurchases(q: DateRange & PageQuery) {
     const r = this.range(q);
-    const groups = await this.prisma.sale.groupBy({
-      by: ['customerId'],
-      where: {
-        status: 'COMPLETED',
-        customerId: { not: null },
-        createdAt: { gte: r.start, lt: r.end },
-      },
-      _count: true,
-      _sum: { totalLak: true },
-      _max: { createdAt: true },
-      orderBy: { _sum: { totalLak: 'desc' } },
-    });
+    const where: Prisma.SaleWhereInput = {
+      status: 'COMPLETED',
+      customerId: { not: null },
+      createdAt: { gte: r.start, lt: r.end },
+    };
+    const [groups, all] = await Promise.all([
+      this.prisma.sale.groupBy({
+        by: ['customerId'],
+        where,
+        _count: true,
+        _sum: { totalLak: true },
+        _max: { createdAt: true },
+        orderBy: { _sum: { totalLak: 'desc' } },
+        ...pageArgs(q),
+      }),
+      this.prisma.sale.groupBy({ by: ['customerId'], where }),
+    ]);
     const customers = new Map(
       (
         await this.prisma.customer.findMany({
@@ -418,12 +438,16 @@ export class ReportsService {
     return {
       from: r.fromDate,
       to: r.toDate,
-      items: groups.map((g) => ({
-        customer: customers.get(g.customerId!),
-        count: g._count,
-        totalLak: g._sum.totalLak,
-        lastPurchaseAt: g._max.createdAt,
-      })),
+      ...toPage(
+        groups.map((g) => ({
+          customer: customers.get(g.customerId!),
+          count: g._count,
+          totalLak: g._sum.totalLak,
+          lastPurchaseAt: g._max.createdAt,
+        })),
+        all.length,
+        q,
+      ),
     };
   }
 
