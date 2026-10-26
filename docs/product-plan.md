@@ -62,7 +62,7 @@
 
 | # | Milestone | ผลลัพธ์ |
 |---|---|---|
-| M0 | Schema + migration + seed | นำ `schema.draft.prisma` มาใช้, seed หมวดหมู่/แบรนด์/VAT/ประเภทชำระ/กลุ่มผู้ใช้/admin |
+| M0 ✅ | Schema + migration + seed | 40 ตารางใน `prisma/schema.prisma`, migration ที่คงข้อมูลเดิมไว้, seed หมวดหมู่/แบรนด์/VAT 12%/ประเภทชำระ/กลุ่มผู้ใช้/admin/R1 (+ สินค้าตัวอย่าง `SEED_DEMO=true`) |
 | M1 | Auth + Users + Settings | JWT + refresh, PIN, guard สิทธิ์, API ตั้งค่า/VAT/อัตราแลกเปลี่ยน/ประเภทชำระ |
 | M2 | Catalog | API หมวดหมู่/แบรนด์/สินค้า/รูป และเปลี่ยน frontend จาก mock-data มาใช้ API |
 | M3 | Stock in | ใบรับสินค้า + serial + ต้นทุนเฉลี่ย + ผู้จำหน่าย |

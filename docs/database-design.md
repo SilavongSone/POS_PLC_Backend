@@ -1,10 +1,10 @@
 # PLC POS — การวิเคราะห์และออกแบบฐานข้อมูล
 
-> สถานะ: **ร่างออกแบบรอบที่ 4 — ตัดสินใจครบทุกข้อแล้ว รออนุมัติเพื่อเริ่ม M0 (นำไปแทน `prisma/schema.prisma`)**
+> สถานะ: **อนุมัติแล้ว · M0 เสร็จแล้ว — schema ใช้งานจริงใน `prisma/schema.prisma` (migration `20261026080000_redesign_full_schema`)**
 > อัปเดตล่าสุด: 2026-10-26
 >
 > - เอกสารนี้เป็น "แหล่งความจริง" ของการออกแบบ — ก่อนเพิ่มหรือแก้ตารางต้องอ่านและอัปเดตไฟล์นี้ก่อนเสมอ
-> - Schema ฉบับเต็มที่เสนอ (ผ่าน `prisma validate` แล้ว): [`docs/schema.draft.prisma`](./schema.draft.prisma) — เมื่ออนุมัติจะนำไปแทน `prisma/schema.prisma`
+> - Schema: [`prisma/schema.prisma`](../prisma/schema.prisma) · ข้อมูลเริ่มต้น: [`prisma/seed.ts`](../prisma/seed.ts) · สิทธิ์: [`src/common/permissions.ts`](../src/common/permissions.ts)
 > - แผนผลิตภัณฑ์ ขอบเขต MVP และ backlog: [`docs/product-plan.md`](./product-plan.md)
 
 ## 1. ขอบเขตธุรกิจ
