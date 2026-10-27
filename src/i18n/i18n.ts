@@ -52,16 +52,18 @@ export function t(
   const template = CATALOGS[lang][key] ?? CATALOGS.en[key];
   if (template === undefined) return undefined;
   return template.replace(/\{(\w+)\}/g, (_, name: string) => {
-    const value = params[name];
-    if (value === undefined || value === null) return '';
+    const raw = params[name];
+    if (raw === undefined || raw === null) return '';
+    const value =
+      typeof raw === 'object' ? JSON.stringify(raw) : String(raw as string);
     // Feature and limit names are translated too.
     const named =
       name === 'feature'
-        ? CATALOGS[lang][`feature.${String(value)}`]
+        ? CATALOGS[lang][`feature.${value}`]
         : name === 'limit'
-          ? CATALOGS[lang][`limit.${String(value)}`]
+          ? CATALOGS[lang][`limit.${value}`]
           : undefined;
-    return named ?? String(value);
+    return named ?? value;
   });
 }
 

@@ -43,7 +43,11 @@ const envSchema = z.object({
    * Company code used when a login omits tenantCode — for single-company installs and
    * deployments that serve one company per domain. Unset: tenantCode is required.
    */
-  DEFAULT_TENANT_CODE: z.string().trim().min(1).optional(),
+  DEFAULT_TENANT_CODE: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined),
   /** Self-service sign-up at POST /public/signup. */
   SIGNUP_ENABLED: z
     .enum(['true', 'false'])

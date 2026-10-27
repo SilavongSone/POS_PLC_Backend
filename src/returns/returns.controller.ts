@@ -19,6 +19,7 @@ import {
   type ListReturnsQuery,
 } from './returns.schemas.js';
 import { ReturnsService } from './returns.service.js';
+import { Idempotent } from '../common/idempotency.interceptor.js';
 
 const id = new ParseUUIDPipe();
 
@@ -30,6 +31,7 @@ const id = new ParseUUIDPipe();
 export class ReturnsController {
   constructor(private readonly returns: ReturnsService) {}
 
+  @Idempotent()
   @Post('sales/:id/returns')
   @ApiOperation({
     summary: 'Return items of a sale: refund, restock or mark defective',

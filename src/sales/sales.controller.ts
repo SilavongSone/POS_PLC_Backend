@@ -34,6 +34,7 @@ import {
 import { SalesService } from './sales.service.js';
 import { TaxInvoicesService } from './tax-invoices.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
+import { Idempotent } from '../common/idempotency.interceptor.js';
 
 const id = new ParseUUIDPipe();
 
@@ -57,6 +58,7 @@ export class SalesController {
     return this.sales.quote(body);
   }
 
+  @Idempotent()
   @Post()
   @RequirePermissions('sale.create')
   @ApiOperation({

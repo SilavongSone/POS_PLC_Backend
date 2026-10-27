@@ -20,6 +20,7 @@ import {
 } from './debts.schemas.js';
 import { DebtsService } from './debts.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
+import { Idempotent } from '../common/idempotency.interceptor.js';
 
 @ApiTags('debts')
 @ApiBearerAuth()
@@ -35,6 +36,7 @@ export class DebtsController {
     return this.debts.openDebts(customerId, undefined, 500);
   }
 
+  @Idempotent()
   @Post('debt-payments')
   @ApiOperation({
     summary: 'Receive a debt payment (one sale, or oldest debts first)',
