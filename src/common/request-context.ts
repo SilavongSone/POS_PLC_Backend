@@ -7,8 +7,11 @@ export type RequestStore = {
   /** Platform-admin code may read and write across tenants (it must set tenantId itself). */
   platform?: boolean;
   requestId?: string;
-  /** Resolved response language. */
-  lang?: string;
+  /** Languages, in order of precedence (see i18n/i18n.ts currentLang). */
+  lang?: 'lo' | 'th' | 'en';
+  userLang?: 'lo' | 'th' | 'en';
+  headerLang?: 'lo' | 'th' | 'en';
+  tenantLang?: 'lo' | 'th' | 'en';
 };
 
 const storage = new AsyncLocalStorage<RequestStore>();

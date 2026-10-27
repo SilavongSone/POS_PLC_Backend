@@ -10,7 +10,7 @@ import { pageArgs, toPage } from '../common/pagination.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
-import { lakToLaoWords } from './lao-words.js';
+import { lakToWords, lakToWordsAll } from '../i18n/amount-words.js';
 import type {
   IssueTaxInvoiceInput,
   ListTaxInvoicesQuery,
@@ -114,7 +114,8 @@ export class TaxInvoicesService {
         vatPercent: sale.vatPercent,
         vatLak: sale.vatLak,
         totalLak: sale.totalLak,
-        totalInWords: lakToLaoWords(sale.totalLak.toString()),
+        totalInWords: lakToWords(sale.totalLak.toString()),
+        totalInWordsAll: lakToWordsAll(sale.totalLak.toString()),
       },
     };
   }

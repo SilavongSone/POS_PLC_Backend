@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { queryBoolean } from '../common/pagination.js';
 
@@ -9,6 +10,7 @@ const target = z.union([
 
 const fields = {
   name: z.string().trim().min(1).max(100),
+  nameI18n: i18nText(100).optional(),
   discountType: z.enum(['PERCENT', 'AMOUNT']),
   /** Percent (0–100) or LAK per unit. */
   value: z.coerce.number().positive().max(1e12),

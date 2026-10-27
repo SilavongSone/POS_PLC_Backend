@@ -1,15 +1,17 @@
 import { Global, Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { LocalizeInterceptor } from '../i18n/localize.interceptor.js';
 import { AuditService } from './audit.service.js';
 import { DocNumberService } from './doc-number.service.js';
-import { PrismaExceptionFilter } from './prisma-exception.filter.js';
+import { AppExceptionFilter } from '../i18n/exception.filter.js';
 
 @Global()
 @Module({
   providers: [
     AuditService,
     DocNumberService,
-    { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+    { provide: APP_FILTER, useClass: AppExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: LocalizeInterceptor },
   ],
   exports: [AuditService, DocNumberService],
 })

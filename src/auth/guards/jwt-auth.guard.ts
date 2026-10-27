@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { RequestContext } from '../../common/request-context.js';
+import { isLang } from '../../i18n/i18n.js';
 import { AuthService } from '../auth.service.js';
 import type { AccessTokenPayload, AuthUser } from '../auth.types.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
@@ -53,6 +54,8 @@ export class JwtAuthGuard implements CanActivate {
     const user = await this.auth.findActiveUser(payload.sub);
     if (!user) throw new UnauthorizedException('User is inactive or missing');
     request.user = user;
+    const store = RequestContext.get();
+    if (store && isLang(user.language)) store.userLang = user.language;
     return true;
   }
 }

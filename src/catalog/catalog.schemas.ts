@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
 
@@ -14,6 +15,7 @@ export const currency = z.enum(['LAK', 'THB', 'USD']);
 // ── Categories & brands ──
 export const createCategorySchema = z.object({
   name: text(100).min(1),
+  nameI18n: i18nText(100).optional(),
   slug: slug.optional(),
   parentId: z.uuid().nullable().optional(),
   sortOrder: z.number().int().min(0).max(9999).default(0),
@@ -42,7 +44,9 @@ const productFields = {
     .nullable()
     .optional(),
   name: text(200).min(1),
+  nameI18n: i18nText(200).optional(),
   description: text(5000).nullable().optional(),
+  descriptionI18n: i18nText(5000).optional(),
   type: z.enum(['STANDARD', 'BUNDLE', 'SERVICE']).default('STANDARD'),
   categoryId: z.uuid().nullable().optional(),
   brandId: z.uuid().nullable().optional(),

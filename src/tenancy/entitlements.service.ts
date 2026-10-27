@@ -30,6 +30,8 @@ export type SubscriptionOverrides = {
 
 export type Entitlements = {
   tenantId: string;
+  /** Company default language for responses. */
+  defaultLanguage: string;
   plan: { id: string; code: string; name: string } | null;
   status: SubscriptionStatus | null;
   trialEndsAt: Date | null;
@@ -50,7 +52,7 @@ const UNLIMITED: PlanLimits = Object.fromEntries(
 
 /** Plan + overrides → what a company may use. Pure, for unit tests. */
 export function resolveEntitlements(
-  tenant: { id: string; isActive: boolean },
+  tenant: { id: string; isActive: boolean; defaultLanguage?: string },
   sub: {
     status: SubscriptionStatus;
     trialEndsAt: Date | null;
@@ -69,6 +71,7 @@ export function resolveEntitlements(
   if (!sub) {
     return {
       tenantId: tenant.id,
+      defaultLanguage: tenant.defaultLanguage ?? 'lo',
       plan: null,
       status: null,
       trialEndsAt: null,
@@ -104,6 +107,7 @@ export function resolveEntitlements(
     : null;
   return {
     tenantId: tenant.id,
+    defaultLanguage: tenant.defaultLanguage ?? 'lo',
     plan: { id: sub.plan.id, code: sub.plan.code, name: sub.plan.name },
     status: sub.status,
     trialEndsAt: sub.trialEndsAt,

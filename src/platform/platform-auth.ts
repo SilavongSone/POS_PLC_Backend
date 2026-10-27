@@ -34,7 +34,10 @@ export class PlatformAuthService {
     });
     if (!admin?.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException({
+        message: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
     if (admin.lockedUntil && admin.lockedUntil > new Date()) {
       throw new HttpException(
@@ -57,7 +60,10 @@ export class PlatformAuthService {
               }
             : { failedLoginCount: failed },
       });
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException({
+        message: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
     if (admin.failedLoginCount || admin.lockedUntil) {
       await this.prisma.platformAdmin.update({

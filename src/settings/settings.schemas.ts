@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -79,6 +80,7 @@ export const paymentKind = z.enum([
 ]);
 export const createPaymentTypeSchema = z.object({
   name: text(50).min(1),
+  nameI18n: i18nText(50).optional(),
   kind: paymentKind,
   requiresReference: z.boolean().default(false),
   isActive: z.boolean().default(true),

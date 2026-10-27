@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
 import { RequestContext } from './common/request-context.js';
+import { fromAcceptLanguage, isLang } from './i18n/i18n.js';
 import type { Env } from './config/env.js';
 
 /**
@@ -31,7 +32,15 @@ export function configureApp(app: NestExpressApplication) {
         ? given
         : randomUUID();
     res.setHeader('X-Request-Id', requestId);
-    RequestContext.run({ requestId }, next);
+    const lang = req.query.lang;
+    RequestContext.run(
+      {
+        requestId,
+        lang: isLang(lang) ? lang : undefined,
+        headerLang: fromAcceptLanguage(req.headers['accept-language']),
+      },
+      next,
+    );
   });
 
   app.use(

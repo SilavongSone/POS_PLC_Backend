@@ -25,6 +25,11 @@ export const pinLoginSchema = z.object({
 });
 export type PinLoginInput = z.infer<typeof pinLoginSchema>;
 
+export const updateMeSchema = z.object({
+  language: z.enum(['lo', 'th', 'en']).nullable(),
+});
+export type UpdateMeInput = z.infer<typeof updateMeSchema>;
+
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1).max(200),
 });

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Patch,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   openApiSchema,
@@ -14,12 +22,14 @@ import {
   pinLoginSchema,
   refreshSchema,
   setPinSchema,
+  updateMeSchema,
   type ApproveInput,
   type ChangePasswordInput,
   type LoginInput,
   type PinLoginInput,
   type RefreshInput,
   type SetPinInput,
+  type UpdateMeInput,
 } from './auth.schemas.js';
 import type { AuthTokens, AuthUser } from './auth.types.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
@@ -99,6 +109,19 @@ export class AuthController {
   @ApiOperation({ summary: 'The signed-in user with group and permissions' })
   me(@CurrentUser() user: AuthUser): AuthUser {
     return user;
+  }
+
+  @Patch('me')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Set your own language (lo, th, en; null = company default)',
+  })
+  @ApiBody({ schema: openApiSchema(updateMeSchema) })
+  async updateMe(
+    @Body(new ZodValidationPipe(updateMeSchema)) body: UpdateMeInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AuthUser> {
+    return this.auth.updateMe(user.id, body);
   }
 
   @Post('change-password')

@@ -69,9 +69,10 @@ export class StockLedgerService {
         data: { qty: { increment: quantity } },
       });
       if (updated.count === 0) {
-        throw new ConflictException(
-          `Not enough stock for ${product.sku} at this branch`,
-        );
+        throw new ConflictException({
+          message: `Not enough stock for ${product.sku} at this branch`,
+          code: 'INSUFFICIENT_STOCK',
+        });
       }
       balance = (
         await tx.branchStock.findFirstOrThrow({
@@ -257,9 +258,10 @@ export class StockLedgerService {
       });
       if (rows.length !== serials.length) {
         const ok = new Set(rows.map((r) => r.serial));
-        throw new ConflictException(
-          `Not in stock at this branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
-        );
+        throw new ConflictException({
+          message: `Not in stock at this branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
+          code: 'INSUFFICIENT_STOCK',
+        });
       }
       let cost = new Decimal(0);
       for (const row of rows) {
@@ -301,7 +303,10 @@ export class StockLedgerService {
         left -= take;
       }
       if (left > 0)
-        throw new ConflictException(`Not enough stock for ${product.sku}`);
+        throw new ConflictException({
+          message: `Not enough stock for ${product.sku}`,
+          code: 'INSUFFICIENT_STOCK',
+        });
       return { serialIds: [], costLak: product.avgCostLak };
     }
 
@@ -509,9 +514,10 @@ export class StockLedgerService {
       });
       if (rows.length !== serials.length) {
         const ok = new Set(rows.map((r) => r.serial));
-        throw new ConflictException(
-          `Not in stock at the source branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
-        );
+        throw new ConflictException({
+          message: `Not in stock at the source branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
+          code: 'INSUFFICIENT_STOCK',
+        });
       }
       for (const row of rows) {
         const unitCostLak = row.costLak ?? product.avgCostLak;
@@ -575,9 +581,10 @@ export class StockLedgerService {
         left -= take;
       }
       if (left > 0)
-        throw new ConflictException(
-          `Not enough stock for ${product.sku} at this branch`,
-        );
+        throw new ConflictException({
+          message: `Not enough stock for ${product.sku} at this branch`,
+          code: 'INSUFFICIENT_STOCK',
+        });
       return;
     }
 

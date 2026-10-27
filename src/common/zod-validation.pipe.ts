@@ -1,6 +1,7 @@
 import { BadRequestException, PipeTransform } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
 import { z } from 'zod';
+import { t } from '../i18n/i18n.js';
 
 /** Validates and parses a request part with a zod schema: `@Body(new ZodValidationPipe(schema))`. */
 export class ZodValidationPipe<T extends z.ZodType> implements PipeTransform {
@@ -13,7 +14,12 @@ export class ZodValidationPipe<T extends z.ZodType> implements PipeTransform {
         message: 'Validation failed',
         errors: result.error.issues.map((i) => ({
           path: i.path.join('.'),
-          message: i.message,
+          code: i.code,
+          // Built-in checks are translated; custom rules keep their own (English) text.
+          message:
+            (i.code !== 'custom' &&
+              t(`zod.${i.code}`, i as unknown as Record<string, unknown>)) ||
+            i.message,
         })),
       });
     }

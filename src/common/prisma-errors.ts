@@ -1,25 +1,11 @@
 import {
-  ArgumentsHost,
-  Catch,
   ConflictException,
-  ExceptionFilter,
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { BaseExceptionFilter } from '@nestjs/core';
 import { Prisma } from '../generated/prisma/client.js';
 
-/** Maps common Prisma errors to HTTP errors instead of 500s. */
-@Catch(Prisma.PrismaClientKnownRequestError)
-export class PrismaExceptionFilter
-  extends BaseExceptionFilter
-  implements ExceptionFilter
-{
-  catch(error: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
-    super.catch(toHttpException(error) ?? error, host);
-  }
-}
-
+/** Maps common Prisma errors to HTTP errors instead of 500s (used by AppExceptionFilter). */
 export function toHttpException(
   error: Prisma.PrismaClientKnownRequestError,
 ): HttpException | undefined {
@@ -32,16 +18,19 @@ export function toHttpException(
           }
         )?.cause?.constraint?.fields) as string[] | string | undefined;
       const fields = Array.isArray(target) ? target.join(', ') : target;
-      return new ConflictException(
-        fields ? `Already exists: ${fields}` : 'Already exists',
-      );
+      return new ConflictException({
+        message: fields ? `Already exists: ${fields}` : 'Already exists',
+        code: 'ALREADY_EXISTS',
+        fields,
+      });
     }
     case 'P2025':
       return new NotFoundException('Record not found');
     case 'P2003':
-      return new ConflictException(
-        'Operation violates a reference to another record',
-      );
+      return new ConflictException({
+        message: 'Operation violates a reference to another record',
+        code: 'IN_USE',
+      });
     default:
       return undefined;
   }

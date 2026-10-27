@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 export const expenseCategorySchema = z.object({
   name: z.string().trim().min(1).max(100),
+  nameI18n: i18nText(100).optional(),
   isActive: z.boolean().default(true),
 });
 export const updateExpenseCategorySchema = patchOf(expenseCategorySchema);

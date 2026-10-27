@@ -9,7 +9,7 @@ import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { lakToLaoWords } from '../sales/lao-words.js';
+import { lakToWords, lakToWordsAll } from '../i18n/amount-words.js';
 import { SalePricingService } from '../sales/sale-pricing.service.js';
 import { SalesService } from '../sales/sales.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -161,7 +161,8 @@ export class QuotationsService {
         EDITABLE.includes(q.status) || q.status === 'ACCEPTED'
           ? q.validUntil.getTime() + 86_400_000 < Date.now()
           : false,
-      totalInWords: lakToLaoWords(q.totalLak.toString()),
+      totalInWords: lakToWords(q.totalLak.toString()),
+      totalInWordsAll: lakToWordsAll(q.totalLak.toString()),
       seller: {
         name: store['store.companyName'] || store['store.name'],
         taxId: store['store.taxId'],

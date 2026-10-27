@@ -2,6 +2,8 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import type { AuthUser } from '../auth/auth.types.js';
+import { RequestContext } from '../common/request-context.js';
+import { isLang } from '../i18n/i18n.js';
 import { EntitlementsService } from './entitlements.service.js';
 import type { Feature } from './plan-features.js';
 import { FEATURE_KEY } from './require-feature.decorator.js';
@@ -28,6 +30,9 @@ export class EntitlementsGuard implements CanActivate {
     if (!request.user) return true;
 
     const e = await this.entitlements.get(request.user.tenantId);
+    const store = RequestContext.get();
+    if (store && isLang(e.defaultLanguage))
+      store.tenantLang = e.defaultLanguage;
     this.entitlements.assertNotBlocked(e);
     if (!READS.has(request.method) && !request.path.startsWith('/api/auth/')) {
       this.entitlements.assertWritable(e);

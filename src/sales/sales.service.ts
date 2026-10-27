@@ -14,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { ShiftsService } from '../shifts/shifts.service.js';
 import { StockLedgerService } from '../stock/stock-ledger.service.js';
-import { lakToLaoWords } from './lao-words.js';
+import { lakToWords, lakToWordsAll } from '../i18n/amount-words.js';
 import { SalePricingService } from './sale-pricing.service.js';
 import type {
   CreateSaleInput,
@@ -361,7 +361,8 @@ export class SalesService {
       },
       paperSize: store['receipt.defaultSize'],
       sale,
-      totalInWords: lakToLaoWords(sale.totalLak.toString()),
+      totalInWords: lakToWords(sale.totalLak.toString()),
+      totalInWordsAll: lakToWordsAll(sale.totalLak.toString()),
       isReprint: sale.printCount > 0,
     };
   }

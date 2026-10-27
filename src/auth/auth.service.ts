@@ -11,6 +11,7 @@ import argon2 from 'argon2';
 import type { Env } from '../config/env.js';
 import type { User } from '../generated/prisma/client.js';
 import { RequestContext } from '../common/request-context.js';
+import { isLang } from '../i18n/i18n.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import type { AccessTokenPayload, AuthTokens, AuthUser } from './auth.types.js';
@@ -132,6 +133,14 @@ export class AuthService {
     });
   }
 
+  async updateMe(userId: string, input: { language: string | null }) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { language: input.language },
+    });
+    return (await this.findActiveUser(userId))!;
+  }
+
   async findActiveUser(id: string): Promise<AuthUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -173,7 +182,10 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({ where: { username } });
     if (!user || !user.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw new UnauthorizedException('Invalid username or credentials');
+      throw new UnauthorizedException({
+        message: 'Invalid username or credentials',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new HttpException(
@@ -197,7 +209,10 @@ export class AuthService {
             }
           : { failedLoginCount: failed },
       });
-      throw new UnauthorizedException('Invalid username or credentials');
+      throw new UnauthorizedException({
+        message: 'Invalid username or credentials',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
 
     if (user.failedLoginCount > 0 || user.lockedUntil) {
@@ -253,9 +268,16 @@ export class AuthService {
       : null;
     if (!tenant?.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw new UnauthorizedException('Invalid username or credentials');
+      throw new UnauthorizedException({
+        message: 'Invalid username or credentials',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
-    this.entitlements.assertNotBlocked(await this.entitlements.get(tenant.id));
+    const e = await this.entitlements.get(tenant.id);
+    this.entitlements.assertNotBlocked(e);
+    const store = RequestContext.get();
+    if (store && isLang(e.defaultLanguage))
+      store.tenantLang = e.defaultLanguage;
     RequestContext.setTenant(tenant.id);
   }
 

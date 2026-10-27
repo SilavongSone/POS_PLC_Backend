@@ -9,7 +9,7 @@ import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { Prisma, type TicketStatus } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { lakToLaoWords } from '../sales/lao-words.js';
+import { lakToWords } from '../i18n/amount-words.js';
 import type { SaleItemInput } from '../sales/sales.schemas.js';
 import { SalesService } from '../sales/sales.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -136,7 +136,7 @@ export class RepairsService {
     return {
       ...ticket,
       chargeLak,
-      chargeInWords: lakToLaoWords(chargeLak.toString()),
+      chargeInWords: lakToWords(chargeLak.toString()),
       store: {
         name: store['store.name'],
         phone: store['store.phone'],

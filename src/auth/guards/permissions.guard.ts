@@ -29,7 +29,11 @@ export class PermissionsGuard implements CanActivate {
       (p) => !user || !hasPermission(user.permissions, p),
     );
     if (missing.length) {
-      throw new ForbiddenException(`Missing permission: ${missing.join(', ')}`);
+      throw new ForbiddenException({
+        message: `Missing permission: ${missing.join(', ')}`,
+        code: 'MISSING_PERMISSION',
+        permission: missing.join(', '),
+      });
     }
     return true;
   }

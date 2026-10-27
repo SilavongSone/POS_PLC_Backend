@@ -222,14 +222,11 @@ describe('SaaS (e2e)', () => {
 
     it('logs in to the right company only', async () => {
       expect((await login(a.code)).status).toBe(200);
-      const wrong = await t
-        .http()
-        .post('/auth/login')
-        .send({
-          tenantCode: 'no-such-co',
-          username: 'owner',
-          password: OWNER_PASSWORD,
-        });
+      const wrong = await t.http().post('/auth/login').send({
+        tenantCode: 'no-such-co',
+        username: 'owner',
+        password: OWNER_PASSWORD,
+      });
       expect(wrong.status).toBe(401);
     });
   });
