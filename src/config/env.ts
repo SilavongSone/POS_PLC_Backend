@@ -96,7 +96,11 @@ export type Env = z.infer<typeof envSchema>;
 
 /** Used by ConfigModule.forRoot({ validate }) so the app fails fast on bad config. */
 export function validateEnv(config: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(config);
+  // An empty variable (e.g. FOO= in docker compose) means "not set".
+  const set = Object.fromEntries(
+    Object.entries(config).filter(([, v]) => v !== ''),
+  );
+  const result = envSchema.safeParse(set);
   if (!result.success) {
     throw new Error(`Invalid environment:\n${z.prettifyError(result.error)}`);
   }

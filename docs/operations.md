@@ -21,6 +21,12 @@
 | `THROTTLE_SIGNUP_LIMIT` | `3` | จำนวนการสมัครต่อชั่วโมงต่อ IP |
 | `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD` | อีเมลจริง + รหัสยาว | seed สร้าง platform admin คนแรก (ครั้งเดียว) |
 | `SEED_TENANT_CODE` / `SEED_ADMIN_PASSWORD` | `plc` / รหัสยาว | บริษัทและ admin ที่ seed สร้าง |
+| `APP_URL` | `https://pos.ร้าน.la` | ที่อยู่หน้าเว็บ ใช้ในลิงก์ของอีเมล |
+| `MAIL_TRANSPORT` + `SMTP_HOST/PORT/SECURE/USER/PASSWORD` + `MAIL_FROM` | `smtp` · Gmail: `smtp.gmail.com`, `465`, `true`, อีเมล, **App Password** (Google Account → Security → App passwords) | ส่งอีเมลยืนยัน/ลืมรหัสผ่าน/ใบเสร็จค่าแพ็กเกจ · `log` = แค่เขียน log (dev) · Gmail ธรรมดาส่งได้ ~500 ฉบับ/วัน ถ้ามากกว่านั้นใช้ Google Workspace หรือ SES |
+| `GOOGLE_CLIENT_IDS` | Client ID จาก Google Cloud Console (OAuth, Web) | เปิดปุ่ม Sign in with Google · ไม่ตั้ง = ปิด |
+| `BILLING_BANK_INFO` | `BCEL 010-12-00-xxxxxx ชื่อบัญชี` | แสดงในใบแจ้งหนี้ค่าแพ็กเกจ |
+| `BILLING_PAY_URL` | ลิงก์จ่ายของ gateway (`{invoiceId}`, `{number}`, `{amount}`) | ปุ่มจ่ายออนไลน์ (ไม่บังคับ) |
+| `BILLING_WEBHOOK_SECRET` | สุ่ม 32 ตัวขึ้นไป | ให้ gateway เซ็น `POST /api/public/billing/webhook` · ไม่ตั้ง = ปิด webhook |
 
 **ติดตั้งด้วย Docker:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (PostgreSQL + migrate/seed ครั้งเดียว + API, health check ในตัว) · CI ใน `.github/workflows/ci.yml` ตรวจ migration, format, lint, typecheck, unit, e2e และ build ทุก PR
 
@@ -80,6 +86,6 @@
 - **PostgreSQL:** เปิด `pg_stat_statements` เพื่อหา query ช้า
 
 ## 4. การทดสอบ
-- `pnpm test`: 58 unit test
-- `pnpm test:e2e`: 118 API test รวมชุดความปลอดภัย (headers, CORS, body limit, gzip, page cap, rate limit) และชุดหลายบริษัท (แยกข้อมูล, สาขา, แพ็กเกจ, ระงับบัญชี, สมัครเอง)
+- `pnpm test`: 59 unit test
+- `pnpm test:e2e`: 126 API test รวมชุดความปลอดภัย (headers, CORS, body limit, gzip, page cap, rate limit) และชุดหลายบริษัท (แยกข้อมูล, สาขา, ราคาตามสาขา, แพ็กเกจ, ระงับบัญชี), สมัครด้วยรหัสอีเมล/Google, ลืมรหัสผ่าน และจ่ายค่าแพ็กเกจ
 - `scripts/bench/run.sh`: วัดประสิทธิภาพ (ดูวิธีเตรียมข้อมูลที่หัวไฟล์)
