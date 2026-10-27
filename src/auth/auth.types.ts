@@ -9,6 +9,10 @@ export type AuthUser = {
   permissions: string[];
   /** Branches the user may work in; null = every branch of the company. */
   branchIds: string[] | null;
+  email: string | null;
+  emailVerified: boolean;
+  /** Signed in with Google before (account linked). */
+  googleLinked: boolean;
   /** Preferred UI/response language (lo, th, en); null = company default. */
   language: string | null;
 };

@@ -7,6 +7,7 @@ import { RequestContext } from '../common/request-context.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  type OwnerInput,
   createOwner,
   ensureFirstBranch,
   seedReferenceData,
@@ -24,16 +25,32 @@ const DAY = 86_400_000;
 export class ProvisioningService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async provision(
-    input: ProvisionTenantInput,
-    options: { publicOnly?: boolean } = {},
-  ) {
+  /** The plan for a new company; throws if it cannot be chosen. */
+  async planFor(planCode: string, options: { publicOnly?: boolean } = {}) {
     const plan = await this.prisma.plan.findUnique({
-      where: { code: input.planCode },
+      where: { code: planCode },
     });
     if (!plan?.isActive || (options.publicOnly && !plan.isPublic)) {
       throw new BadRequestException('Unknown plan');
     }
+    return plan;
+  }
+
+  /** Throws 409 TENANT_CODE_TAKEN when the company code is in use. */
+  async assertCodeFree(code: string) {
+    if (await this.prisma.tenant.findUnique({ where: { code } })) {
+      throw new ConflictException({
+        message: 'This company code is already taken',
+        code: 'TENANT_CODE_TAKEN',
+      });
+    }
+  }
+
+  async provision(
+    input: Omit<ProvisionTenantInput, 'owner'> & { owner: OwnerInput },
+    options: { publicOnly?: boolean } = {},
+  ) {
+    const plan = await this.planFor(input.planCode, options);
     const now = Date.now();
     try {
       return await this.prisma.$transaction(

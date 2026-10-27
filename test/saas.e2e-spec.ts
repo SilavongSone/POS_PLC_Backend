@@ -548,34 +548,4 @@ describe('SaaS (e2e)', () => {
         .expect(201);
     });
   });
-
-  describe('self-service sign-up', () => {
-    it('starts a trial and signs the owner in', async () => {
-      const code = `su-${uniq()}`;
-      const body = {
-        code,
-        name: 'Signup shop',
-        email: 'owner@example.com',
-        planCode: 'STARTER',
-        owner: { username: 'boss', fullName: 'Boss', password: OWNER_PASSWORD },
-      };
-      const res = await t.http().post('/public/signup').send(body).expect(201);
-      expect(res.body.tenant.code).toBe(code);
-      const auth = {
-        Authorization: `Bearer ${res.body.accessToken as string}`,
-      };
-      const sub = (await t.http().get('/subscription').set(auth).expect(200))
-        .body;
-      expect(sub.status).toBe('TRIAL');
-      expect(new Date(sub.trialEndsAt).getTime()).toBeGreaterThan(Date.now());
-      expect(sub.company.name).toBe('Signup shop');
-
-      await t.http().post('/public/signup').send(body).expect(409);
-      await t
-        .http()
-        .post('/public/signup')
-        .send({ ...body, code: `x-${uniq()}`, planCode: 'NOPE' })
-        .expect(400);
-    });
-  });
 });

@@ -53,6 +53,35 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  /** Web app address used in e-mail links, e.g. https://pos.example.la */
+  APP_URL: z.string().url().default('http://localhost:3000'),
+  /** smtp: real mail (Gmail: smtp.gmail.com, 465, app password) · log: write to the log · memory: tests */
+  MAIL_TRANSPORT: z.enum(['smtp', 'log', 'memory']).default('log'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  MAIL_FROM: z.string().default('PLC POS <no-reply@localhost>'),
+  /** OAuth client id(s) of the web/mobile app, comma-separated; empty disables Google sign-in. */
+  GOOGLE_CLIENT_IDS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ),
+  /** Shown on plan invoices: where to transfer the money. */
+  BILLING_BANK_INFO: z.string().optional(),
+  /** Online payment page; {invoiceId}, {number} and {amount} are filled in. */
+  BILLING_PAY_URL: z.string().optional(),
+  /** Shared secret for POST /public/billing/webhook signatures; unset disables the webhook. */
+  BILLING_WEBHOOK_SECRET: z.string().min(16).optional(),
   /** Database connections per API instance. */
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
   /** Any SQL statement running longer than this is cancelled (ms). */
@@ -70,6 +99,9 @@ export function validateEnv(config: Record<string, unknown>): Env {
   const result = envSchema.safeParse(config);
   if (!result.success) {
     throw new Error(`Invalid environment:\n${z.prettifyError(result.error)}`);
+  }
+  if (result.data.MAIL_TRANSPORT === 'smtp' && !result.data.SMTP_HOST) {
+    throw new Error('Invalid environment: MAIL_TRANSPORT=smtp needs SMTP_HOST');
   }
   return result.data;
 }

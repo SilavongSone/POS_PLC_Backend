@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -54,6 +55,92 @@ export class AuthService {
       user.id,
       this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
     );
+  }
+
+  /** A password-length session for a user already authenticated another way (Google, sign-up). */
+  startSession(userId: string): Promise<AuthTokens> {
+    return this.issueTokens(
+      userId,
+      this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
+    );
+  }
+
+  /**
+   * Sign in with Google: the user linked to this Google account, or with this confirmed
+   * e-mail (then linked). Without a company code the account may be in one company only.
+   */
+  async googleLogin(
+    identity: { sub: string; email: string; emailVerified: boolean },
+    tenantCode: string | undefined,
+  ): Promise<AuthTokens> {
+    // A Google account is global: without a code, look in every company.
+    const code = tenantCode;
+    const matches = await RequestContext.asPlatform(() =>
+      this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          tenant: { isActive: true, ...(code && { code }) },
+          OR: [
+            { googleSub: identity.sub },
+            ...(identity.emailVerified
+              ? [{ email: identity.email, emailVerifiedAt: { not: null } }]
+              : []),
+          ],
+        },
+        include: { tenant: { select: { code: true, name: true } } },
+        take: 20,
+      }),
+    );
+    if (matches.length === 0) {
+      throw new UnauthorizedException({
+        message: 'No account uses this Google account',
+        code: 'GOOGLE_ACCOUNT_UNKNOWN',
+      });
+    }
+    const companies = new Map(matches.map((u) => [u.tenantId, u.tenant]));
+    if (companies.size > 1) {
+      throw new ConflictException({
+        message: 'This Google account is in several companies; choose one',
+        code: 'TENANT_REQUIRED',
+        companies: [...companies.values()],
+      });
+    }
+    // Prefer the account already linked to this Google id.
+    const user =
+      matches.find((u) => u.googleSub === identity.sub) ?? matches[0];
+    if (matches.length > 1 && user.googleSub !== identity.sub) {
+      throw new ConflictException({
+        message: 'Several users share this e-mail; sign in with the password',
+        code: 'GOOGLE_ACCOUNT_AMBIGUOUS',
+      });
+    }
+    await this.enterTenant(user.tenant.code);
+    if (user.googleSub !== identity.sub) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { googleSub: identity.sub },
+      });
+    }
+    return this.startSession(user.id);
+  }
+
+  /** Links the signed-in user to a Google account (confirms the e-mail when it matches). */
+  async linkGoogle(
+    userId: string,
+    identity: { sub: string; email: string; emailVerified: boolean },
+  ): Promise<AuthUser> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        googleSub: identity.sub,
+        ...(identity.emailVerified &&
+          user.email === identity.email && { emailVerifiedAt: new Date() }),
+      },
+    });
+    return (await this.findActiveUser(userId))!;
   }
 
   async pinLogin(
@@ -158,6 +245,9 @@ export class AuthService {
       branchIds: user.branches.length
         ? user.branches.map((b) => b.branchId)
         : null,
+      email: user.email,
+      emailVerified: user.emailVerifiedAt !== null,
+      googleLinked: user.googleSub !== null,
       language: user.language,
     };
   }

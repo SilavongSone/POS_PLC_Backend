@@ -32,6 +32,21 @@ export const en: Record<string, string> = {
   IDEMPOTENCY_CONFLICT: 'This Idempotency-Key was used for a different request',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed',
 
+  TOKEN_INVALID: 'The link is invalid or has expired',
+  EMAIL_NOT_PENDING: 'There is no unconfirmed e-mail on your account',
+  SIGNUP_CODE_INVALID: 'The code is wrong or has expired',
+  GOOGLE_DISABLED: 'Sign in with Google is not enabled',
+  GOOGLE_TOKEN_INVALID: 'Google sign-in failed; please try again',
+  GOOGLE_ACCOUNT_UNKNOWN: 'No account uses this Google account',
+  GOOGLE_ACCOUNT_AMBIGUOUS:
+    'Several users share this e-mail; sign in with your password',
+  GOOGLE_EMAIL_UNVERIFIED: 'Google has not confirmed this e-mail',
+  TENANT_REQUIRED: 'Choose your company',
+  INVOICE_NOT_PENDING: 'This invoice is already paid or cancelled',
+  WEBHOOK_DISABLED: 'Online payment confirmation is not set up',
+  WEBHOOK_SIGNATURE_INVALID: 'Invalid signature',
+  AMOUNT_MISMATCH: 'The amount does not match the invoice',
+
   'zod.invalid_type': 'Required, or of the wrong type',
   'zod.too_small': 'Too small (minimum {minimum})',
   'zod.too_big': 'Too large (maximum {maximum})',

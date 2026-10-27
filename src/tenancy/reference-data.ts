@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import argon2 from 'argon2';
 import { SYSTEM_GROUPS } from '../common/permissions.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
@@ -233,20 +234,36 @@ export async function ensureFirstBranch(
   return branch;
 }
 
+export type OwnerInput = {
+  username: string;
+  fullName: string;
+  /** Plain password, or an already hashed one (verified sign-up). */
+  password?: string;
+  passwordHash?: string;
+  email?: string | null;
+  /** Set when the address was proven (sign-up code, Google). */
+  emailVerified?: boolean;
+  googleSub?: string;
+};
+
 /** Creates the company's first user in the Admin group. */
-export async function createOwner(
-  db: Db,
-  input: { username: string; fullName: string; password: string },
-) {
+export async function createOwner(db: Db, input: OwnerInput) {
   const admin = await db.userGroup.findFirstOrThrow({
     where: { name: 'Admin' },
   });
+  // Without a password (Google sign-up) a random one locks password login until reset.
+  const passwordHash =
+    input.passwordHash ??
+    (await argon2.hash(input.password ?? randomBytes(32).toString('hex')));
   return db.user.create({
     data: {
       username: input.username,
       fullName: input.fullName,
-      passwordHash: await argon2.hash(input.password),
+      passwordHash,
       groupId: admin.id,
+      email: input.email?.toLowerCase() ?? null,
+      emailVerifiedAt: input.email && input.emailVerified ? new Date() : null,
+      googleSub: input.googleSub,
     },
   });
 }

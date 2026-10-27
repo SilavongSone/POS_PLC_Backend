@@ -16,15 +16,23 @@ import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
-import { AuthService } from '../auth/auth.service.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
+import { SignupService } from '../tenancy/signup.service.js';
+import { AccountService } from '../account/account.service.js';
+import { GoogleIdentityService } from '../account/google-identity.service.js';
+import { RequestContext } from '../common/request-context.js';
+import { z } from 'zod';
 import {
+  googleSignupSchema,
   provisionTenantSchema,
+  resendSignupSchema,
   signupSchema,
+  verifySignupSchema,
+  type GoogleSignupInput,
   type ProvisionTenantInput,
   type SignupInput,
 } from '../tenancy/tenancy.schemas.js';
@@ -51,6 +59,14 @@ import { PlatformService } from './platform.service.js';
 
 const id = new ParseUUIDPipe();
 type PlatformRequest = Request & { platformAdmin: PlatformAdminUser };
+
+const SignupThrottle = () =>
+  Throttle({
+    default: {
+      ttl: 3_600_000,
+      limit: () => Number(process.env.THROTTLE_SIGNUP_LIMIT ?? 3),
+    },
+  });
 
 const LoginThrottle = () =>
   Throttle({
@@ -88,6 +104,7 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly provisioning: ProvisioningService,
+    private readonly account: AccountService,
   ) {}
 
   @Get('plans')
@@ -123,8 +140,21 @@ export class PlatformController {
       'Create a company with its owner, first branch, till and starter data',
   })
   @ApiZodBody(provisionTenantSchema)
-  createTenant(@Body(zod(provisionTenantSchema)) body: ProvisionTenantInput) {
-    return this.provisioning.provision(body);
+  async createTenant(
+    @Body(zod(provisionTenantSchema)) body: ProvisionTenantInput,
+  ) {
+    const result = await this.provisioning.provision(body);
+    const email = body.owner.email;
+    if (email) {
+      await RequestContext.withTenant(result.tenant.id, () =>
+        this.account.sendVerification({
+          id: result.owner.id,
+          email,
+          fullName: body.owner.fullName,
+        }),
+      );
+    }
+    return result;
   }
 
   @Get('tenants/:id')
@@ -178,8 +208,8 @@ export class PlatformController {
 export class PublicController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly provisioning: ProvisioningService,
-    private readonly auth: AuthService,
+    private readonly signups: SignupService,
+    private readonly google: GoogleIdentityService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -204,36 +234,66 @@ export class PublicController {
     });
   }
 
-  @Post('signup')
-  @Throttle({
-    default: {
-      ttl: 3_600_000,
-      limit: () => Number(process.env.THROTTLE_SIGNUP_LIMIT ?? 3),
-    },
-  })
-  @ApiOperation({
-    summary: 'Start a trial: creates the company and signs the owner in',
-  })
-  @ApiZodBody(signupSchema)
-  async signup(@Body(zod(signupSchema)) body: SignupInput) {
+  private assertOpen() {
     if (!this.config.get('SIGNUP_ENABLED', { infer: true })) {
       throw new ForbiddenException({
         message: 'Sign-up is closed',
         code: 'SIGNUP_DISABLED',
       });
     }
-    const { tenant } = await this.provisioning.provision(
-      { ...body, status: 'TRIAL' },
-      { publicOnly: true },
-    );
-    const tokens = await this.auth.login(
-      tenant.code,
-      body.owner.username,
-      body.owner.password,
-    );
-    return {
-      tenant: { id: tenant.id, code: tenant.code, name: tenant.name },
-      ...tokens,
-    };
+  }
+
+  @Post('signup')
+  @SignupThrottle()
+  @ApiOperation({
+    summary:
+      'Start a trial: e-mails a 6-digit code; the company is created by /public/signup/verify',
+  })
+  @ApiZodBody(signupSchema)
+  signup(@Body(zod(signupSchema)) body: SignupInput) {
+    this.assertOpen();
+    return this.signups.request(body);
+  }
+
+  @Post('signup/verify')
+  @HttpCode(200)
+  @SignupThrottle()
+  @ApiOperation({
+    summary:
+      'Check the e-mailed code: creates the company and signs the owner in',
+  })
+  @ApiZodBody(verifySignupSchema)
+  verifySignup(
+    @Body(zod(verifySignupSchema)) body: z.infer<typeof verifySignupSchema>,
+  ) {
+    this.assertOpen();
+    return this.signups.verify(body.requestId, body.code);
+  }
+
+  @Post('signup/resend')
+  @HttpCode(200)
+  @SignupThrottle()
+  @ApiOperation({ summary: 'Send a new code (at most 3 times)' })
+  @ApiZodBody(resendSignupSchema)
+  resendSignup(
+    @Body(zod(resendSignupSchema)) body: z.infer<typeof resendSignupSchema>,
+  ) {
+    this.assertOpen();
+    return this.signups.resend(body.requestId);
+  }
+
+  @Post('signup/google')
+  @SignupThrottle()
+  @ApiOperation({
+    summary:
+      'Start a trial with a Google account (e-mail already confirmed by Google)',
+  })
+  @ApiZodBody(googleSignupSchema)
+  async signupWithGoogle(
+    @Body(zod(googleSignupSchema)) body: GoogleSignupInput,
+  ) {
+    this.assertOpen();
+    const identity = await this.google.verify(body.idToken);
+    return this.signups.withGoogle(body, identity);
   }
 }

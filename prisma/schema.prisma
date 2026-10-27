@@ -178,12 +178,18 @@ model User {
   /// Set after 5 failed attempts; login is refused until this time.
   lockedUntil      DateTime?
   fullName         String
+  /// Optional (cashiers on PIN need none); unique within the company.
+  email            String?
+  emailVerifiedAt  DateTime?
+  /// Google account id ("sub") for Sign in with Google.
+  googleSub        String?
   groupId          String
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   group           UserGroup          @relation(fields: [groupId], references: [id])
+  tokens          UserToken[]
   refreshTokens   RefreshToken[]
   shifts          Shift[]
   sales           Sale[]             @relation("SaleCashier")
@@ -206,6 +212,8 @@ model User {
   branches        UserBranch[]
 
   @@unique([tenantId, username])
+  @@unique([tenantId, email])
+  @@unique([tenantId, googleSub])
 }
 
 model RefreshToken {
@@ -419,6 +427,7 @@ model Product {
   ticketLines    ServiceTicketLine[]
   tenant         Tenant              @relation(fields: [tenantId], references: [id])
   branchStock    BranchStock[]
+  branchPrices   BranchPrice[]
 
   @@unique([tenantId, sku])
   @@unique([tenantId, barcode])
@@ -1204,6 +1213,9 @@ model Tenant {
   subscription      Subscription?
   branches          Branch[]
   branchStock       BranchStock[]
+  branchPrices      BranchPrice[]
+  userTokens        UserToken[]
+  invoices          BillingInvoice[]
   idempotencyKeys   IdempotencyKey[]
   userGroups        UserGroup[]
   users             User[]
@@ -1264,6 +1276,7 @@ model Branch {
   serviceTickets    ServiceTicket[]
   expenses          Expense[]
   quotations        Quotation[]
+  prices            BranchPrice[]
   heldBills         HeldBill[]
   debtPayments      DebtPayment[]
 
@@ -1321,6 +1334,7 @@ model Plan {
   updatedAt       DateTime @updatedAt
 
   subscriptions Subscription[]
+  invoices      BillingInvoice[]
 }
 
 model Subscription {
@@ -1372,4 +1386,95 @@ model IdempotencyKey {
 
   @@id([tenantId, key])
   @@index([createdAt])
+}
+
+/// Selling price of a product at one branch (in the product's price currency). No row:
+/// the product's own price applies; wholesalePrice null: the product's wholesale price.
+model BranchPrice {
+  tenantId       String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  branchId       String
+  productId      String
+  retailPrice    Decimal  @db.Decimal(18, 2)
+  wholesalePrice Decimal? @db.Decimal(18, 2)
+  updatedAt      DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([branchId, productId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+enum UserTokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+/// One-time e-mail links (verify address, reset password). Only the hash is stored.
+model UserToken {
+  id        String           @id @default(uuid())
+  tenantId  String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  userId    String
+  purpose   UserTokenPurpose
+  email     String
+  tokenHash String           @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([tenantId])
+}
+
+/// A sign-up waiting for its e-mail code. The company is created only after verification.
+/// Not tenant data: there is no tenant yet.
+model SignupRequest {
+  id         String    @id @default(uuid())
+  email      String
+  /// Company code asked for (re-checked when verifying).
+  code       String
+  /// Sign-up form without the plain password (passwordHash instead).
+  payload    Json
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+/// Invoice for a plan period, paid by bank transfer or an online gateway.
+model BillingInvoice {
+  id        String        @id @default(uuid())
+  tenantId  String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  number    String
+  planId    String
+  months    Int
+  amountLak Decimal       @db.Decimal(18, 0)
+  status    InvoiceStatus @default(PENDING)
+  /// BANK_TRANSFER, ONLINE, MANUAL …
+  method    String?
+  reference String?
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@unique([tenantId, number])
+  @@index([status, createdAt])
+  @@index([planId])
 }

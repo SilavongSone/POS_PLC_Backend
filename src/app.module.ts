@@ -11,6 +11,8 @@ import { HealthController } from './health.controller.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
+import { MailModule } from './mail/mail.module.js';
+import { AccountModule } from './account/account.module.js';
 import { PlatformModule } from './platform/platform.module.js';
 import { CommonModule } from './common/common.module.js';
 import { CustomersModule } from './customers/customers.module.js';
@@ -58,6 +60,8 @@ import { UsersModule } from './users/users.module.js';
     }),
     PrismaModule,
     CommonModule,
+    MailModule,
+    AccountModule,
     TenancyModule,
     PlatformModule,
     BranchesModule,

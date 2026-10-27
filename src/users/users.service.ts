@@ -15,6 +15,7 @@ import type {
   UpdateUserInput,
 } from './users.schemas.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
+import { AccountService } from '../account/account.service.js';
 
 const userSelect = {
   id: true,
@@ -27,6 +28,8 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   language: true,
+  email: true,
+  emailVerifiedAt: true,
   group: { select: { id: true, name: true } },
   branches: { select: { branchId: true } },
 } satisfies Prisma.UserSelect;
@@ -54,6 +57,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly account: AccountService,
   ) {}
 
   async list(query: ListUsersQuery): Promise<Page<UserView>> {
@@ -102,12 +106,15 @@ export class UsersService {
         passwordHash: await argon2.hash(input.password),
         pinHash: input.pin ? await argon2.hash(input.pin) : null,
         language: input.language,
+        email: input.email ?? null,
         branches: {
           create: (input.branchIds ?? []).map((branchId) => ({ branchId })),
         },
       },
       select: userSelect,
     });
+    if (user.email)
+      await this.account.sendVerification({ ...user, email: user.email });
     await this.audit.log({
       userId: actorId,
       action: 'USER_CREATE',
@@ -154,6 +161,9 @@ export class UsersService {
         where: { id },
         data: {
           ...fields,
+          // A new address must be confirmed again.
+          ...(fields.email !== undefined &&
+            fields.email !== before.email && { emailVerifiedAt: null }),
           ...(branchIds && {
             branches: {
               deleteMany: {},
@@ -166,6 +176,9 @@ export class UsersService {
       if (input.isActive === false) await this.revokeSessions(tx, id);
       return updated;
     });
+    if (user.email && user.email !== before.email) {
+      await this.account.sendVerification({ ...user, email: user.email });
+    }
     await this.audit.log({
       userId: actorId,
       action: 'USER_UPDATE',

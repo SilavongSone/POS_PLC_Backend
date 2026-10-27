@@ -33,7 +33,7 @@
 | Schema แยกต่อบริษัท | แยกดี | Prisma รองรับไม่ดี, migration ซับซ้อน | ไม่เลือก |
 | **`tenantId` ทุกตาราง** | ต้นทุนต่ำ, เปิดบริษัทใหม่ทันที, ขยายง่าย | ต้องคุมให้ทุก query กรอง tenant | **เลือก** + ป้องกัน 4 ชั้นด้านล่าง |
 
-**การป้องกัน 5 ชั้น**
+**การป้องกัน 6 ชั้น**
 1. **Tenant context:** หลังตรวจ token แล้ว ระบบเก็บ `tenantId` ไว้ใน `AsyncLocalStorage` ประจำ request ทำให้ทุก service รู้ว่ากำลังทำงานให้บริษัทไหน
 2. **Prisma extension (กรองอัตโนมัติ):** ทุก query ของตารางที่เป็นของ tenant จะถูกเติม `tenantId` ให้อัตโนมัติ ทั้ง `where` (อ่าน, แก้, ลบ, นับ) และ `data` (สร้าง) · **ถ้าไม่มี tenant context ระบบจะปฏิเสธ query** (fail closed) ยกเว้นงานของ platform ที่เรียกผ่าน `RequestContext.asPlatform()` อย่างชัดเจน · create ที่ซ้อนกัน (nested create) ก็ถูกเติม `tenantId` ด้วย
 3. **ตารางลูก:** เช่น รายการในบิล, การชำระเงิน, รายการในใบรับสินค้า ไม่มี `tenantId` ของตัวเอง แต่เข้าถึงผ่านแม่ที่กรอง tenant แล้วเท่านั้น
@@ -145,10 +145,10 @@ status: TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
 - **Dockerfile สำหรับ production** และ `docker-compose.prod.yml`
 
 ## 8. ขอบเขตที่ยังไม่ทำ (บันทึกไว้)
-- **สกุลเงินหลัก:** ยังเป็น LAK ทุกบริษัท (ตลาดลาว) · ถ้าจะขายให้ต่างประเทศต้องเปลี่ยนคอลัมน์ `*Lak` เป็นสกุลหลักของบริษัท
-- **Row-Level Security ของ PostgreSQL:** เป็นชั้นป้องกันเพิ่มในอนาคต · ตอนนี้ป้องกันที่ application 4 ชั้นและมี test ครอบคลุม
-- **จ่ายค่าแพ็กเกจออนไลน์** (BCEL OnePay ฯลฯ) และใบแจ้งหนี้ค่าแพ็กเกจอัตโนมัติ
-- **ราคาสินค้าแยกตามสาขา**
+- ~~จ่ายค่าแพ็กเกจออนไลน์~~ และ ~~ราคาสินค้าแยกตามสาขา~~ → ทำในรอบที่ 2 (§11)
+- **สกุลเงินหลักอื่นนอกจาก LAK:** ไม่ทำ · ทุกยอดเงินในระบบเก็บเป็น `*Lak` (ใบเสร็จ, รายงาน, ต้นทุน, หนี้) การเปลี่ยนสกุลหลักต่อบริษัทต้องแก้ทุกตาราง/รายงาน ขณะที่ลูกค้าเป้าหมายคือร้านในลาว · ขายเป็น THB/USD ได้อยู่แล้วผ่านราคาสินค้าและการรับเงินหลายสกุล
+- **Row-Level Security ของ PostgreSQL:** ยังไม่เปิด · RLS ต้องตั้ง `app.tenant_id` ในทุก transaction ของ connection pool ทำให้ทุก query ต้องห่อเป็น transaction (+2 round trip ต่อ query · ยังไม่ได้วัด แต่ query สั้นซึ่งเป็นส่วนใหญ่ของ API จะช้าลงชัดเจน) · ตอนนี้มีการป้องกัน 6 ชั้น (§3) และ test ข้ามบริษัท · ถ้าวันหนึ่งต้องผ่าน audit ที่บังคับ RLS ให้ทำพร้อมแยก DB role ของ API ออกจากเจ้าของตาราง
+- **ESC/POS ที่ server:** ไม่ทำ · เครื่องพิมพ์ใบเสร็จส่วนใหญ่ไม่มีตัวอักษรลาวใน code page ต้องพิมพ์เป็นรูป (raster) ซึ่งต้องใช้ฟอนต์ลาวตอนวาด → ให้ frontend วาดใบเสร็จ (มีฟอนต์ลาวอยู่แล้ว) แล้วพิมพ์ผ่าน browser / print bridge ในร้าน · ลิ้นชักเงินเปิดผ่าน driver ของเครื่องพิมพ์ ("open cash drawer before printing")
 
 ## 9. รายละเอียดที่ตัดสินใจระหว่างพัฒนา
 - **ID ของข้อมูลเดิม:** migration ย้ายข้อมูลเดิมเข้า tenant `tenant_plc` (รหัส `plc`), สาขา `branch_plc_main` (รหัส `MAIN`), แพ็กเกจ Enterprise สถานะ ACTIVE ไม่มีวันหมดอายุ · `BranchStock` เติมจาก `Product.stockQty`
@@ -172,3 +172,35 @@ status: TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
 | S5 | หลายภาษา: error codes, validation, ข้อมูลหลายภาษา, จำนวนเงินเป็นตัวอักษร 3 ภาษา |
 | S6 | Idempotency, request id, audit-log API, CI, Docker |
 | S7 | ชุด test cross-tenant, เอกสาร และวัดประสิทธิภาพซ้ำ |
+
+## 11. รอบที่ 2 (2026-10-28): ยืนยันอีเมล, Google, ราคาตามสาขา, จ่ายค่าแพ็กเกจ
+
+### 11.1 ส่งอีเมล
+- `MAIL_TRANSPORT=smtp` (production) ใช้ได้กับ Gmail (`smtp.gmail.com:465` + App Password), Google Workspace, SES ฯลฯ · `log` (dev: เขียนลง log) · `memory` (test)
+- ข้อความ 3 ภาษาตามภาษาของ request · ลิงก์ในอีเมลชี้ไปหน้าเว็บ `APP_URL`
+- เก็บเฉพาะค่า hash ของรหัส/โทเค็น · รหัสยืนยันมีอายุจำกัดและลองผิดได้ไม่เกิน 5 ครั้ง
+
+### 11.2 สมัครร้านใหม่ = ต้องยืนยันอีเมลก่อน
+1. `POST /public/signup` → ตรวจรหัสบริษัท/แพ็กเกจ → เก็บคำขอ (`SignupRequest`, รหัสผ่านเก็บเป็น hash) → ส่ง **รหัส 6 หลัก + ลิงก์** ไปอีเมล (อายุ 30 นาที) → ตอบ `{ requestId }` · **ยังไม่สร้างบริษัท**
+2. `POST /public/signup/verify { requestId, code }` → สร้างบริษัท + เจ้าของ (อีเมลยืนยันแล้ว) → ได้ token เข้าใช้ทันที
+3. `POST /public/signup/resend { requestId }` (จำกัดความถี่)
+- **สมัครด้วย Google:** `POST /public/signup/google { idToken, code, name, planCode }` → Google ยืนยันอีเมลให้แล้ว จึงสร้างบริษัททันที เจ้าของผูกบัญชี Google (`googleSub`) และไม่มีรหัสผ่าน (ตั้งได้ภายหลังด้วย "ลืมรหัสผ่าน")
+
+### 11.3 ผู้ใช้และอีเมล
+- `User.email` (ไม่ซ้ำภายในบริษัท, ไม่บังคับ: แคชเชียร์ที่ใช้แค่ PIN ไม่ต้องมี) + `emailVerifiedAt` + `googleSub`
+- สร้าง/แก้ผู้ใช้แล้วใส่อีเมล → ระบบส่งลิงก์ยืนยัน · `POST /auth/verify-email { token }` · `POST /auth/resend-verification`
+- **ลืมรหัสผ่าน:** `POST /auth/forgot-password { tenantCode?, email }` (ตอบเหมือนกันเสมอ ไม่บอกว่ามีอีเมลนี้หรือไม่) → ลิงก์อายุ 1 ชั่วโมง → `POST /auth/reset-password { token, newPassword }` (ปลดล็อกบัญชีและออกจากระบบทุกเครื่อง) · ใช้ได้เฉพาะอีเมลที่ยืนยันแล้ว
+- **เข้าระบบด้วย Google:** `POST /auth/google { idToken, tenantCode? }` → หาผู้ใช้ที่ผูก Google แล้ว หรืออีเมลยืนยันแล้วตรงกัน (ผูกให้อัตโนมัติ) · ไม่ส่งรหัสบริษัทได้ ถ้าอีเมลอยู่หลายบริษัทจะตอบ `409 TENANT_REQUIRED` พร้อมรายชื่อบริษัท · `POST /auth/google/link` ผูกบัญชีตัวเอง
+- ตรวจ ID token ด้วยกุญแจของ Google (`google-auth-library`) และ `aud` = `GOOGLE_CLIENT_ID`
+
+### 11.4 ราคาตามสาขา
+- ตาราง `BranchPrice (branchId, productId, retailPrice, wholesalePrice?)` ในสกุลเงินเดียวกับราคาหลักของสินค้า · ไม่มีแถว = ใช้ราคาหลัก · `wholesalePrice` ว่าง = ใช้ราคาส่งหลัก
+- `PUT /products/:id/branch-prices { items: [{ branchId, retailPrice, wholesalePrice? }] }` (แทนที่ทั้งชุด, สิทธิ์ `product.manage`)
+- ขาย/ใบเสนอราคา/ใบซ่อม ใช้ราคาของสาขาเครื่องขายอัตโนมัติ · `GET /products?branchId=`, `/products/lookup?branchId=`, `/products/:id?branchId=` คืนราคาที่ใช้จริงของสาขานั้น (`branchPrice: true`) · รายละเอียดสินค้าแสดงราคาทุกสาขา (`branchPrices`)
+
+### 11.5 จ่ายค่าแพ็กเกจ
+- ตาราง `BillingInvoice (tenantId, number, planId, months, amountLak, status PENDING/PAID/CANCELLED, method, reference, paidAt)`
+- ร้าน: `POST /billing/checkout { planCode, months: 1 | 12 }` → ใบแจ้งหนี้ + วิธีจ่าย (เลขบัญชีจาก `BILLING_BANK_INFO`, ลิงก์จ่ายออนไลน์จาก `BILLING_PAY_URL` ถ้าตั้งไว้) · `GET /billing/invoices` · `POST /billing/invoices/:id/cancel` · ใช้ได้แม้แพ็กเกจหมดอายุ (อ่านอย่างเดียว) เพื่อให้ต่ออายุเองได้
+- **ยืนยันการจ่าย 2 ทาง:** (1) platform admin กด `POST /platform/invoices/:id/mark-paid` หลังเห็นเงินเข้า (2) payment gateway เรียก `POST /public/billing/webhook` พร้อมลายเซ็น `X-Signature: sha256=<HMAC-SHA256(body, BILLING_WEBHOOK_SECRET)>` และยอดต้องตรงกับใบแจ้งหนี้ · ทำซ้ำได้ไม่ต่ออายุซ้ำ
+- จ่ายแล้ว → เปลี่ยนเป็นแพ็กเกจที่ซื้อ, สถานะ ACTIVE, `currentPeriodEnd` = max(วันนี้, วันหมดอายุเดิม) + จำนวนเดือน · ส่งอีเมลใบเสร็จถ้าบริษัทมีอีเมล
+- ยังไม่ผูกกับ gateway เจ้าใดเจ้าหนึ่ง (BCEL OnePay ฯลฯ ต้องมีสัญญาและ API key ของร้าน) · webhook ที่มีลายเซ็นเป็นจุดต่อสำหรับ adapter ของ gateway

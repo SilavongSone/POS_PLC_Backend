@@ -35,6 +35,11 @@ export default defineConfig({
       PLATFORM_ADMIN_EMAIL: 'platform@test.local',
       PLATFORM_ADMIN_PASSWORD: 'platform-password-1',
       THROTTLE_SIGNUP_LIMIT: '100000',
+      MAIL_TRANSPORT: 'memory',
+      APP_URL: 'https://pos.test',
+      GOOGLE_CLIENT_IDS: 'test-client.apps.googleusercontent.com',
+      BILLING_WEBHOOK_SECRET: 'test-webhook-secret-123456',
+      BILLING_BANK_INFO: 'BCEL 010-12-00-123456 PLC POS',
     },
     globalSetup: ['./test/global-setup.ts'],
     // Files share one database; run them one at a time.

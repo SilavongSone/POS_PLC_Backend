@@ -33,6 +33,8 @@ export const createUserSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
   password,
   groupId: z.uuid(),
+  /** Gets a confirmation link; needed for password reset and Google sign-in by e-mail. */
+  email: z.email().trim().toLowerCase().nullish(),
   pin: pin.optional(),
   branchIds: branchIds.optional(),
   language: language.optional(),
@@ -43,6 +45,7 @@ export const updateUserSchema = z
   .object({
     fullName: z.string().trim().min(1).max(100),
     groupId: z.uuid(),
+    email: z.email().trim().toLowerCase().nullable(),
     isActive: z.boolean(),
     branchIds,
     language,

@@ -31,6 +31,21 @@ export const lo: Record<string, string> = {
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key ນີ້ຖືກໃຊ້ກັບຄຳຮ້ອງຂໍອື່ນແລ້ວ',
   IDEMPOTENCY_IN_PROGRESS: 'ຄຳຮ້ອງຂໍດຽວກັນກຳລັງດຳເນີນການຢູ່',
 
+  TOKEN_INVALID: 'ລິ້ງບໍ່ຖືກຕ້ອງ ຫຼື ໝົດອາຍຸແລ້ວ',
+  EMAIL_NOT_PENDING: 'ບັນຊີຂອງທ່ານບໍ່ມີອີເມວທີ່ລໍຖ້າຢືນຢັນ',
+  SIGNUP_CODE_INVALID: 'ລະຫັດບໍ່ຖືກຕ້ອງ ຫຼື ໝົດອາຍຸແລ້ວ',
+  GOOGLE_DISABLED: 'ຍັງບໍ່ໄດ້ເປີດໃຊ້ການເຂົ້າລະບົບດ້ວຍ Google',
+  GOOGLE_TOKEN_INVALID: 'ເຂົ້າລະບົບດ້ວຍ Google ບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່',
+  GOOGLE_ACCOUNT_UNKNOWN: 'ບໍ່ມີບັນຊີທີ່ໃຊ້ Google ນີ້',
+  GOOGLE_ACCOUNT_AMBIGUOUS:
+    'ມີຜູ້ໃຊ້ຫຼາຍຄົນໃຊ້ອີເມວນີ້ ກະລຸນາເຂົ້າດ້ວຍລະຫັດຜ່ານ',
+  GOOGLE_EMAIL_UNVERIFIED: 'Google ຍັງບໍ່ໄດ້ຢືນຢັນອີເມວນີ້',
+  TENANT_REQUIRED: 'ກະລຸນາເລືອກບໍລິສັດ',
+  INVOICE_NOT_PENDING: 'ໃບແຈ້ງໜີ້ນີ້ຈ່າຍແລ້ວ ຫຼື ຖືກຍົກເລີກ',
+  WEBHOOK_DISABLED: 'ຍັງບໍ່ໄດ້ຕັ້ງຄ່າການຢືນຢັນການຈ່າຍອອນລາຍ',
+  WEBHOOK_SIGNATURE_INVALID: 'ລາຍເຊັນບໍ່ຖືກຕ້ອງ',
+  AMOUNT_MISMATCH: 'ຈຳນວນເງິນບໍ່ກົງກັບໃບແຈ້ງໜີ້',
+
   'zod.invalid_type': 'ຕ້ອງປ້ອນ ຫຼື ປະເພດຂໍ້ມູນບໍ່ຖືກຕ້ອງ',
   'zod.too_small': 'ຄ່ານ້ອຍເກີນໄປ (ຕ່ຳສຸດ {minimum})',
   'zod.too_big': 'ຄ່າຫຼາຍເກີນໄປ (ສູງສຸດ {maximum})',

@@ -12,6 +12,8 @@ export const tenantCodeSchema = z
   .refine((c) => !RESERVED.has(c), 'This code is reserved');
 
 export const ownerSchema = z.object({
+  /** Owner's e-mail; for platform-created companies a confirmation link is sent. */
+  email: z.email().trim().toLowerCase().optional(),
   username: z
     .string()
     .trim()
@@ -63,3 +65,24 @@ export const signupSchema = provisionTenantSchema
   })
   .extend({ email: z.email() });
 export type SignupInput = z.infer<typeof signupSchema>;
+
+export const verifySignupSchema = z.object({
+  requestId: z.uuid(),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, '6 digits'),
+});
+export const resendSignupSchema = z.object({ requestId: z.uuid() });
+
+/** Sign-up with Google: the owner is the Google account (no password). */
+export const googleSignupSchema = provisionTenantSchema
+  .pick({
+    code: true,
+    name: true,
+    phone: true,
+    defaultLanguage: true,
+    planCode: true,
+  })
+  .extend({ idToken: z.string().min(20).max(5000) });
+export type GoogleSignupInput = z.infer<typeof googleSignupSchema>;
