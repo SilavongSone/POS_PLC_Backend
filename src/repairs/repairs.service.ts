@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { Prisma, type TicketStatus } from '../generated/prisma/client.js';
@@ -20,6 +21,7 @@ import type {
   TicketLinesInput,
   UpdateTicketInput,
 } from './repairs.schemas.js';
+import { RequestContext } from '../common/request-context.js';
 
 type Tx = Prisma.TransactionClient;
 const Decimal = Prisma.Decimal;
@@ -65,14 +67,16 @@ export class RepairsService {
     private readonly ledger: StockLedgerService,
     private readonly docNumbers: DocNumberService,
     private readonly settings: SettingsService,
+    private readonly branches: BranchAccessService,
   ) {}
 
   /** Receives a device. A shop serial fills in the device and whether it is under warranty. */
   async create(input: CreateTicketInput, user: AuthUser) {
+    const branchId = await this.branches.resolve(user, input.branchId);
     const id = await this.prisma.$transaction(async (tx) => {
       await tx.customer.findUniqueOrThrow({ where: { id: input.customerId } });
       const unit = input.serial
-        ? await tx.serialNumber.findUnique({
+        ? await tx.serialNumber.findFirst({
             where: { serial: input.serial },
             include: { product: true },
           })
@@ -88,6 +92,7 @@ export class RepairsService {
       const ticket = await tx.serviceTicket.create({
         data: {
           ticketNo: await this.docNumbers.daily(tx, 'T'),
+          branchId,
           customerId: input.customerId,
           serialId: unit?.id,
           deviceName: input.deviceName ?? unit!.product.name,
@@ -254,7 +259,7 @@ export class RepairsService {
   async deliver(id: string, input: DeliverTicketInput, user: AuthUser) {
     await this.prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "ServiceTicket" WHERE "id" = ${id} FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "ServiceTicket" WHERE "id" = ${id} AND "tenantId" = ${RequestContext.tenantId()} FOR UPDATE`;
         const ticket = await tx.serviceTicket.findUniqueOrThrow({
           where: { id },
           include: { lines: { include: { product: true } } },
@@ -320,7 +325,12 @@ export class RepairsService {
           saleId = sale.id;
         } else if (ticket.status === 'READY') {
           // Free (warranty) repair: parts still leave stock, against the ticket.
-          const ref = { refType: 'SERVICE_TICKET', refId: id, userId: user.id };
+          const ref = {
+            refType: 'SERVICE_TICKET',
+            refId: id,
+            userId: user.id,
+            branchId: ticket.branchId,
+          };
           for (const l of ticket.lines) {
             if (!l.product || l.product.type === 'SERVICE') continue;
             await this.ledger.remove(
@@ -368,11 +378,11 @@ export class RepairsService {
   }
 
   private async repairServiceProduct(tx: Tx) {
-    const existing = await tx.product.findUnique({
+    const existing = await tx.product.findFirst({
       where: { sku: REPAIR_SERVICE_SKU },
     });
     if (existing) return existing;
-    const category = await tx.category.findUnique({
+    const category = await tx.category.findFirst({
       where: { slug: 'service' },
     });
     return tx.product.create({

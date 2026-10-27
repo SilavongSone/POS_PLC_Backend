@@ -94,7 +94,7 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
     registerCode = `Q${uniq().slice(-5)}`.toUpperCase();
     registerId = (
       await t.prisma.register.create({
-        data: { code: registerCode, name: 'Sales test' },
+        data: { code: registerCode, name: 'Sales test', branchId: t.branchId },
       })
     ).id;
     const types = await t.prisma.paymentType.findMany();
@@ -186,7 +186,7 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
     expect(serialLine.serialNumbers[0].serial).toBe(s[0]);
     expect(serialLine.serialNumbers[0].warrantyEndsAt).not.toBeNull();
 
-    const unit = await t.prisma.serialNumber.findUniqueOrThrow({
+    const unit = await t.prisma.serialNumber.findFirstOrThrow({
       where: { serial: s[0] },
     });
     expect(unit.status).toBe('SOLD');
@@ -313,7 +313,7 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
       { retailPrice: 5_000_000, trackSerial: true },
       { quantity: 2, serials: s },
     );
-    await t.prisma.serialNumber.update({
+    await t.prisma.serialNumber.updateMany({
       where: { serial: s[0] },
       data: { condition: 'DEMO', priceLak: 3_900_000 },
     });
@@ -468,7 +468,7 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
     });
     expect(
       (
-        await t.prisma.serialNumber.findUniqueOrThrow({
+        await t.prisma.serialNumber.findFirstOrThrow({
           where: { serial: s[0] },
         })
       ).status,

@@ -199,7 +199,7 @@ export class RegistersController {
     @Body(zod(createRegisterSchema)) body: CreateRegisterInput,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.registers.create(body, actor.id);
+    return this.registers.create(body, actor);
   }
 
   @Patch(':id')
@@ -210,6 +210,6 @@ export class RegistersController {
     @Body(zod(updateRegisterSchema)) body: UpdateRegisterInput,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.registers.update(registerId, body, actor.id);
+    return this.registers.update(registerId, body, actor);
   }
 }

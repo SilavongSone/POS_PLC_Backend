@@ -23,7 +23,7 @@ describe('Manager approval (e2e)', () => {
     t.http().post('/auth/approve').set(cashier.auth).send(body);
 
   async function cashierUser() {
-    return (await t.app.get(AuthService).findActiveUser(cashier.id))!;
+    return (await t.service(AuthService).findActiveUser(cashier.id))!;
   }
 
   it('issues a token for a manager PIN and authorizes only that action for that cashier', async () => {
@@ -38,7 +38,7 @@ describe('Manager approval (e2e)', () => {
       approver: { id: manager.id },
     });
 
-    const approvals = t.app.get(ApprovalService);
+    const approvals = t.service(ApprovalService);
     const user = await cashierUser();
     await expect(
       approvals.authorize(user, 'sale.void', res.body.approvalToken),
@@ -47,7 +47,7 @@ describe('Manager approval (e2e)', () => {
       approvals.authorize(user, 'price.override', res.body.approvalToken),
     ).rejects.toThrow('does not match');
 
-    const other = (await t.app.get(AuthService).findActiveUser(manager.id))!;
+    const other = (await t.service(AuthService).findActiveUser(manager.id))!;
     await expect(
       approvals.authorize(
         { ...other, permissions: [] },
@@ -58,13 +58,13 @@ describe('Manager approval (e2e)', () => {
   });
 
   it('requires approval when the user lacks the permission, and skips it when they have it', async () => {
-    const approvals = t.app.get(ApprovalService);
+    const approvals = t.service(ApprovalService);
     await expect(
       approvals.authorize(await cashierUser(), 'sale.void'),
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_REQUIRED' },
     });
-    const mgr = (await t.app.get(AuthService).findActiveUser(manager.id))!;
+    const mgr = (await t.service(AuthService).findActiveUser(manager.id))!;
     await expect(approvals.authorize(mgr, 'sale.void')).resolves.toBe(
       manager.id,
     );

@@ -77,7 +77,11 @@ describe('Returns, promotions and expenses (e2e)', () => {
     });
     registerId = (
       await t.prisma.register.create({
-        data: { code: `P${uniq().slice(-5)}`.toUpperCase(), name: 'Phase 2' },
+        data: {
+          code: `P${uniq().slice(-5)}`.toUpperCase(),
+          name: 'Phase 2',
+          branchId: t.branchId,
+        },
       })
     ).id;
     shiftId = (

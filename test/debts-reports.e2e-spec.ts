@@ -67,7 +67,11 @@ describe('Debt payments and reports (e2e)', () => {
     ]);
     registerId = (
       await t.prisma.register.create({
-        data: { code: `D${uniq().slice(-5)}`.toUpperCase(), name: 'Debt test' },
+        data: {
+          code: `D${uniq().slice(-5)}`.toUpperCase(),
+          name: 'Debt test',
+          branchId: t.branchId,
+        },
       })
     ).id;
     await t

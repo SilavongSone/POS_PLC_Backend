@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { Env } from '../config/env.js';
 import { PrismaClient } from '../generated/prisma/client.js';
+import { withTenantIsolation } from './tenant-extension.js';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
@@ -19,6 +20,9 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
         idleTimeoutMillis: 30_000,
       }),
     });
+    // Every query through this service is tenant-scoped (see tenant-extension.ts). The
+    // extended client keeps PrismaClient's API, so callers are unchanged.
+    return withTenantIsolation(this);
   }
 
   async onModuleDestroy() {

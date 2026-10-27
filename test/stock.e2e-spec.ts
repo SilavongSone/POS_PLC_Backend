@@ -260,7 +260,7 @@ describe('Stock (e2e)', () => {
     await post(issue.id).expect(200);
     expect(
       (
-        await t.prisma.serialNumber.findUniqueOrThrow({
+        await t.prisma.serialNumber.findFirstOrThrow({
           where: { serial: serials[0] },
         })
       ).status,
@@ -445,7 +445,7 @@ describe('Stock (e2e)', () => {
       })
       .expect(409);
 
-    const unit = await t.prisma.serialNumber.findUniqueOrThrow({
+    const unit = await t.prisma.serialNumber.findFirstOrThrow({
       where: { serial },
     });
     expect(unit.condition).toBe('DEMO');

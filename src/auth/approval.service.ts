@@ -54,6 +54,7 @@ export class ApprovalService {
 
     const payload: ApprovalTokenPayload = {
       sub: approver.id,
+      tid: approver.tenantId,
       typ: 'approval',
       perm: input.permission,
       req: requester.id,
@@ -94,6 +95,7 @@ export class ApprovalService {
     }
     if (
       payload.typ !== 'approval' ||
+      payload.tid !== user.tenantId ||
       payload.perm !== permission ||
       payload.req !== user.id
     ) {

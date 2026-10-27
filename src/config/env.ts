@@ -39,6 +39,16 @@ const envSchema = z.object({
   THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
   /** Max JSON body size, e.g. "1mb". */
   BODY_LIMIT: z.string().default('1mb'),
+  /**
+   * Company code used when a login omits tenantCode — for single-company installs and
+   * deployments that serve one company per domain. Unset: tenantCode is required.
+   */
+  DEFAULT_TENANT_CODE: z.string().trim().min(1).optional(),
+  /** Self-service sign-up at POST /public/signup. */
+  SIGNUP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   /** Database connections per API instance. */
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
   /** Any SQL statement running longer than this is cancelled (ms). */

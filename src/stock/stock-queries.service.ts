@@ -71,7 +71,7 @@ export class StockQueriesService {
    * Warranty lookup: where a unit came from, who bought it, warranty left, repairs.
    */
   async serialHistory(serial: string, canViewCost: boolean) {
-    const unit = await this.prisma.serialNumber.findUnique({
+    const unit = await this.prisma.serialNumber.findFirst({
       where: { serial },
       include: {
         product: {

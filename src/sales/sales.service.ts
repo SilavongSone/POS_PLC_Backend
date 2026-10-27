@@ -154,6 +154,7 @@ export class SalesService {
         ),
         paymentStatus: plan.paymentStatus,
         cashierId: user.id,
+        branchId: shift.register.branchId,
         registerId: shift.registerId,
         shiftId: shift.id,
         customerId: cart.customer?.id,
@@ -184,7 +185,12 @@ export class SalesService {
       },
     });
 
-    const ref = { refType: 'SALE', refId: sale.id, userId: user.id };
+    const ref = {
+      refType: 'SALE',
+      refId: sale.id,
+      userId: user.id,
+      branchId: sale.branchId,
+    };
     for (const line of cart.lines) {
       const item = await tx.saleItem.create({
         data: {
@@ -422,7 +428,12 @@ export class SalesService {
         if (claimed.count === 0)
           throw new ConflictException('The sale is already voided');
 
-        const ref = { refType: 'SALE', refId: id, userId: user.id };
+        const ref = {
+          refType: 'SALE',
+          refId: id,
+          userId: user.id,
+          branchId: sale.branchId,
+        };
         for (const item of sale.items) {
           await this.ledger.restoreSoldUnits(
             tx,

@@ -54,7 +54,7 @@ export class AuthController {
   login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
   ): Promise<AuthTokens> {
-    return this.auth.login(body.username, body.password);
+    return this.auth.login(body.tenantCode, body.username, body.password);
   }
 
   @Public()
@@ -66,7 +66,7 @@ export class AuthController {
   pinLogin(
     @Body(new ZodValidationPipe(pinLoginSchema)) body: PinLoginInput,
   ): Promise<AuthTokens> {
-    return this.auth.pinLogin(body.username, body.pin);
+    return this.auth.pinLogin(body.tenantCode, body.username, body.pin);
   }
 
   @Public()

@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 export type AuditEntry = {
   userId: string | null;
+  /** Only for platform-admin actions; otherwise the request's tenant is used. */
+  tenantId?: string;
   /** e.g. "SALE_VOID", "PRODUCT_PRICE_BULK_UPDATE" */
   action: string;
   entity: string;
@@ -20,6 +22,7 @@ export class AuditService {
   async log(entry: AuditEntry, tx?: Prisma.TransactionClient): Promise<void> {
     await (tx ?? this.prisma).auditLog.create({
       data: {
+        ...(entry.tenantId && { tenantId: entry.tenantId }),
         userId: entry.userId,
         action: entry.action,
         entity: entry.entity,

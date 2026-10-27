@@ -11,7 +11,7 @@ describe('Users and groups (e2e)', () => {
     t = await createTestApp();
     admin = await t.userWith('Admin');
     cashierGroupId = (
-      await t.prisma.userGroup.findUniqueOrThrow({ where: { name: 'Cashier' } })
+      await t.prisma.userGroup.findFirstOrThrow({ where: { name: 'Cashier' } })
     ).id;
   });
   afterAll(() => t.close());

@@ -9,6 +9,7 @@ import {
   type Product,
   type StockMoveType,
 } from '../generated/prisma/client.js';
+import { RequestContext } from '../common/request-context.js';
 
 type Tx = Prisma.TransactionClient;
 const Decimal = Prisma.Decimal;
@@ -18,6 +19,8 @@ export type MoveRef = {
   refType: string;
   refId: string;
   userId: string;
+  /** Branch whose stock changes. */
+  branchId: string;
 };
 
 /** True when quantity is counted for this product (not a service, bundle or "unspecified quantity" item). */
@@ -26,20 +29,26 @@ export function countsStock(p: Pick<Product, 'type' | 'trackStock'>): boolean {
 }
 
 /**
- * The only code that changes stock. Every change updates Product.stockQty and writes a
- * StockMovement row in the caller's transaction, so the ledger always sums to the stock.
+ * The only code that changes stock. Every change updates the branch's BranchStock row,
+ * Product.stockQty (the total over branches) and writes a StockMovement row in the
+ * caller's transaction, so the ledger always sums to the stock, per branch and in total.
  */
 @Injectable()
 export class StockLedgerService {
   /** Locks the product row for the rest of the transaction and returns it. */
   async lockProduct(tx: Tx, productId: string): Promise<Product> {
     const [row] = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "Product" WHERE "id" = ${productId} FOR UPDATE`;
+      SELECT "id" FROM "Product"
+      WHERE "id" = ${productId} AND "tenantId" = ${RequestContext.tenantId()}
+      FOR UPDATE`;
     if (!row) throw new BadRequestException(`Unknown product ${productId}`);
     return tx.product.findUniqueOrThrow({ where: { id: productId } });
   }
 
-  /** Applies a signed quantity change; refuses to go below zero. Returns the new balance. */
+  /**
+   * Applies a signed quantity change at `ref.branchId`; refuses to take the branch below
+   * zero. The caller holds the product lock. Returns the branch's new balance.
+   */
   private async apply(
     tx: Tx,
     product: Product,
@@ -52,33 +61,51 @@ export class StockLedgerService {
       lotId?: string;
     } = {},
   ): Promise<number> {
-    const updated = await tx.product.updateMany({
-      where: {
-        id: product.id,
-        stockQty: { gte: quantity < 0 ? -quantity : 0 },
-      },
-      data: { stockQty: { increment: quantity } },
-    });
-    if (updated.count === 0) {
-      throw new ConflictException(`Not enough stock for ${product.sku}`);
+    const key = { branchId: ref.branchId, productId: product.id };
+    let balance: number;
+    if (quantity < 0) {
+      const updated = await tx.branchStock.updateMany({
+        where: { ...key, qty: { gte: -quantity } },
+        data: { qty: { increment: quantity } },
+      });
+      if (updated.count === 0) {
+        throw new ConflictException(
+          `Not enough stock for ${product.sku} at this branch`,
+        );
+      }
+      balance = (
+        await tx.branchStock.findFirstOrThrow({
+          where: key,
+          select: { qty: true },
+        })
+      ).qty;
+    } else {
+      balance = (
+        await tx.branchStock.upsert({
+          where: { branchId_productId: key },
+          create: { ...key, qty: quantity },
+          update: { qty: { increment: quantity } },
+          select: { qty: true },
+        })
+      ).qty;
     }
-    const { stockQty } = await tx.product.findUniqueOrThrow({
+    await tx.product.update({
       where: { id: product.id },
-      select: { stockQty: true },
+      data: { stockQty: { increment: quantity } },
     });
     await tx.stockMovement.create({
       data: {
         productId: product.id,
         type,
         quantity,
-        balanceAfter: stockQty,
+        balanceAfter: balance,
         unitCostLak: extra.unitCostLak ?? product.avgCostLak,
         serialId: extra.serialId,
         lotId: extra.lotId,
         ...ref,
       },
     });
-    return stockQty;
+    return balance;
   }
 
   /**
@@ -149,6 +176,7 @@ export class StockLedgerService {
           data: {
             serial,
             productId,
+            branchId: ref.branchId,
             condition: input.condition ?? 'NEW',
             costLak: input.unitCostLak,
             receivedItemId: input.receivedItemId,
@@ -171,6 +199,7 @@ export class StockLedgerService {
         await tx.stockLot.create({
           data: {
             productId,
+            branchId: ref.branchId,
             lotNo: input.lot.lotNo,
             expiryDate: input.lot.expiryDate,
             qty: input.quantity,
@@ -219,12 +248,17 @@ export class StockLedgerService {
         );
       }
       const rows = await tx.serialNumber.findMany({
-        where: { serial: { in: serials }, productId, status: 'IN_STOCK' },
+        where: {
+          serial: { in: serials },
+          productId,
+          status: 'IN_STOCK',
+          branchId: ref.branchId,
+        },
       });
       if (rows.length !== serials.length) {
         const ok = new Set(rows.map((r) => r.serial));
         throw new ConflictException(
-          `Not in stock for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
+          `Not in stock at this branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
         );
       }
       let cost = new Decimal(0);
@@ -251,7 +285,7 @@ export class StockLedgerService {
     if (product.trackExpiry) {
       let left = input.quantity;
       const lots = await tx.stockLot.findMany({
-        where: { productId, qty: { gt: 0 } },
+        where: { productId, branchId: ref.branchId, qty: { gt: 0 } },
         orderBy: [{ expiryDate: 'asc' }, { receivedAt: 'asc' }],
       });
       for (const lot of lots) {
@@ -386,7 +420,13 @@ export class StockLedgerService {
     for (const id of serialIds) {
       const serial = await tx.serialNumber.update({
         where: { id },
-        data: { status, saleItemId: null, soldAt: null, warrantyEndsAt: null },
+        data: {
+          status,
+          branchId: ref.branchId,
+          saleItemId: null,
+          soldAt: null,
+          warrantyEndsAt: null,
+        },
       });
       // Defective returns are recorded but do not count as sellable stock.
       if (status === 'IN_STOCK') {
@@ -412,7 +452,7 @@ export class StockLedgerService {
     let lotId: string | undefined;
     if (product.trackExpiry) {
       const lot = await tx.stockLot.findFirst({
-        where: { productId },
+        where: { productId, branchId: ref.branchId },
         orderBy: { expiryDate: 'desc' },
       });
       if (lot) {
@@ -424,5 +464,124 @@ export class StockLedgerService {
       }
     }
     await this.apply(tx, product, quantity, type, ref, { unitCostLak, lotId });
+  }
+
+  /**
+   * Moves units between two branches of the same company: TRANSFER_OUT at the source and
+   * TRANSFER_IN at the destination, so the company total does not change. Serials keep
+   * their status and move branch; lots move first-expiry-first-out and keep lot no/expiry.
+   */
+  async transfer(
+    tx: Tx,
+    productId: string,
+    input: { quantity: number; serials?: string[]; toBranchId: string },
+    ref: MoveRef,
+  ): Promise<void> {
+    const product = await this.lockProduct(tx, productId);
+    if (!countsStock(product)) {
+      throw new BadRequestException(`${product.sku} does not keep stock`);
+    }
+    if (input.quantity <= 0)
+      throw new BadRequestException('Quantity must be positive');
+    if (input.toBranchId === ref.branchId)
+      throw new BadRequestException(
+        'Source and destination branch are the same',
+      );
+    const inRef = { ...ref, branchId: input.toBranchId };
+
+    if (product.trackSerial) {
+      const serials = input.serials ?? [];
+      if (
+        serials.length !== input.quantity ||
+        new Set(serials).size !== serials.length
+      ) {
+        throw new BadRequestException(
+          `${product.sku}: send ${input.quantity} distinct serial numbers`,
+        );
+      }
+      const rows = await tx.serialNumber.findMany({
+        where: {
+          serial: { in: serials },
+          productId,
+          status: 'IN_STOCK',
+          branchId: ref.branchId,
+        },
+      });
+      if (rows.length !== serials.length) {
+        const ok = new Set(rows.map((r) => r.serial));
+        throw new ConflictException(
+          `Not in stock at the source branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
+        );
+      }
+      for (const row of rows) {
+        const unitCostLak = row.costLak ?? product.avgCostLak;
+        await this.apply(tx, product, -1, 'TRANSFER_OUT', ref, {
+          unitCostLak,
+          serialId: row.id,
+        });
+        await tx.serialNumber.update({
+          where: { id: row.id },
+          data: { branchId: input.toBranchId },
+        });
+        await this.apply(tx, product, 1, 'TRANSFER_IN', inRef, {
+          unitCostLak,
+          serialId: row.id,
+        });
+      }
+      return;
+    }
+
+    if (product.trackExpiry) {
+      let left = input.quantity;
+      const lots = await tx.stockLot.findMany({
+        where: { productId, branchId: ref.branchId, qty: { gt: 0 } },
+        orderBy: [{ expiryDate: 'asc' }, { receivedAt: 'asc' }],
+      });
+      for (const lot of lots) {
+        if (left === 0) break;
+        const take = Math.min(left, lot.qty);
+        await tx.stockLot.update({
+          where: { id: lot.id },
+          data: { qty: { decrement: take } },
+        });
+        await this.apply(tx, product, -take, 'TRANSFER_OUT', ref, {
+          lotId: lot.id,
+        });
+        const same = await tx.stockLot.findFirst({
+          where: {
+            productId,
+            branchId: input.toBranchId,
+            lotNo: lot.lotNo,
+            expiryDate: lot.expiryDate,
+          },
+        });
+        const target = same
+          ? await tx.stockLot.update({
+              where: { id: same.id },
+              data: { qty: { increment: take } },
+            })
+          : await tx.stockLot.create({
+              data: {
+                productId,
+                branchId: input.toBranchId,
+                lotNo: lot.lotNo,
+                expiryDate: lot.expiryDate,
+                qty: take,
+              },
+            });
+        await this.apply(tx, product, take, 'TRANSFER_IN', inRef, {
+          lotId: target.id,
+        });
+        left -= take;
+      }
+      if (left > 0)
+        throw new ConflictException(
+          `Not enough stock for ${product.sku} at this branch`,
+        );
+      return;
+    }
+
+    await this.apply(tx, product, -input.quantity, 'TRANSFER_OUT', ref);
+    await this.apply(tx, product, input.quantity, 'TRANSFER_IN', inRef);
   }
 }

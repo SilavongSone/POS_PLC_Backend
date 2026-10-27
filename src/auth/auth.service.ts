@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import argon2 from 'argon2';
 import type { Env } from '../config/env.js';
 import type { User } from '../generated/prisma/client.js';
+import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AccessTokenPayload, AuthTokens, AuthUser } from './auth.types.js';
 
@@ -17,7 +18,10 @@ import type { AccessTokenPayload, AuthTokens, AuthUser } from './auth.types.js';
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_MINUTES = 15;
 
-const userWithGroup = { group: true } as const;
+const userWithGroup = {
+  group: true,
+  branches: { select: { branchId: true } },
+} as const;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -34,7 +38,12 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  async login(username: string, password: string): Promise<AuthTokens> {
+  async login(
+    tenantCode: string | undefined,
+    username: string,
+    password: string,
+  ): Promise<AuthTokens> {
+    await this.enterTenant(tenantCode);
     const user = await this.verifyCredential(username, (u) =>
       argon2.verify(u.passwordHash, password),
     );
@@ -44,7 +53,12 @@ export class AuthService {
     );
   }
 
-  async pinLogin(username: string, pin: string): Promise<AuthTokens> {
+  async pinLogin(
+    tenantCode: string | undefined,
+    username: string,
+    pin: string,
+  ): Promise<AuthTokens> {
+    await this.enterTenant(tenantCode);
     const user = await this.verifyCredential(username, (u) =>
       u.pinHash ? argon2.verify(u.pinHash, pin) : Promise.resolve(false),
     );
@@ -63,6 +77,8 @@ export class AuthService {
     if (!stored || stored.expiresAt <= new Date() || !stored.user.isActive) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+    // The token row is not tenant-scoped; its user decides the tenant from here on.
+    RequestContext.setTenant(stored.user.tenantId);
     if (stored.revokedAt) {
       // Reuse of a rotated token means it may have been stolen.
       await this.revokeAllSessions(stored.userId);
@@ -122,11 +138,16 @@ export class AuthService {
     if (!user?.isActive) return null;
     return {
       id: user.id,
+      tenantId: user.tenantId,
       username: user.username,
       fullName: user.fullName,
       groupId: user.groupId,
       groupName: user.group.name,
       permissions: user.group.permissions,
+      branchIds: user.branches.length
+        ? user.branches.map((b) => b.branchId)
+        : null,
+      language: user.language,
     };
   }
 
@@ -147,7 +168,7 @@ export class AuthService {
     username: string,
     check: (user: User) => Promise<boolean>,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { username } });
+    const user = await this.prisma.user.findFirst({ where: { username } });
     if (!user || !user.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
       throw new UnauthorizedException('Invalid username or credentials');
@@ -194,7 +215,11 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User is inactive or missing');
 
     const expiresIn = this.config.get('ACCESS_TOKEN_TTL', { infer: true });
-    const payload: AccessTokenPayload = { sub: user.id, typ: 'access' };
+    const payload: AccessTokenPayload = {
+      sub: user.id,
+      tid: user.tenantId,
+      typ: 'access',
+    };
     const accessToken = await this.jwt.signAsync(payload, { expiresIn });
 
     // Housekeeping: drop this user's expired tokens. Revoked ones are kept until they
@@ -212,6 +237,23 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken, expiresIn, user };
+  }
+
+  /**
+   * Resolves the company a login is for and scopes the rest of the request to it. Unknown
+   * and inactive companies get the same error as a wrong password.
+   */
+  private async enterTenant(code: string | undefined): Promise<void> {
+    const tenantCode =
+      code ?? this.config.get('DEFAULT_TENANT_CODE', { infer: true });
+    const tenant = tenantCode
+      ? await this.prisma.tenant.findUnique({ where: { code: tenantCode } })
+      : null;
+    if (!tenant?.isActive) {
+      await argon2.verify(await this.dummyHash, 'x');
+      throw new UnauthorizedException('Invalid username or credentials');
+    }
+    RequestContext.setTenant(tenant.id);
   }
 
   private async revokeAllSessions(userId: string): Promise<void> {

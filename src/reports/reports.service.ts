@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CategoriesService } from '../catalog/categories.service.js';
 import { pageArgs, toPage, type PageQuery } from '../common/pagination.js';
+import { RequestContext } from '../common/request-context.js';
 import { APP_TIMEZONE, localToday, startOfLocalDay } from '../common/time.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -19,6 +20,18 @@ const zero = () => new Decimal(0);
 /** Local timestamp of a UTC "timestamp without time zone" column. */
 const local = (column: string) =>
   Prisma.raw(`(${column} AT TIME ZONE 'UTC') AT TIME ZONE '${APP_TIMEZONE}'`);
+
+/** Branches a report covers; undefined = every branch of the company. */
+export type BranchScope = { branchIds?: string[] };
+
+/** Raw SQL is not seen by the Prisma tenant extension: every query filters by hand. */
+const ofTenant = (alias: string) =>
+  Prisma.sql`${Prisma.raw(alias)}."tenantId" = ${RequestContext.tenantId()}`;
+const inBranches = (alias: string, ids?: string[]) =>
+  ids
+    ? Prisma.sql`AND ${Prisma.raw(alias)}."branchId" IN (${Prisma.join(ids)})`
+    : Prisma.empty;
+const branchWhere = (ids?: string[]) => ids && { branchId: { in: ids } };
 
 type SummaryRow = {
   key: string;
@@ -70,8 +83,9 @@ export class ReportsService {
   }
 
   /** Sales totals with VAT, discounts, cost and profit, grouped by day/month/cashier/register/payment type. */
-  async salesSummary(q: SalesSummaryQuery, canViewCost: boolean) {
+  async salesSummary(q: SalesSummaryQuery & BranchScope, canViewCost: boolean) {
     const r = this.range(q);
+    const scope = Prisma.sql`${ofTenant('s')} ${inBranches('s', q.branchIds)}`;
     // Sales in range joined once to their line costs (indexed on Sale(status, createdAt)
     // and SaleItem(saleId)), instead of a subquery per sale.
     const sales = Prisma.sql`
@@ -82,9 +96,11 @@ export class ReportsService {
         FROM "SaleItem" i
         JOIN "Sale" x ON x."id" = i."saleId"
         WHERE x."status" = 'COMPLETED' AND x."createdAt" >= ${r.start} AND x."createdAt" < ${r.end}
+          AND ${ofTenant('x')} ${inBranches('x', q.branchIds)}
         GROUP BY i."saleId"
       ) c ON c."saleId" = s."id"
-      WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}`;
+      WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}
+        AND ${scope}`;
 
     const totals = await this.prisma.$queryRaw<
       Omit<SummaryRow, 'key' | 'label'>[]
@@ -104,6 +120,7 @@ export class ReportsService {
         JOIN "Sale" s ON s."id" = p."saleId"
         JOIN "PaymentType" t ON t."id" = p."paymentTypeId"
         WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}
+          AND ${scope}
         GROUP BY t."id", t."name", t."kind", p."currency"
         ORDER BY "amountLak" DESC`;
     } else {
@@ -112,12 +129,14 @@ export class ReportsService {
         month: Prisma.sql`to_char(${local('s."createdAt"')}, 'YYYY-MM')`,
         cashier: Prisma.sql`s."cashierId"`,
         register: Prisma.sql`COALESCE(s."registerId", '')`,
+        branch: Prisma.sql`s."branchId"`,
       }[q.groupBy];
       const label = {
         day: Prisma.sql`NULL`,
         month: Prisma.sql`NULL`,
         cashier: Prisma.sql`(SELECT u."fullName" FROM "User" u WHERE u."id" = s."cashierId")`,
         register: Prisma.sql`(SELECT g."code" FROM "Register" g WHERE g."id" = s."registerId")`,
+        branch: Prisma.sql`(SELECT b."name" FROM "Branch" b WHERE b."id" = s."branchId")`,
       }[q.groupBy];
       const rows = await this.prisma.$queryRaw<SummaryRow[]>`
         WITH s AS (${sales})
@@ -129,7 +148,10 @@ export class ReportsService {
     }
 
     const returns = await this.prisma.saleReturn.aggregate({
-      where: { createdAt: { gte: r.start, lt: r.end } },
+      where: {
+        createdAt: { gte: r.start, lt: r.end },
+        ...(q.branchIds && { sale: branchWhere(q.branchIds) }),
+      },
       _count: true,
       _sum: { refundLak: true },
     });
@@ -148,7 +170,7 @@ export class ReportsService {
   }
 
   /** Top products by quantity, revenue or profit. Revenue is line totals (before the bill discount). */
-  async bestSellers(q: BestSellersQuery, canViewCost: boolean) {
+  async bestSellers(q: BestSellersQuery & BranchScope, canViewCost: boolean) {
     const r = this.range(q);
     const categoryFilter = q.categoryId
       ? Prisma.sql`AND p."categoryId" IN (${Prisma.join(await this.categories.withDescendants(q.categoryId))})`
@@ -175,6 +197,7 @@ export class ReportsService {
       JOIN "Sale" s ON s."id" = i."saleId"
       JOIN "Product" p ON p."id" = i."productId"
       WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}
+        AND ${ofTenant('s')} ${inBranches('s', q.branchIds)}
       ${categoryFilter}
       GROUP BY p."id", p."sku", p."name"
       ORDER BY ${order}
@@ -190,8 +213,11 @@ export class ReportsService {
     };
   }
 
-  /** Stock on hand valued at average cost: one page of products, totals over all of them. */
-  async stockValue(q: PageQuery) {
+  /**
+   * Stock on hand valued at average cost: one page of products, totals over all of them.
+   * With a branch scope the quantities are those branches' stock.
+   */
+  async stockValue(q: PageQuery & BranchScope) {
     const where: Prisma.ProductWhereInput = {
       type: 'STANDARD',
       trackStock: true,
@@ -203,6 +229,10 @@ export class ReportsService {
         ],
       }),
     };
+    const qty = q.branchIds
+      ? Prisma.sql`(SELECT COALESCE(SUM(b."qty"), 0) FROM "BranchStock" b
+           WHERE b."productId" = p."id" AND b."branchId" IN (${Prisma.join(q.branchIds)}))`
+      : Prisma.sql`p."stockQty"`;
     const [products, count, totals] = await Promise.all([
       this.prisma.product.findMany({
         where,
@@ -228,18 +258,39 @@ export class ReportsService {
         }[]
       >`
         SELECT count(*)::int AS products,
-               COALESCE(SUM(GREATEST("stockQty", 0)), 0)::int AS units,
-               COALESCE(SUM("avgCostLak" * GREATEST("stockQty", 0)), 0) AS "valueLak",
-               count(*) FILTER (WHERE "stockQty" <= "lowStockAlert")::int AS "lowStock",
-               count(*) FILTER (WHERE "stockQty" <= 0)::int AS "outOfStock"
-        FROM "Product"
-        WHERE "type" = 'STANDARD' AND "trackStock" AND "isActive"`,
+               COALESCE(SUM(GREATEST(qty, 0)), 0)::int AS units,
+               COALESCE(SUM("avgCostLak" * GREATEST(qty, 0)), 0) AS "valueLak",
+               count(*) FILTER (WHERE qty <= "lowStockAlert")::int AS "lowStock",
+               count(*) FILTER (WHERE qty <= 0)::int AS "outOfStock"
+        FROM (
+          SELECT p."avgCostLak", p."lowStockAlert", ${qty} AS qty
+          FROM "Product" p
+          WHERE ${ofTenant('p')} AND p."type" = 'STANDARD' AND p."trackStock" AND p."isActive"
+        ) x`,
     ]);
-    const items = products.map((p) => ({
-      ...p,
-      valueLak: p.avgCostLak.mul(Math.max(p.stockQty, 0)),
-      low: p.stockQty <= p.lowStockAlert,
-    }));
+    const branchQty = q.branchIds
+      ? new Map(
+          (
+            await this.prisma.branchStock.groupBy({
+              by: ['productId'],
+              where: {
+                productId: { in: products.map((p) => p.id) },
+                branchId: { in: q.branchIds },
+              },
+              _sum: { qty: true },
+            })
+          ).map((g) => [g.productId, g._sum.qty ?? 0]),
+        )
+      : undefined;
+    const items = products.map((p) => {
+      const stockQty = branchQty ? (branchQty.get(p.id) ?? 0) : p.stockQty;
+      return {
+        ...p,
+        stockQty,
+        valueLak: p.avgCostLak.mul(Math.max(stockQty, 0)),
+        low: stockQty <= p.lowStockAlert,
+      };
+    });
     return {
       ...toPage(items, count, q),
       /** Over all stocked products, regardless of the search. */
@@ -248,7 +299,7 @@ export class ReportsService {
   }
 
   /** Goods received / issued / adjusted in the period, per product. */
-  async stockDocuments(q: StockDocsReportQuery) {
+  async stockDocuments(q: StockDocsReportQuery & BranchScope) {
     const r = this.range(q);
     const rows = await this.prisma.$queryRaw<
       {
@@ -267,6 +318,7 @@ export class ReportsService {
       JOIN "Product" p ON p."id" = i."productId"
       WHERE d."type" = ${q.type}::"StockDocType" AND d."status" = 'POSTED'
         AND d."postedAt" >= ${r.start} AND d."postedAt" < ${r.end}
+        AND ${ofTenant('d')} ${inBranches('d', q.branchIds)}
       GROUP BY p."id", p."sku", p."name"
       ORDER BY p."sku"`;
     return {
@@ -281,11 +333,14 @@ export class ReportsService {
     };
   }
 
-  async debtPayments(q: DateRange) {
+  async debtPayments(q: DateRange & BranchScope) {
     const r = this.range(q);
     const groups = await this.prisma.debtPayment.groupBy({
       by: ['paymentTypeId', 'currency'],
-      where: { createdAt: { gte: r.start, lt: r.end } },
+      where: {
+        createdAt: { gte: r.start, lt: r.end },
+        ...branchWhere(q.branchIds),
+      },
       _count: true,
       _sum: { amount: true, amountLak: true },
     });
@@ -311,13 +366,14 @@ export class ReportsService {
    * Outstanding credit per customer, aged by due date (or sale date when no due date).
    * Aggregated in SQL; one page of customers (largest debt first) plus overall totals.
    */
-  async debtAging(q: PageQuery) {
+  async debtAging(q: PageQuery & BranchScope) {
     const aged = Prisma.sql`
       SELECT s."customerId",
              s."totalLak" - s."paidLak" AS due,
              floor(extract(epoch FROM (now() AT TIME ZONE 'UTC') - COALESCE(s."dueDate", s."createdAt")) / 86400) AS days
       FROM "Sale" s
-      WHERE s."status" = 'COMPLETED' AND s."paymentStatus" IN ('UNPAID', 'PARTIAL')`;
+      WHERE s."status" = 'COMPLETED' AND s."paymentStatus" IN ('UNPAID', 'PARTIAL')
+        AND ${ofTenant('s')} ${inBranches('s', q.branchIds)}`;
     const buckets = Prisma.sql`
       COALESCE(SUM(due) FILTER (WHERE days <= 0), 0) AS "notDue",
       COALESCE(SUM(due) FILTER (WHERE days BETWEEN 1 AND 30), 0) AS "d1_30",
@@ -343,11 +399,14 @@ export class ReportsService {
     return { ...toPage(items, count[0].n, q), totals: totals[0] };
   }
 
-  async expenses(q: DateRange) {
+  async expenses(q: DateRange & BranchScope) {
     const r = this.range(q);
     const groups = await this.prisma.expense.groupBy({
       by: ['categoryId'],
-      where: { spentAt: { gte: r.start, lt: r.end } },
+      where: {
+        spentAt: { gte: r.start, lt: r.end },
+        ...branchWhere(q.branchIds),
+      },
       _count: true,
       _sum: { amountLak: true },
     });
@@ -369,9 +428,10 @@ export class ReportsService {
     };
   }
 
-  async voidedSales(q: DateRange & PageQuery) {
+  async voidedSales(q: DateRange & PageQuery & BranchScope) {
     const r = this.range(q);
     const where: Prisma.SaleWhereInput = {
+      ...branchWhere(q.branchIds),
       status: 'VOIDED',
       voidedAt: { gte: r.start, lt: r.end },
     };
@@ -408,9 +468,10 @@ export class ReportsService {
     };
   }
 
-  async customerPurchases(q: DateRange & PageQuery) {
+  async customerPurchases(q: DateRange & PageQuery & BranchScope) {
     const r = this.range(q);
     const where: Prisma.SaleWhereInput = {
+      ...branchWhere(q.branchIds),
       status: 'COMPLETED',
       customerId: { not: null },
       createdAt: { gte: r.start, lt: r.end },
@@ -451,15 +512,20 @@ export class ReportsService {
     };
   }
 
-  async repairs(q: DateRange) {
+  async repairs(q: DateRange & BranchScope) {
     const r = this.range(q);
+    const branch = branchWhere(q.branchIds);
     const [received, byStatus, delivered] = await Promise.all([
       this.prisma.serviceTicket.count({
-        where: { receivedAt: { gte: r.start, lt: r.end } },
+        where: { ...branch, receivedAt: { gte: r.start, lt: r.end } },
       }),
-      this.prisma.serviceTicket.groupBy({ by: ['status'], _count: true }),
+      this.prisma.serviceTicket.groupBy({
+        by: ['status'],
+        where: branch,
+        _count: true,
+      }),
       this.prisma.serviceTicket.findMany({
-        where: { deliveredAt: { gte: r.start, lt: r.end } },
+        where: { ...branch, deliveredAt: { gte: r.start, lt: r.end } },
         select: {
           underWarranty: true,
           sale: { select: { totalLak: true, status: true } },
@@ -483,7 +549,8 @@ export class ReportsService {
   }
 
   /** One-screen overview for the owner. */
-  async dashboard(canViewCost: boolean) {
+  async dashboard(canViewCost: boolean, scope: BranchScope = {}) {
+    const branch = branchWhere(scope.branchIds);
     const today = localToday();
     const weekAgo = localToday(new Date(Date.now() - 6 * DAY));
     const [
@@ -497,15 +564,15 @@ export class ReportsService {
       readyTickets,
     ] = await Promise.all([
       this.salesSummary(
-        { from: today, to: today, groupBy: 'day' },
+        { from: today, to: today, groupBy: 'day', ...scope },
         canViewCost,
       ),
       this.salesSummary(
-        { from: weekAgo, to: today, groupBy: 'day' },
+        { from: weekAgo, to: today, groupBy: 'day', ...scope },
         canViewCost,
       ),
       this.bestSellers(
-        { from: today, to: today, limit: 5, by: 'quantity' },
+        { from: today, to: today, limit: 5, by: 'quantity', ...scope },
         canViewCost,
       ),
       this.prisma.product.count({
@@ -518,12 +585,14 @@ export class ReportsService {
       }),
       this.prisma.stockLot.count({
         where: {
+          ...branch,
           qty: { gt: 0 },
           expiryDate: { lte: new Date(Date.now() + 30 * DAY) },
         },
       }),
       this.prisma.sale.aggregate({
         where: {
+          ...branch,
           status: 'COMPLETED',
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
         },
@@ -531,7 +600,10 @@ export class ReportsService {
         _count: true,
       }),
       this.prisma.shift.findMany({
-        where: { status: 'OPEN' },
+        where: {
+          status: 'OPEN',
+          ...(scope.branchIds && { register: branch }),
+        },
         select: {
           id: true,
           openedAt: true,
@@ -539,10 +611,13 @@ export class ReportsService {
           user: { select: { fullName: true } },
         },
       }),
-      this.prisma.serviceTicket.count({ where: { status: 'READY' } }),
+      this.prisma.serviceTicket.count({
+        where: { ...branch, status: 'READY' },
+      }),
     ]);
     const overdue = await this.prisma.sale.findMany({
       where: {
+        ...branch,
         status: 'COMPLETED',
         paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
         dueDate: { lt: new Date() },

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
+import { RequestContext } from '../common/request-context.js';
 import { TtlCache } from '../common/ttl-cache.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -48,7 +49,7 @@ export class SettingsService {
     await this.prisma.$transaction(
       Object.entries(changes).map(([key, value]) =>
         this.prisma.setting.upsert({
-          where: { key },
+          where: { tenantId_key: { tenantId: RequestContext.tenantId(), key } },
           update: { value: value as Prisma.InputJsonValue },
           create: { key, value: value as Prisma.InputJsonValue },
         }),

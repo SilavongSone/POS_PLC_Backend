@@ -223,7 +223,7 @@ export class ProductsService {
     if (product)
       return { product: await this.get(product.id, canViewCost), serial: null };
 
-    const serial = await this.prisma.serialNumber.findUnique({
+    const serial = await this.prisma.serialNumber.findFirst({
       where: { serial: code },
       select: {
         id: true,

@@ -104,6 +104,8 @@ export const createRegisterSchema = z.object({
     .toUpperCase()
     .regex(/^[A-Z0-9]{1,6}$/, '1–6 letters or digits, e.g. R2'),
   name: text(50).min(1),
+  /** Branch the till stands in; may be omitted when the company has one branch. */
+  branchId: z.uuid().optional(),
   printer: printerConfigSchema.nullable().optional(),
   isActive: z.boolean().default(true),
 });

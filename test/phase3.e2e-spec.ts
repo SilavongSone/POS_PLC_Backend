@@ -49,7 +49,7 @@ describe('Bundles, quotations and repairs (e2e)', () => {
   const stock = async (id: string) =>
     (await t.prisma.product.findUniqueOrThrow({ where: { id } })).stockQty;
   const serialStatus = async (serial: string) =>
-    (await t.prisma.serialNumber.findUniqueOrThrow({ where: { serial } }))
+    (await t.prisma.serialNumber.findFirstOrThrow({ where: { serial } }))
       .status;
 
   beforeAll(async () => {
@@ -57,7 +57,11 @@ describe('Bundles, quotations and repairs (e2e)', () => {
     manager = await t.userWith('Manager');
     registerId = (
       await t.prisma.register.create({
-        data: { code: `B${uniq().slice(-5)}`.toUpperCase(), name: 'Phase 3' },
+        data: {
+          code: `B${uniq().slice(-5)}`.toUpperCase(),
+          name: 'Phase 3',
+          branchId: t.branchId,
+        },
       })
     ).id;
     await t

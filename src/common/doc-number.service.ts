@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { localDateParts } from './time.js';
+import { RequestContext } from './request-context.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -33,8 +34,9 @@ export class DocNumberService {
 
   private async next(tx: Tx, key: string): Promise<number> {
     const [row] = await tx.$queryRaw<{ value: number }[]>`
-      INSERT INTO "DocSequence" ("key", "value") VALUES (${key}, 1)
-      ON CONFLICT ("key") DO UPDATE SET "value" = "DocSequence"."value" + 1
+      INSERT INTO "DocSequence" ("tenantId", "key", "value")
+      VALUES (${RequestContext.tenantId()}, ${key}, 1)
+      ON CONFLICT ("tenantId", "key") DO UPDATE SET "value" = "DocSequence"."value" + 1
       RETURNING "value"`;
     return row.value;
   }

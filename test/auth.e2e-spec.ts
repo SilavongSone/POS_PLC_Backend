@@ -1,22 +1,18 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import argon2 from 'argon2';
-import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
 import { MAX_FAILED_LOGINS } from '../src/auth/auth.service.js';
-import { PrismaService } from '../src/prisma/prisma.service.js';
+import type { PrismaService } from '../src/prisma/prisma.service.js';
+import { createTestApp, type TestApp } from './helpers.js';
 
 // Runs against the database in DATABASE_URL (migrated; the built-in groups come from the migration).
 describe('Auth (e2e)', () => {
-  let app: INestApplication<App>;
+  let t: TestApp;
   let prisma: PrismaService;
   const prefix = `e2e-auth-${Date.now()}`;
   const password = 'correct-horse-1';
   let counter = 0;
 
   async function createUser(overrides: { isActive?: boolean } = {}) {
-    const cashier = await prisma.userGroup.findUniqueOrThrow({
+    const cashier = await prisma.userGroup.findFirstOrThrow({
       where: { name: 'Cashier' },
     });
     return prisma.user.create({
@@ -30,24 +26,20 @@ describe('Auth (e2e)', () => {
     });
   }
 
-  const http = () => request(app.getHttpServer());
+  const http = () => t.http();
   const login = (username: string, pw = password) =>
     http().post('/auth/login').send({ username, password: pw });
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleRef.createNestApplication();
-    await app.init();
-    prisma = app.get(PrismaService);
+    t = await createTestApp();
+    prisma = t.prisma;
   });
 
   afterAll(async () => {
     await prisma.user.deleteMany({
       where: { username: { startsWith: prefix } },
     });
-    await app.close();
+    await t.close();
   });
 
   it('signs in with a password and returns the user with permissions', async () => {

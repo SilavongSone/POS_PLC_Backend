@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import type { Request, Response } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
+import { RequestContext } from './common/request-context.js';
 import type { Env } from './config/env.js';
 
 /**
@@ -18,6 +21,18 @@ export function configureApp(app: NestExpressApplication) {
   // Client IPs (rate limits, logs) come from X-Forwarded-For only behind known proxies.
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
   app.disable('x-powered-by');
+
+  // Every request runs in its own context (tenant, language, request id); see
+  // common/request-context.ts. A client-supplied X-Request-Id is kept if it looks sane.
+  app.use((req: Request, res: Response, next: () => void) => {
+    const given = req.headers['x-request-id'];
+    const requestId =
+      typeof given === 'string' && /^[\w.:-]{8,64}$/.test(given)
+        ? given
+        : randomUUID();
+    res.setHeader('X-Request-Id', requestId);
+    RequestContext.run({ requestId }, next);
+  });
 
   app.use(
     helmet({
@@ -39,7 +54,14 @@ export function configureApp(app: NestExpressApplication) {
   app.enableCors({
     origin: origins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept-Language',
+      'Idempotency-Key',
+      'X-Request-Id',
+    ],
+    exposedHeaders: ['X-Request-Id', 'Retry-After'],
     maxAge: 600,
   });
 

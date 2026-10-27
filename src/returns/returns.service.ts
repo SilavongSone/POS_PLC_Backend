@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { lak } from '../sales/sale-math.js';
 import { StockLedgerService } from '../stock/stock-ledger.service.js';
 import type { CreateReturnInput, ListReturnsQuery } from './returns.schemas.js';
+import { RequestContext } from '../common/request-context.js';
 
 const Decimal = Prisma.Decimal;
 
@@ -58,7 +59,7 @@ export class ReturnsService {
     );
     const id = await this.prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "Sale" WHERE "id" = ${saleId} FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "Sale" WHERE "id" = ${saleId} AND "tenantId" = ${RequestContext.tenantId()} FOR UPDATE`;
         const sale = await tx.sale.findUniqueOrThrow({
           where: { id: saleId },
           include: {
@@ -208,6 +209,8 @@ export class ReturnsService {
           refType: 'SALE_RETURN',
           refId: saleReturn.id,
           userId: user.id,
+          // Returned goods go back into the stock of the branch that sold them.
+          branchId: sale.branchId,
         };
         for (const { line, item, serials } of lines) {
           await this.ledger.restoreSoldUnits(

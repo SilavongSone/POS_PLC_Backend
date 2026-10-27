@@ -8,6 +8,8 @@ const dateTime = z.iso.datetime({ offset: true }).transform((d) => new Date(d));
 export const createTicketSchema = z
   .object({
     customerId: z.uuid(),
+    /** Branch receiving the device; may be omitted when the user has one branch. */
+    branchId: z.uuid().optional(),
     /** Serial of a unit sold by the shop: fills in the device and warranty. */
     serial: text(100).optional(),
     deviceName: text(150).optional(),

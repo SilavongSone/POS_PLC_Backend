@@ -17,6 +17,7 @@ import type {
   ListDebtPaymentsQuery,
   ReceiveDebtInput,
 } from './debts.schemas.js';
+import { RequestContext } from '../common/request-context.js';
 
 const Decimal = Prisma.Decimal;
 
@@ -83,6 +84,7 @@ export class DebtsService {
         }
         const shift = await tx.shift.findFirst({
           where: { userId: user.id, status: 'OPEN' },
+          include: { register: { select: { branchId: true } } },
         });
         if (type.kind === 'CASH' && !shift) {
           throw new ConflictException({
@@ -94,6 +96,7 @@ export class DebtsService {
         // Lock the customer's open credit sales so concurrent payments cannot overpay.
         await tx.$queryRaw`
           SELECT "id" FROM "Sale" WHERE "customerId" = ${input.customerId}
+          AND "tenantId" = ${RequestContext.tenantId()}
           AND "status" = 'COMPLETED' AND "paymentStatus" <> 'PAID' FOR UPDATE`;
         let debts = await this.openDebts(input.customerId, tx);
         if (input.saleId) debts = debts.filter((d) => d.id === input.saleId);
@@ -135,6 +138,8 @@ export class DebtsService {
               amountLak: takeLak,
               reference: input.reference,
               shiftId: shift?.id,
+              // Taken at the till's branch; null when paid by transfer outside a shift.
+              branchId: shift?.register.branchId,
               receivedById: user.id,
             },
           });

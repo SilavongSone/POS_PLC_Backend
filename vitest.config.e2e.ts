@@ -29,6 +29,11 @@ export default defineConfig({
       THROTTLE_LIMIT: '100000',
       THROTTLE_AUTH_LIMIT: '100000',
       UPLOAD_DIR: path.join(os.tmpdir(), 'plc-pos-e2e-uploads'),
+      // Existing tests log in without a company code; tenant tests send their own.
+      DEFAULT_TENANT_CODE: 'plc',
+      SIGNUP_ENABLED: 'true',
+      PLATFORM_ADMIN_EMAIL: 'platform@test.local',
+      PLATFORM_ADMIN_PASSWORD: 'platform-password-1',
     },
     globalSetup: ['./test/global-setup.ts'],
     // Files share one database; run them one at a time.

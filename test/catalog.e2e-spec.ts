@@ -158,7 +158,7 @@ describe('Catalog (e2e)', () => {
     });
 
     it('converts USD prices to LAK with the current rate, rounded up to 1,000', async () => {
-      const product = await t.prisma.product.findUniqueOrThrow({
+      const product = await t.prisma.product.findFirstOrThrow({
         where: { sku: 'DSP-MSI-PRO-MP243' },
       });
       const rate = (
@@ -277,7 +277,7 @@ describe('Catalog (e2e)', () => {
     });
 
     it('refuses to switch serial tracking while stock is on hand', async () => {
-      const epson = await t.prisma.product.findUniqueOrThrow({
+      const epson = await t.prisma.product.findFirstOrThrow({
         where: { sku: 'PRN-EPSON-T82X' },
       });
       await t

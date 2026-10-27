@@ -67,6 +67,8 @@ enum StockMoveType {
   SALE_OUT
   RETURN_IN
   VOID_IN
+  TRANSFER_OUT
+  TRANSFER_IN
 }
 
 enum StockDocType {
@@ -76,6 +78,8 @@ enum StockDocType {
   ISSUE
   /// Stock count correction.
   ADJUST
+  /// Moves stock from one branch to another.
+  TRANSFER
 }
 
 enum DocStatus {
@@ -146,19 +150,26 @@ enum TicketLineType {
 /// Configurable user group with a list of permission codes, e.g. ["sale.create","sale.void","price.override"].
 model UserGroup {
   id          String   @id @default(uuid())
-  name        String   @unique
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name        String
   permissions String[]
   /// Built-in groups (Admin, Manager, Cashier, Viewer) cannot be deleted.
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users User[]
+  users  User[]
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
 }
 
 model User {
   id               String    @id @default(uuid())
-  username         String    @unique
+  /// Preferred UI/API language: lo | th | en (null = tenant default).
+  language         String?
+  tenantId         String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  username         String
   passwordHash     String
   /// 4–6 digit PIN (hashed) for quick cashier login and manager approval at the till.
   pinHash          String?
@@ -191,6 +202,10 @@ model User {
   ticketLogs      ServiceTicketLog[]
   auditLogs       AuditLog[]
   taxInvoices     TaxInvoice[]
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  branches        UserBranch[]
+
+  @@unique([tenantId, username])
 }
 
 model RefreshToken {
@@ -209,19 +224,28 @@ model RefreshToken {
 /// Key–value settings: "store.name", "store.phone", "store.address", "store.logoUrl",
 /// "receipt.defaultSize" (58mm|80mm|A5|A4), "receipt.footer", "repair.warrantyTerms", "tax.pricesIncludeVat", "docNo.prefix.sale" …
 model Setting {
-  key       String   @id
+  key       String
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   value     Json
   updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
 }
 
 /// Running counters for document numbers, keyed by prefix + scope, e.g. "S-R1-261026" or "INV-2026".
 model DocSequence {
-  key   String @id
-  value Int
+  key      String
+  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  value    Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
 }
 
 model AuditLog {
   id        String   @id @default(uuid())
+  tenantId  String?
   userId    String?
   /// e.g. "SALE_VOID", "SALE_REPRINT", "PRICE_OVERRIDE", "PRODUCT_PRICE_BULK_UPDATE"
   action    String
@@ -231,16 +255,21 @@ model AuditLog {
   after     Json?
   createdAt DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
 
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([tenantId])
 }
 
 /// Payment types the shop accepts; can be switched on/off. e.g. "Cash", "BCEL One QR", "LDB transfer", "Credit (debt)".
 model PaymentType {
   id                String      @id @default(uuid())
-  name              String      @unique
+  /// Translations of name, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n          Json?
+  tenantId          String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name              String
   kind              PaymentKind
   requiresReference Boolean     @default(false)
   isActive          Boolean     @default(true)
@@ -250,12 +279,16 @@ model PaymentType {
   debtPayments DebtPayment[]
   expenses     Expense[]
   saleReturns  SaleReturn[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
 }
 
 /// VAT/tax rates. Exactly one should be the default.
 model TaxRate {
   id        String   @id @default(uuid())
-  name      String   @unique
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name      String
   percent   Decimal  @db.Decimal(5, 2)
   isDefault Boolean  @default(false)
   isActive  Boolean  @default(true)
@@ -264,29 +297,38 @@ model TaxRate {
   products   Product[]
   sales      Sale[]
   quotations Quotation[]
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
 }
 
 /// Units of LAK per 1 unit of `currency` (e.g. USD → 21800). The latest row per currency is current.
 model ExchangeRate {
   id            String   @id @default(uuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   currency      Currency
   lakPerUnit    Decimal  @db.Decimal(18, 4)
   effectiveFrom DateTime @default(now())
   createdById   String?
   createdAt     DateTime @default(now())
 
-  createdBy User? @relation(fields: [createdById], references: [id])
+  createdBy User?  @relation(fields: [createdById], references: [id])
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([currency, effectiveFrom])
+  @@index([tenantId])
 }
 
 // ───────────────────────────── Catalog ─────────────────────────────
 
 model Category {
   id        String  @id @default(uuid())
+  /// Translations of name, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n  Json?
+  tenantId  String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   name      String
   /// Stable key used by the frontend, e.g. "printer-receipt".
-  slug      String  @unique
+  slug      String
   parentId  String?
   sortOrder Int     @default(0)
   isActive  Boolean @default(true)
@@ -295,34 +337,44 @@ model Category {
   children   Category[]      @relation("CategoryTree")
   products   Product[]
   promotions PromotionItem[]
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
 
-  @@unique([parentId, name])
+  @@unique([tenantId, parentId, name])
+  @@unique([tenantId, slug])
 }
 
 model Brand {
   id       String    @id @default(uuid())
-  name     String    @unique
+  tenantId String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name     String
   logoUrl  String?
   products Product[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
 }
 
 model Product {
-  id          String      @id @default(uuid())
-  sku         String      @unique
-  barcode     String?     @unique
-  name        String
-  description String?
-  type        ProductType @default(STANDARD)
-  categoryId  String?
-  brandId     String?
+  id              String      @id @default(uuid())
+  /// Translations, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n        Json?
+  descriptionI18n Json?
+  tenantId        String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  sku             String
+  barcode         String?
+  name            String
+  description     String?
+  type            ProductType @default(STANDARD)
+  categoryId      String?
+  brandId         String?
   /// Manufacturer model, e.g. "TM-T82X".
-  model       String?
+  model           String?
   /// pcs / box / roll / set
-  unit        String      @default("pcs")
+  unit            String      @default("pcs")
   /// Shelf/zone, e.g. "A1".
-  location    String?
+  location        String?
   /// Category-specific specs, e.g. {"Size":"24\"","Resolution":"1920x1080"}.
-  specs       Json?
+  specs           Json?
 
   /// Prices are kept in `priceCurrency`; when it is THB/USD the LAK price follows the current exchange rate.
   priceCurrency   Currency @default(LAK)
@@ -365,7 +417,11 @@ model Product {
   quotationItems QuotationItem[]
   promotions     PromotionItem[]
   ticketLines    ServiceTicketLine[]
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  branchStock    BranchStock[]
 
+  @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
   @@index([categoryId])
   @@index([brandId])
   /// Trigram indexes (pg_trgm) make "contains" searches fast on large catalogs.
@@ -400,6 +456,9 @@ model ProductBundleItem {
 
 model Promotion {
   id           String       @id @default(uuid())
+  /// Translations of name, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n     Json?
+  tenantId     String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   name         String
   discountType DiscountType
   /// Percent (0–100) or LAK amount per unit.
@@ -413,6 +472,9 @@ model Promotion {
   /// No items = applies to every product.
   items     PromotionItem[]
   saleItems SaleItem[]
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 /// Promotion target: either one product or a whole category.
@@ -433,7 +495,9 @@ model PromotionItem {
 
 model SerialNumber {
   id                     String        @id @default(uuid())
-  serial                 String        @unique
+  branchId               String
+  tenantId               String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  serial                 String
   productId              String
   status                 SerialStatus  @default(IN_STOCK)
   condition              ItemCondition @default(NEW)
@@ -455,15 +519,21 @@ model SerialNumber {
   saleItem     SaleItem?          @relation(fields: [saleItemId], references: [id])
   movements    StockMovement[]
   tickets      ServiceTicket[]
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  branch       Branch             @relation(fields: [branchId], references: [id])
 
+  @@unique([tenantId, serial])
   @@index([productId, status])
   @@index([saleItemId])
   @@index([receivedItemId])
+  @@index([branchId])
 }
 
 /// Received lot with an expiry date (thermal paper, ink, batteries …).
 model StockLot {
   id         String   @id @default(uuid())
+  branchId   String
+  tenantId   String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   productId  String
   lotNo      String?
   expiryDate DateTime
@@ -472,13 +542,18 @@ model StockLot {
 
   product   Product         @relation(fields: [productId], references: [id])
   movements StockMovement[]
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  branch    Branch          @relation(fields: [branchId], references: [id])
 
   @@index([expiryDate])
   @@index([productId, expiryDate])
+  @@index([tenantId])
+  @@index([branchId])
 }
 
 model Supplier {
   id        String   @id @default(uuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   name      String
   phone     String?
   email     String?
@@ -489,12 +564,20 @@ model Supplier {
 
   stockDocuments StockDocument[]
   serviceTickets ServiceTicket[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 /// Goods receipt / stock issue / stock adjustment document.
 model StockDocument {
   id          String       @id @default(uuid())
-  docNo       String       @unique
+  /// Branch whose stock changes (for TRANSFER: the sending branch).
+  branchId    String
+  /// TRANSFER only: the receiving branch.
+  toBranchId  String?
+  tenantId    String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  docNo       String
   type        StockDocType
   status      DocStatus    @default(DRAFT)
   supplierId  String?
@@ -511,8 +594,13 @@ model StockDocument {
   supplier  Supplier?           @relation(fields: [supplierId], references: [id])
   createdBy User                @relation(fields: [createdById], references: [id])
   items     StockDocumentItem[]
+  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  branch    Branch              @relation("DocBranch", fields: [branchId], references: [id])
+  toBranch  Branch?             @relation("DocToBranch", fields: [toBranchId], references: [id])
 
+  @@unique([tenantId, docNo])
   @@index([type, createdAt])
+  @@index([branchId])
 }
 
 model StockDocumentItem {
@@ -541,6 +629,8 @@ model StockDocumentItem {
 /// Stock ledger — insert-only. Product.stockQty must equal the sum of `quantity` per product.
 model StockMovement {
   id           String        @id @default(uuid())
+  branchId     String
+  tenantId     String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   productId    String
   type         StockMoveType
   /// + in / − out
@@ -559,21 +649,26 @@ model StockMovement {
   serial  SerialNumber? @relation(fields: [serialId], references: [id])
   lot     StockLot?     @relation(fields: [lotId], references: [id])
   user    User          @relation(fields: [userId], references: [id])
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  branch  Branch        @relation(fields: [branchId], references: [id])
 
   @@index([productId, createdAt])
   @@index([refType, refId])
+  @@index([tenantId])
+  @@index([branchId])
 }
 
 // ───────────────────────────── Sales ─────────────────────────────
 
 model Customer {
   id             String       @id @default(uuid())
-  code           String       @unique
+  tenantId       String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code           String
   name           String
   type           CustomerType @default(INDIVIDUAL)
   companyName    String?
   taxId          String?
-  phone          String?      @unique
+  phone          String?
   email          String?
   address        String?
   priceTier      PriceTier    @default(RETAIL)
@@ -588,7 +683,10 @@ model Customer {
   quotations   Quotation[]
   debtPayments DebtPayment[]
   tickets      ServiceTicket[]
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, code])
+  @@unique([tenantId, phone])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm_idx")
   @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_phone_trgm_idx")
 }
@@ -596,6 +694,8 @@ model Customer {
 /// Parked ("held") cart that does not touch stock until it is completed as a Sale.
 model HeldBill {
   id         String   @id @default(uuid())
+  branchId   String?
+  tenantId   String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   label      String?
   cashierId  String
   customerId String?
@@ -605,13 +705,19 @@ model HeldBill {
 
   cashier  User      @relation(fields: [cashierId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  branch   Branch?   @relation(fields: [branchId], references: [id])
 
   @@index([cashierId])
+  @@index([tenantId])
+  @@index([branchId])
 }
 
 model Quotation {
   id          String          @id @default(uuid())
-  quoteNo     String          @unique
+  branchId    String?
+  tenantId    String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  quoteNo     String
   customerId  String
   status      QuotationStatus @default(DRAFT)
   validUntil  DateTime
@@ -630,8 +736,12 @@ model Quotation {
   createdBy User            @relation(fields: [createdById], references: [id])
   items     QuotationItem[]
   sale      Sale?
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  branch    Branch?         @relation(fields: [branchId], references: [id])
 
+  @@unique([tenantId, quoteNo])
   @@index([customerId])
+  @@index([branchId])
 }
 
 model QuotationItem {
@@ -652,7 +762,9 @@ model QuotationItem {
 
 model Sale {
   id            String        @id @default(uuid())
-  receiptNo     String        @unique
+  branchId      String
+  tenantId      String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  receiptNo     String
   status        SaleStatus    @default(COMPLETED)
   paymentStatus PaymentStatus @default(PAID)
   cashierId     String
@@ -695,20 +807,25 @@ model Sale {
   debtPayments DebtPayment[]
   ticket       ServiceTicket?
   taxInvoices  TaxInvoice[]
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  branch       Branch         @relation(fields: [branchId], references: [id])
 
-  @@index([createdAt])
+  @@unique([tenantId, receiptNo])
+  @@index([tenantId, createdAt])
   @@index([customerId, paymentStatus])
   @@index([shiftId])
-  @@index([status, createdAt])
+  @@index([tenantId, status, createdAt])
   @@index([cashierId, createdAt])
+  @@index([branchId])
 }
 
 /// Formal VAT invoice (A4) for a sale. Buyer details are snapshotted so later customer edits don't change issued invoices.
 /// At most one non-cancelled invoice per sale (partial unique index in the migration).
 model TaxInvoice {
   id           String    @id @default(uuid())
+  tenantId     String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   /// Own running sequence, separate from receipt numbers, e.g. "INV-2026-000123".
-  invoiceNo    String    @unique
+  invoiceNo    String
   saleId       String
   buyerName    String
   buyerTaxId   String?
@@ -720,15 +837,18 @@ model TaxInvoice {
   cancelledAt  DateTime?
   cancelReason String?
 
-  sale     Sale @relation(fields: [saleId], references: [id])
-  issuedBy User @relation(fields: [issuedById], references: [id])
+  sale     Sale   @relation(fields: [saleId], references: [id])
+  issuedBy User   @relation(fields: [issuedById], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, invoiceNo])
   @@index([saleId])
   @@index([issuedAt])
 }
 
 model SaleItem {
   id                  String  @id @default(uuid())
+  tenantId            String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   saleId              String
   productId           String
   /// Snapshot of product name at time of sale.
@@ -752,9 +872,11 @@ model SaleItem {
   promotion         Promotion?       @relation(fields: [promotionId], references: [id])
   serialNumbers     SerialNumber[]
   returnItems       SaleReturnItem[]
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
 
   @@index([saleId])
   @@index([productId])
+  @@index([tenantId])
 }
 
 /// One sale may be paid with several payments in different currencies and types.
@@ -781,7 +903,9 @@ model Payment {
 /// Customer paying off credit-sale debt (may be partial).
 model DebtPayment {
   id            String   @id @default(uuid())
-  receiptNo     String   @unique
+  branchId      String?
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  receiptNo     String
   customerId    String
   saleId        String
   paymentTypeId String
@@ -799,15 +923,20 @@ model DebtPayment {
   paymentType PaymentType @relation(fields: [paymentTypeId], references: [id])
   shift       Shift?      @relation(fields: [shiftId], references: [id])
   receivedBy  User        @relation(fields: [receivedById], references: [id])
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  branch      Branch?     @relation(fields: [branchId], references: [id])
 
+  @@unique([tenantId, receiptNo])
   @@index([customerId, createdAt])
   @@index([saleId])
   @@index([shiftId])
+  @@index([branchId])
 }
 
 model SaleReturn {
   id            String   @id @default(uuid())
-  returnNo      String   @unique
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  returnNo      String
   saleId        String
   reason        String
   refundLak     Decimal  @db.Decimal(18, 0)
@@ -822,7 +951,9 @@ model SaleReturn {
   paymentType PaymentType      @relation(fields: [paymentTypeId], references: [id])
   createdBy   User             @relation(fields: [createdById], references: [id])
   items       SaleReturnItem[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, returnNo])
   @@index([saleId])
   @@index([shiftId])
   @@index([createdAt])
@@ -850,8 +981,10 @@ model SaleReturnItem {
 /// A till / checkout counter. Each has its own receipt printer, cash drawer and shift.
 model Register {
   id       String  @id @default(uuid())
+  branchId String
+  tenantId String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   /// Short code used in document numbers, e.g. "R1".
-  code     String  @unique
+  code     String
   name     String
   /// ESC/POS printer settings used by the local print bridge,
   /// e.g. {"connection":"usb|lan","host":"192.168.1.50","port":9100,"paperWidth":80,"openDrawer":true}.
@@ -860,11 +993,17 @@ model Register {
 
   shifts Shift[]
   sales  Sale[]
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  branch Branch  @relation(fields: [branchId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([branchId])
 }
 
 /// At most one OPEN shift per register (enforced by a partial unique index in the migration).
 model Shift {
   id           String      @id @default(uuid())
+  tenantId     String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   registerId   String
   userId       String
   status       ShiftStatus @default(OPEN)
@@ -884,13 +1023,16 @@ model Shift {
   cashMovements CashMovement[]
   expenses      Expense[]
   saleReturns   SaleReturn[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
 
   @@index([registerId, status])
+  @@index([tenantId])
 }
 
 /// Cash put into / taken out of the drawer during a shift (not an expense).
 model CashMovement {
   id        String       @id @default(uuid())
+  tenantId  String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   shiftId   String
   type      CashMoveType
   currency  Currency
@@ -899,21 +1041,31 @@ model CashMovement {
   userId    String
   createdAt DateTime     @default(now())
 
-  shift Shift @relation(fields: [shiftId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  shift  Shift  @relation(fields: [shiftId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([shiftId])
+  @@index([tenantId])
 }
 
 model ExpenseCategory {
   id       String    @id @default(uuid())
-  name     String    @unique
+  /// Translations of name, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n Json?
+  tenantId String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name     String
   isActive Boolean   @default(true)
   expenses Expense[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
 }
 
 model Expense {
   id            String   @id @default(uuid())
+  branchId      String?
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   categoryId    String
   description   String
   currency      Currency
@@ -932,17 +1084,23 @@ model Expense {
   paymentType PaymentType     @relation(fields: [paymentTypeId], references: [id])
   shift       Shift?          @relation(fields: [shiftId], references: [id])
   createdBy   User            @relation(fields: [createdById], references: [id])
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  branch      Branch?         @relation(fields: [branchId], references: [id])
 
   @@index([spentAt])
   @@index([shiftId])
   @@index([categoryId])
+  @@index([tenantId])
+  @@index([branchId])
 }
 
 // ───────────────────────────── Repair / warranty ─────────────────────────────
 
 model ServiceTicket {
   id            String       @id @default(uuid())
-  ticketNo      String       @unique
+  branchId      String
+  tenantId      String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  ticketNo      String
   status        TicketStatus @default(RECEIVED)
   customerId    String
   /// Set when the device was sold by this shop.
@@ -974,9 +1132,13 @@ model ServiceTicket {
   receivedBy User                @relation(fields: [receivedById], references: [id])
   lines      ServiceTicketLine[]
   logs       ServiceTicketLog[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  branch     Branch              @relation(fields: [branchId], references: [id])
 
+  @@unique([tenantId, ticketNo])
   @@index([status])
   @@index([customerId])
+  @@index([branchId])
 }
 
 /// Parts and labour on a repair quotation / bill.
@@ -1009,4 +1171,205 @@ model ServiceTicketLog {
   user   User          @relation(fields: [userId], references: [id])
 
   @@index([ticketId])
+}
+
+// ───────────────────────── SaaS: tenants, branches, plans ─────────────────────────
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  /// Period ended: usable during the grace period, then read-only.
+  PAST_DUE
+  /// Blocked by the platform (no login).
+  SUSPENDED
+  CANCELLED
+}
+
+/// A company renting the POS. Every tenant table carries tenantId (docs/saas-design.md).
+model Tenant {
+  id              String   @id @default(uuid())
+  /// Short code typed at login, e.g. "plc".
+  code            String   @unique
+  name            String
+  legalName       String?
+  taxId           String?
+  phone           String?
+  email           String?
+  /// lo | th | en
+  defaultLanguage String   @default("lo")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscription      Subscription?
+  branches          Branch[]
+  branchStock       BranchStock[]
+  idempotencyKeys   IdempotencyKey[]
+  userGroups        UserGroup[]
+  users             User[]
+  settings          Setting[]
+  docSequences      DocSequence[]
+  auditLogs         AuditLog[]
+  paymentTypes      PaymentType[]
+  taxRates          TaxRate[]
+  exchangeRates     ExchangeRate[]
+  categories        Category[]
+  brands            Brand[]
+  products          Product[]
+  promotions        Promotion[]
+  serialNumbers     SerialNumber[]
+  stockLots         StockLot[]
+  suppliers         Supplier[]
+  stockDocuments    StockDocument[]
+  stockMovements    StockMovement[]
+  customers         Customer[]
+  heldBills         HeldBill[]
+  quotations        Quotation[]
+  sales             Sale[]
+  saleItems         SaleItem[]
+  taxInvoices       TaxInvoice[]
+  debtPayments      DebtPayment[]
+  saleReturns       SaleReturn[]
+  registers         Register[]
+  shifts            Shift[]
+  cashMovements     CashMovement[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
+  serviceTickets    ServiceTicket[]
+}
+
+model Branch {
+  id            String   @id @default(uuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code          String
+  name          String
+  address       String?
+  phone         String?
+  /// Extra line printed on receipts of this branch.
+  receiptHeader String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  stock             BranchStock[]
+  users             UserBranch[]
+  stockDocuments    StockDocument[] @relation("DocBranch")
+  incomingTransfers StockDocument[] @relation("DocToBranch")
+  registers         Register[]
+  sales             Sale[]
+  stockMovements    StockMovement[]
+  serials           SerialNumber[]
+  lots              StockLot[]
+  serviceTickets    ServiceTicket[]
+  expenses          Expense[]
+  quotations        Quotation[]
+  heldBills         HeldBill[]
+  debtPayments      DebtPayment[]
+
+  @@unique([tenantId, code])
+}
+
+/// On-hand quantity per branch. Product.stockQty is the sum over branches.
+model BranchStock {
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  branchId  String
+  productId String
+  qty       Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@id([branchId, productId])
+  @@index([tenantId])
+  @@index([productId])
+}
+
+/// Branches a user may work in; a user without rows may work in every branch.
+model UserBranch {
+  userId   String
+  branchId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@index([branchId])
+}
+
+/// A package the platform sells. Limits/features are editable at any time.
+model Plan {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  nameI18n        Json?
+  descriptionI18n Json?
+  priceMonthlyLak Decimal  @default(0) @db.Decimal(18, 0)
+  priceYearlyLak  Decimal  @default(0) @db.Decimal(18, 0)
+  /// { maxBranches, maxRegisters, maxUsers, maxProducts, maxSalesPerMonth } — null = unlimited.
+  limits          Json
+  /// Feature keys, see src/plans/features.ts.
+  features        String[]
+  trialDays       Int      @default(14)
+  /// Shown on the public plan list / signup.
+  isPublic        Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  tenantId         String             @unique
+  planId           String
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  /// Per-tenant changes: { limits?: {...}, featuresAdd?: [], featuresRemove?: [] }.
+  overrides        Json?
+  note             String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+}
+
+/// Platform staff (us). Separate login realm from tenant users.
+model PlatformAdmin {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String
+  fullName         String
+  isActive         Boolean   @default(true)
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+/// Replays the stored response when a client retries a request with the same Idempotency-Key.
+model IdempotencyKey {
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  key         String
+  userId      String
+  method      String
+  path        String
+  /// SHA-256 of the request body: the same key with a different body is refused.
+  requestHash String
+  statusCode  Int?
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
+  @@index([createdAt])
 }

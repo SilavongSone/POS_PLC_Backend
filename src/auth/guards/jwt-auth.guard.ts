@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { RequestContext } from '../../common/request-context.js';
 import { AuthService } from '../auth.service.js';
 import type { AccessTokenPayload, AuthUser } from '../auth.types.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
@@ -42,9 +43,11 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired token');
     }
     // Approval tokens are signed with the same key but must never act as a login.
-    if (payload.typ !== 'access') {
+    if (payload.typ !== 'access' || !payload.tid) {
       throw new UnauthorizedException('Invalid or expired token');
     }
+    // From here on every query of this request is limited to the token's company.
+    RequestContext.setTenant(payload.tid);
 
     // Reloaded on every request so deactivation and permission changes apply immediately.
     const user = await this.auth.findActiveUser(payload.sub);

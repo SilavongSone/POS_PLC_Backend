@@ -95,15 +95,18 @@ export class StockDocumentsController {
   @Get()
   @ApiOperation({
     summary:
-      'Receipts, issues and adjustments (?type, status, supplierId, from, to, q)',
+      'Receipts, issues, adjustments and transfers (?type, branchId, status, supplierId, from, to, q)',
   })
-  list(@Query(zod(listStockDocsSchema)) query: ListStockDocsQuery) {
-    return this.docs.list(query);
+  list(
+    @Query(zod(listStockDocsSchema)) query: ListStockDocsQuery,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.docs.list(query, user);
   }
 
   @Get(':id')
-  get(@Param('id', id) docId: string) {
-    return this.docs.get(docId);
+  get(@Param('id', id) docId: string, @CurrentUser() user: AuthUser) {
+    return this.docs.get(docId, user);
   }
 
   @Post()

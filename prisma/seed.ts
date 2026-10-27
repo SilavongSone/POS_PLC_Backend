@@ -1,144 +1,30 @@
-// Seeds reference data for a fresh PLC POS database. Safe to re-run: existing rows
-// (and anything an admin changed in the app) are left as they are.
+// Seeds a PLC POS database. Safe to re-run: existing rows (and anything an admin changed
+// in the app) are left as they are.
 //
-//   npx prisma db seed                 # reference data + admin user
+//   npx prisma db seed                 # plans, platform admin, company "plc" + its admin
 //   SEED_DEMO=true npx prisma db seed  # also demo brands' products
+//
+// Env: SEED_TENANT_CODE (default "plc"), SEED_ADMIN_PASSWORD (default "admin1234"),
+//      PLATFORM_ADMIN_EMAIL + PLATFORM_ADMIN_PASSWORD (platform admin, created once).
 import 'dotenv/config';
 import argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { RequestContext } from '../src/common/request-context.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
-import { SYSTEM_GROUPS } from '../src/common/permissions.js';
+import { withTenantIsolation } from '../src/prisma/tenant-extension.js';
+import { DEFAULT_PLANS } from '../src/tenancy/plan-features.js';
+import {
+  createOwner,
+  ensureFirstBranch,
+  seedReferenceData,
+} from '../src/tenancy/reference-data.js';
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
-});
-
-type CategorySeed = { slug: string; name: string; children?: CategorySeed[] };
-
-const CATEGORIES: CategorySeed[] = [
-  {
-    slug: 'pos-terminal',
-    name: 'POS Terminals',
-    children: [
-      { slug: 'pos-dual-screen', name: 'Dual-screen POS' },
-      { slug: 'pos-single-screen', name: 'Single-screen / All-in-One POS' },
-      { slug: 'pos-handheld', name: 'Handheld POS' },
-    ],
-  },
-  {
-    slug: 'printer',
-    name: 'Printers',
-    children: [
-      { slug: 'printer-receipt', name: 'Receipt Printers (Thermal)' },
-      { slug: 'printer-label', name: 'Label / Barcode Printers' },
-      { slug: 'printer-office', name: 'Office Printers (Laser / Inkjet)' },
-    ],
-  },
-  {
-    slug: 'display',
-    name: 'Displays',
-    children: [
-      { slug: 'display-monitor', name: 'Monitors' },
-      { slug: 'display-touch', name: 'Touch Monitors' },
-      { slug: 'display-customer', name: 'Customer Displays' },
-    ],
-  },
-  {
-    slug: 'scanner',
-    name: 'Barcode Scanners',
-    children: [
-      { slug: 'scanner-handheld', name: 'Handheld Scanners' },
-      { slug: 'scanner-desktop', name: 'Desktop Scanners' },
-    ],
-  },
-  { slug: 'computer', name: 'Computers (Mini PC / Notebook)' },
-  { slug: 'cash-drawer', name: 'Cash Drawers' },
-  { slug: 'accessory', name: 'Accessories' },
-  { slug: 'consumable', name: 'Consumables' },
-  { slug: 'software', name: 'Software / Licences' },
-  { slug: 'service', name: 'Services' },
-];
-
-const BRANDS = [
-  'Sunmi',
-  'iMin',
-  'Epson',
-  'Xprinter',
-  'Zebra',
-  'Honeywell',
-  'MSI',
-  'Samsung',
-  'LG',
-  'Dell',
-  'HP',
-  'Canon',
-  'Brother',
-  'Generic',
-];
-
-const PAYMENT_TYPES = [
-  {
-    name: 'Cash',
-    kind: 'CASH',
-    requiresReference: false,
-    isActive: true,
-    sortOrder: 1,
-  },
-  {
-    name: 'QR',
-    kind: 'QR',
-    requiresReference: true,
-    isActive: true,
-    sortOrder: 2,
-  },
-  {
-    name: 'Bank transfer',
-    kind: 'BANK_TRANSFER',
-    requiresReference: true,
-    isActive: true,
-    sortOrder: 3,
-  },
-  {
-    name: 'Card',
-    kind: 'CARD',
-    requiresReference: true,
-    isActive: false,
-    sortOrder: 4,
-  },
-  {
-    name: 'Credit',
-    kind: 'CREDIT',
-    requiresReference: false,
-    isActive: true,
-    sortOrder: 5,
-  },
-] as const;
-
-const EXPENSE_CATEGORIES = [
-  'Rent',
-  'Electricity & water',
-  'Salaries',
-  'Shipping',
-  'Other',
-];
-
-const SETTINGS: Record<string, Prisma.InputJsonValue> = {
-  'store.name': 'PLC POS',
-  'store.companyName': '',
-  'store.taxId': '',
-  'store.phone': '',
-  'store.address': '',
-  'store.logoUrl': '',
-  'receipt.defaultSize': '80mm',
-  'receipt.footer': '',
-  'repair.warrantyTerms': '',
-  'tax.pricesIncludeVat': true,
-  'pricing.lakRounding': 1000,
-  'app.timezone': 'Asia/Vientiane',
-};
-
-/** LAK per unit; only used when no rate exists yet. */
-const INITIAL_RATES = { THB: '650', USD: '21800' } as const;
+// Same tenant-scoped client as the API: tenant data is written inside a tenant context.
+const prisma = withTenantIsolation(
+  new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+  }),
+);
 
 type DemoProduct = {
   sku: string;
@@ -455,112 +341,52 @@ const DEMO_PRODUCTS: DemoProduct[] = [
   },
 ];
 
-async function seedCategories(
-  nodes: CategorySeed[],
-  parentId: string | null = null,
-) {
-  for (const [index, node] of nodes.entries()) {
-    const category = await prisma.category.upsert({
-      where: { slug: node.slug },
-      update: {},
-      create: { slug: node.slug, name: node.name, parentId, sortOrder: index },
-    });
-    if (node.children) await seedCategories(node.children, category.id);
+/** Plans are created when missing; existing plans keep the platform admin's edits. */
+async function seedPlans() {
+  for (const plan of DEFAULT_PLANS) {
+    if (await prisma.plan.findUnique({ where: { code: plan.code } })) continue;
+    await prisma.plan.create({ data: plan });
   }
 }
 
-async function seedReferenceData() {
-  for (const [name, permissions] of Object.entries(SYSTEM_GROUPS)) {
-    const group = await prisma.userGroup.upsert({
-      where: { name },
-      update: {},
-      create: { name, permissions, isSystem: true },
-    });
-    // The migration creates the built-in groups without permissions; fill them once.
-    if (group.permissions.length === 0) {
-      await prisma.userGroup.update({
-        where: { id: group.id },
-        data: { permissions },
-      });
-    }
-  }
-
-  await prisma.register.upsert({
-    where: { code: 'R1' },
-    update: {},
-    create: {
-      code: 'R1',
-      name: 'Counter 1',
-      printer: { connection: 'usb', paperWidth: 80, openDrawer: true },
+async function seedPlatformAdmin() {
+  const email = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.PLATFORM_ADMIN_PASSWORD;
+  if (!email || !password) return;
+  if (await prisma.platformAdmin.findUnique({ where: { email } })) return;
+  await prisma.platformAdmin.create({
+    data: {
+      email,
+      fullName: 'Platform admin',
+      passwordHash: await argon2.hash(password),
     },
   });
+  console.log(`Created platform admin ${email}.`);
+}
 
-  if ((await prisma.taxRate.count()) === 0) {
-    await prisma.taxRate.createMany({
-      data: [
-        { name: 'VAT 12%', percent: '12', isDefault: true },
-        { name: 'No VAT', percent: '0', isDefault: false },
-      ],
-    });
-  }
-
-  for (const type of PAYMENT_TYPES) {
-    await prisma.paymentType.upsert({
-      where: { name: type.name },
-      update: {},
-      create: type,
-    });
-  }
-
-  for (const name of EXPENSE_CATEGORIES) {
-    await prisma.expenseCategory.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-  }
-
-  for (const [key, value] of Object.entries(SETTINGS)) {
-    await prisma.setting.upsert({
-      where: { key },
-      update: {},
-      create: { key, value },
-    });
-  }
-
-  for (const [currency, lakPerUnit] of Object.entries(INITIAL_RATES) as [
-    keyof typeof INITIAL_RATES,
-    string,
-  ][]) {
-    if ((await prisma.exchangeRate.count({ where: { currency } })) === 0) {
-      await prisma.exchangeRate.create({ data: { currency, lakPerUnit } });
-    }
-  }
-
-  await seedCategories(CATEGORIES);
-
-  for (const name of BRANDS) {
-    await prisma.brand.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-  }
+/** The seeded company, on the top plan; created with its subscription if missing. */
+async function ensureTenant(code: string) {
+  const existing = await prisma.tenant.findUnique({ where: { code } });
+  if (existing) return existing;
+  const plan = await prisma.plan.findUniqueOrThrow({
+    where: { code: 'ENTERPRISE' },
+  });
+  return prisma.tenant.create({
+    data: {
+      code,
+      name: 'PLC POS',
+      subscription: { create: { planId: plan.id, status: 'ACTIVE' } },
+    },
+  });
 }
 
 async function seedAdmin() {
-  if (await prisma.user.findUnique({ where: { username: 'admin' } })) return;
+  if (await prisma.user.findFirst({ where: { username: 'admin' } })) return;
   const password = process.env.SEED_ADMIN_PASSWORD ?? 'admin1234';
-  const admin = await prisma.userGroup.findUniqueOrThrow({
-    where: { name: 'Admin' },
-  });
-  await prisma.user.create({
-    data: {
-      username: 'admin',
-      fullName: 'Administrator',
-      passwordHash: await argon2.hash(password),
-      groupId: admin.id,
-    },
+  await createOwner(prisma, {
+    username: 'admin',
+    fullName: 'Administrator',
+    password,
   });
   if (!process.env.SEED_ADMIN_PASSWORD) {
     console.warn(
@@ -570,12 +396,12 @@ async function seedAdmin() {
 }
 
 /** Demo products with opening stock posted through a RECEIVE stock document, like real stock-in. */
-async function seedDemoProducts() {
+async function seedDemoProducts(branchId: string) {
   if ((await prisma.product.count()) > 0) {
     console.log('Products already exist; skipping demo products.');
     return;
   }
-  const admin = await prisma.user.findUniqueOrThrow({
+  const admin = await prisma.user.findFirstOrThrow({
     where: { username: 'admin' },
   });
   const vat = await prisma.taxRate.findFirst({ where: { isDefault: true } });
@@ -595,6 +421,7 @@ async function seedDemoProducts() {
       data: {
         docNo: 'GR-DEMO-0001',
         type: 'RECEIVE',
+        branchId,
         status: 'POSTED',
         reference: 'Opening stock (demo)',
         createdById: admin.id,
@@ -634,6 +461,9 @@ async function seedDemoProducts() {
         },
       });
       if (p.stockQty === 0) continue;
+      await tx.branchStock.create({
+        data: { branchId, productId: product.id, qty: p.stockQty },
+      });
 
       const line = await tx.stockDocumentItem.create({
         data: {
@@ -654,6 +484,7 @@ async function seedDemoProducts() {
         ? await tx.stockLot.create({
             data: {
               productId: product.id,
+              branchId,
               lotNo: 'DEMO',
               expiryDate: new Date('2028-12-31'),
               qty: p.stockQty,
@@ -667,6 +498,7 @@ async function seedDemoProducts() {
             data: {
               serial: `${p.sku}-${String(i).padStart(4, '0')}`,
               productId: product.id,
+              branchId,
               costLak,
               receivedItemId: line.id,
             },
@@ -674,6 +506,7 @@ async function seedDemoProducts() {
           await tx.stockMovement.create({
             data: {
               productId: product.id,
+              branchId,
               type: 'RECEIVE_IN',
               quantity: 1,
               balanceAfter: i,
@@ -689,6 +522,7 @@ async function seedDemoProducts() {
         await tx.stockMovement.create({
           data: {
             productId: product.id,
+            branchId,
             type: 'RECEIVE_IN',
             quantity: p.stockQty,
             balanceAfter: p.stockQty,
@@ -711,10 +545,16 @@ async function seedDemoProducts() {
 }
 
 async function main() {
-  await seedReferenceData();
-  await seedAdmin();
-  if (process.env.SEED_DEMO === 'true') await seedDemoProducts();
-  console.log('Seed complete.');
+  await seedPlans();
+  await seedPlatformAdmin();
+  const tenant = await ensureTenant(process.env.SEED_TENANT_CODE ?? 'plc');
+  await RequestContext.run({ tenantId: tenant.id }, async () => {
+    await seedReferenceData(prisma);
+    const branch = await ensureFirstBranch(prisma);
+    await seedAdmin();
+    if (process.env.SEED_DEMO === 'true') await seedDemoProducts(branch.id);
+  });
+  console.log(`Seed complete (company "${tenant.code}").`);
 }
 
 main()

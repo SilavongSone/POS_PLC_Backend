@@ -5,11 +5,19 @@ import { App } from 'supertest/types.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
+import {
+  RequestContext,
+  type RequestStore,
+} from '../src/common/request-context.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
 export type TestApp = {
   app: NestExpressApplication;
+  /** Tenant-scoped client for setup and assertions: runs as the seeded company "plc". */
   prisma: PrismaService;
+  /** The seeded company and its first branch. */
+  tenantId: string;
+  branchId: string;
   http: () => Record<
     'get' | 'post' | 'put' | 'patch' | 'delete',
     (url: string) => request.Test
@@ -23,10 +31,38 @@ export type TestApp = {
     username: string;
     auth: { Authorization: string };
   }>;
+  /** An app service whose calls run as the seeded company (outside any HTTP request). */
+  service: <T extends object>(type: abstract new (...args: never[]) => T) => T;
   close: () => Promise<void>;
 };
 
 let seq = 0;
+
+/**
+ * Runs every client call inside `store`'s request context. Prisma queries are lazy, so
+ * the promise is also awaited (`then`) inside it, where the tenant extension reads it.
+ */
+export function inContext<T extends object>(target: T, store: RequestStore): T {
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const value = Reflect.get(t, prop, receiver) as unknown;
+      if (typeof value === 'function') {
+        return (...args: unknown[]) =>
+          RequestContext.run(store, () => {
+            const result = (value as (...a: unknown[]) => unknown).apply(
+              t,
+              args,
+            );
+            return result instanceof Object && 'then' in result
+              ? (result as Promise<unknown>).then((x) => x)
+              : result;
+          });
+      }
+      if (value && typeof value === 'object') return inContext(value, store);
+      return value;
+    },
+  });
+}
 export const TEST_PASSWORD = 'test-password-1';
 
 export async function createTestApp(): Promise<TestApp> {
@@ -38,7 +74,14 @@ export async function createTestApp(): Promise<TestApp> {
   });
   configureApp(app);
   await app.init();
-  const prisma = app.get(PrismaService);
+  const base = app.get(PrismaService);
+  const tenant = await RequestContext.asPlatform(() =>
+    base.tenant.findUniqueOrThrow({ where: { code: 'plc' } }),
+  );
+  const prisma = inContext(base, { tenantId: tenant.id });
+  const branch = await prisma.branch.findFirstOrThrow({
+    where: { code: 'MAIN' },
+  });
   // Routes live under the global /api prefix, as in production.
   const server = app.getHttpServer() as App;
   const http = () => ({
@@ -53,7 +96,7 @@ export async function createTestApp(): Promise<TestApp> {
   const userWith: TestApp['userWith'] = async (group) => {
     const groupId =
       typeof group === 'string'
-        ? (await prisma.userGroup.findUniqueOrThrow({ where: { name: group } }))
+        ? (await prisma.userGroup.findFirstOrThrow({ where: { name: group } }))
             .id
         : (
             await prisma.userGroup.create({
@@ -82,5 +125,14 @@ export async function createTestApp(): Promise<TestApp> {
     };
   };
 
-  return { app, prisma, http, userWith, close: () => app.close() };
+  return {
+    app,
+    prisma,
+    tenantId: tenant.id,
+    branchId: branch.id,
+    http,
+    userWith,
+    service: (type) => inContext(app.get(type), { tenantId: tenant.id }),
+    close: () => app.close(),
+  };
 }

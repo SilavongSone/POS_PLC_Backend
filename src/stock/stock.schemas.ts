@@ -17,7 +17,7 @@ export const listSuppliersSchema = pageQuerySchema;
 
 const docItem = z.object({
   productId: z.uuid(),
-  /** Positive for RECEIVE/ISSUE; signed (±) for ADJUST. */
+  /** Positive for RECEIVE/ISSUE/TRANSFER; signed (±) for ADJUST. */
   quantity: z
     .number()
     .int()
@@ -32,7 +32,11 @@ const docItem = z.object({
 
 export const stockDocSchema = z
   .object({
-    type: z.enum(['RECEIVE', 'ISSUE', 'ADJUST']),
+    type: z.enum(['RECEIVE', 'ISSUE', 'ADJUST', 'TRANSFER']),
+    /** Branch whose stock changes (the sending branch for TRANSFER); may be omitted when the user has one branch. */
+    branchId: z.uuid().optional(),
+    /** Receiving branch, TRANSFER only. */
+    toBranchId: z.uuid().nullable().optional(),
     supplierId: z.uuid().nullable().optional(),
     /** Supplier invoice no. for RECEIVE, reason for ISSUE/ADJUST. */
     reference: text(100).nullable().optional(),
@@ -43,6 +47,16 @@ export const stockDocSchema = z
     items: z.array(docItem).min(1).max(500),
   })
   .superRefine((doc, ctx) => {
+    if ((doc.type === 'TRANSFER') !== Boolean(doc.toBranchId)) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          doc.type === 'TRANSFER'
+            ? 'Choose the receiving branch'
+            : 'Only transfers have a receiving branch',
+        path: ['toBranchId'],
+      });
+    }
     if (doc.type !== 'RECEIVE' && doc.supplierId) {
       ctx.addIssue({
         code: 'custom',
@@ -71,7 +85,9 @@ export const stockDocSchema = z
   });
 
 export const listStockDocsSchema = pageQuerySchema.extend({
-  type: z.enum(['RECEIVE', 'ISSUE', 'ADJUST']).optional(),
+  type: z.enum(['RECEIVE', 'ISSUE', 'ADJUST', 'TRANSFER']).optional(),
+  /** Documents of this branch, sending or receiving. */
+  branchId: z.uuid().optional(),
   status: z.enum(['DRAFT', 'POSTED', 'CANCELLED']).optional(),
   supplierId: z.uuid().optional(),
   from: isoDate.optional(),

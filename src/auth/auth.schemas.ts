@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { PERMISSIONS } from '../common/permissions.js';
 
+/** Company code (e.g. "plc"); optional when the server has DEFAULT_TENANT_CODE. */
+const tenantCode = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9-]{1,30}$/, 'Invalid company code')
+  .optional();
+
 export const loginSchema = z.object({
+  tenantCode,
   username: z.string().trim().min(1).max(50),
   password: z.string().min(1).max(200),
 });
@@ -10,6 +19,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 const pin = z.string().regex(/^\d{4,6}$/, 'PIN must be 4–6 digits');
 
 export const pinLoginSchema = z.object({
+  tenantCode,
   username: z.string().trim().min(1).max(50),
   pin,
 });

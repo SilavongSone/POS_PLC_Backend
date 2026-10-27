@@ -286,7 +286,11 @@ describe('Settings, VAT, exchange rates, payment types, registers (e2e)', () => 
 
     it('refuses to deactivate a register with an open shift', async () => {
       const register = await t.prisma.register.create({
-        data: { code: `S${uniq().slice(-5)}`.toUpperCase(), name: 'busy' },
+        data: {
+          code: `S${uniq().slice(-5)}`.toUpperCase(),
+          name: 'busy',
+          branchId: t.branchId,
+        },
       });
       await t.prisma.shift.create({
         data: {

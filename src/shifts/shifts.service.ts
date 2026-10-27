@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { hasPermission } from '../common/permissions.js';
@@ -43,6 +44,7 @@ export class ShiftsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly branches: BranchAccessService,
   ) {}
 
   async open(input: OpenShiftInput, user: AuthUser) {
@@ -51,6 +53,7 @@ export class ShiftsService {
     });
     if (!register.isActive)
       throw new BadRequestException('This register is inactive');
+    this.branches.assertAccess(user, register.branchId);
     try {
       const shift = await this.prisma.shift.create({
         data: {
