@@ -28,6 +28,7 @@ import type {
 } from './catalog.schemas.js';
 import { CategoriesService } from './categories.service.js';
 import { costToLak, priceToLak, roundUpLak } from './pricing.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 const listInclude = {
   category: { select: { id: true, name: true, slug: true } },
@@ -86,6 +87,7 @@ export class ProductsService {
     private readonly rates: ExchangeRatesService,
     private readonly settings: SettingsService,
     private readonly config: ConfigService<Env, true>,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async pricingContext(tx?: Prisma.TransactionClient): Promise<PricingContext> {
@@ -198,12 +200,24 @@ export class ProductsService {
         _count: true,
       }),
     ]);
-    const demoUnits = await this.prisma.serialNumber.findMany({
-      where: { productId: id, status: 'IN_STOCK', condition: 'DEMO' },
-      select: { id: true, serial: true, priceLak: true },
-    });
+    const [demoUnits, branchStock] = await Promise.all([
+      this.prisma.serialNumber.findMany({
+        where: { productId: id, status: 'IN_STOCK', condition: 'DEMO' },
+        select: { id: true, serial: true, priceLak: true, branchId: true },
+      }),
+      this.prisma.branchStock.findMany({
+        where: { productId: id },
+        select: {
+          qty: true,
+          branch: { select: { id: true, code: true, name: true } },
+        },
+        orderBy: { branch: { code: 'asc' } },
+      }),
+    ]);
     return {
       ...this.present(row, ctx, canViewCost),
+      /** On hand per branch; stockQty is the total. */
+      branchStock: branchStock.map((b) => ({ ...b.branch, qty: b.qty })),
       serialsInStock: Object.fromEntries(
         serialCounts.map((c) => [c.condition, c._count]),
       ),
@@ -247,6 +261,9 @@ export class ProductsService {
     canViewCost: boolean,
   ) {
     await this.assertReferences(input);
+    await this.assertPlanAllows(input);
+    if (input.isActive !== false)
+      await this.entitlements.assertLimit('maxProducts');
     const ctx = await this.pricingContext();
     const product = await this.prisma.product.create({
       data: {
@@ -278,6 +295,7 @@ export class ProductsService {
       where: { id },
     });
     await this.assertReferences(input);
+    await this.assertPlanAllows(input);
 
     const hasStock = before.stockQty !== 0;
     if (
@@ -539,6 +557,24 @@ export class ProductsService {
       where: { productId },
       orderBy: { sortOrder: 'asc' },
     });
+  }
+
+  /** Bundles, expiry lots and foreign-currency prices need those plan features. */
+  private async assertPlanAllows(input: {
+    type?: string;
+    trackExpiry?: boolean;
+    priceCurrency?: string;
+    costCurrency?: string;
+  }) {
+    if (input.type === 'BUNDLE')
+      await this.entitlements.assertFeature('bundles');
+    if (input.trackExpiry) await this.entitlements.assertFeature('lots');
+    if (
+      (input.priceCurrency && input.priceCurrency !== 'LAK') ||
+      (input.costCurrency && input.costCurrency !== 'LAK')
+    ) {
+      await this.entitlements.assertFeature('multiCurrency');
+    }
   }
 
   private async assertReferences(input: {

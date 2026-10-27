@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ApprovalService } from '../auth/approval.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
@@ -44,6 +45,7 @@ export class ReturnsService {
     private readonly approvals: ApprovalService,
     private readonly docNumbers: DocNumberService,
     private readonly audit: AuditService,
+    private readonly branches: BranchAccessService,
   ) {}
 
   /**
@@ -75,6 +77,7 @@ export class ReturnsService {
             returns: { include: { paymentType: true } },
           },
         });
+        this.branches.assertAccess(user, sale.branchId);
         if (sale.status !== 'COMPLETED')
           throw new ConflictException('Only completed sales can be returned');
 

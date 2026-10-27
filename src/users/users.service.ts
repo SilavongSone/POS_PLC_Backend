@@ -14,6 +14,7 @@ import type {
   ListUsersQuery,
   UpdateUserInput,
 } from './users.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 const userSelect = {
   id: true,
@@ -25,16 +26,26 @@ const userSelect = {
   lockedUntil: true,
   createdAt: true,
   updatedAt: true,
+  language: true,
   group: { select: { id: true, name: true } },
+  branches: { select: { branchId: true } },
 } satisfies Prisma.UserSelect;
 
 type UserRow = Prisma.UserGetPayload<{ select: typeof userSelect }>;
 
 /** Public shape of a user: never exposes password or PIN hashes. */
-export type UserView = Omit<UserRow, 'pinHash'> & { hasPin: boolean };
+export type UserView = Omit<UserRow, 'pinHash' | 'branches'> & {
+  hasPin: boolean;
+  /** Empty = every branch. */
+  branchIds: string[];
+};
 
-function toView({ pinHash, ...user }: UserRow): UserView {
-  return { ...user, hasPin: pinHash !== null };
+function toView({ pinHash, branches, ...user }: UserRow): UserView {
+  return {
+    ...user,
+    hasPin: pinHash !== null,
+    branchIds: branches.map((b) => b.branchId),
+  };
 }
 
 @Injectable()
@@ -42,6 +53,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(query: ListUsersQuery): Promise<Page<UserView>> {
@@ -80,6 +92,8 @@ export class UsersService {
     await this.prisma.userGroup.findUniqueOrThrow({
       where: { id: input.groupId },
     });
+    await this.assertBranches(input.branchIds);
+    await this.entitlements.assertLimit('maxUsers');
     const user = await this.prisma.user.create({
       data: {
         username: input.username,
@@ -87,6 +101,10 @@ export class UsersService {
         groupId: input.groupId,
         passwordHash: await argon2.hash(input.password),
         pinHash: input.pin ? await argon2.hash(input.pin) : null,
+        language: input.language,
+        branches: {
+          create: (input.branchIds ?? []).map((branchId) => ({ branchId })),
+        },
       },
       select: userSelect,
     });
@@ -98,6 +116,15 @@ export class UsersService {
       after: { username: user.username, group: user.group.name },
     });
     return toView(user);
+  }
+
+  /** Branch ids must belong to this company. */
+  private async assertBranches(ids?: string[]) {
+    if (!ids?.length) return;
+    const found = await this.prisma.branch.count({
+      where: { id: { in: ids } },
+    });
+    if (found !== ids.length) throw new BadRequestException('Unknown branch');
   }
 
   async update(
@@ -115,10 +142,20 @@ export class UsersService {
       await this.assertNotLastAdmin(id, input.groupId);
     }
 
+    await this.assertBranches(input.branchIds);
+    const { branchIds, ...fields } = input;
     const user = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
         where: { id },
-        data: input,
+        data: {
+          ...fields,
+          ...(branchIds && {
+            branches: {
+              deleteMany: {},
+              create: branchIds.map((branchId) => ({ branchId })),
+            },
+          }),
+        },
         select: userSelect,
       });
       if (input.isActive === false) await this.revokeSessions(tx, id);

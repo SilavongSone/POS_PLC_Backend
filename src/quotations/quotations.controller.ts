@@ -24,12 +24,14 @@ import {
   type QuotationInput,
 } from './quotations.schemas.js';
 import { QuotationsService } from './quotations.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
 @ApiTags('quotations')
 @ApiBearerAuth()
 @RequirePermissions('quotation.manage')
+@RequireFeature('quotations')
 @Controller('quotations')
 export class QuotationsController {
   constructor(private readonly quotations: QuotationsService) {}

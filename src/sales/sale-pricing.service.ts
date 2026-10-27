@@ -20,6 +20,7 @@ import {
   toLakAmount,
 } from './sale-math.js';
 import type { PaymentInput, QuoteSaleInput } from './sales.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 type Db = Prisma.TransactionClient;
 const Decimal = Prisma.Decimal;
@@ -110,6 +111,7 @@ export class SalePricingService {
     private readonly customers: CustomersService,
     private readonly settings: SettingsService,
     private readonly taxRates: TaxRatesService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Prices a cart; see PriceOptions for quotations. */
@@ -119,6 +121,10 @@ export class SalePricingService {
     options: PriceOptions = {},
   ): Promise<PricedCart> {
     const requireSerials = options.requireSerials ?? true;
+    // Promotions only apply when the company's plan has them.
+    if (!(await this.entitlements.hasFeature('promotions'))) {
+      options = { ...options, applyPromotions: false };
+    }
     const customer = input.customerId
       ? await db.customer.findUniqueOrThrow({ where: { id: input.customerId } })
       : null;
@@ -413,6 +419,8 @@ export class SalePricingService {
     cart: PricedCart,
     input: PaymentInput[],
   ): Promise<PaymentPlan> {
+    if (input.some((p) => p.currency !== 'LAK'))
+      await this.entitlements.assertFeature('multiCurrency');
     const [types, rates] = await Promise.all([
       db.paymentType.findMany({
         where: { id: { in: input.map((p) => p.paymentTypeId) } },
@@ -455,6 +463,8 @@ export class SalePricingService {
         .filter(filter)
         .reduce((s, p) => s.add(p.amountLak), new Decimal(0));
     const creditLak = sum((p) => p.kind === 'CREDIT');
+    if (!creditLak.isZero())
+      await this.entitlements.assertFeature('creditSales');
     const cashLak = sum((p) => p.kind === 'CASH');
     const tenderedLak = sum(() => true);
 

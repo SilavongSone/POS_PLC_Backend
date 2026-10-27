@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ApprovalService } from '../auth/approval.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
@@ -20,6 +21,7 @@ import type {
   ListSalesQuery,
   QuoteSaleInput,
 } from './sales.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 const saleInclude = {
   items: {
@@ -74,6 +76,8 @@ export class SalesService {
     private readonly docNumbers: DocNumberService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly branches: BranchAccessService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Prices a cart without saving anything (for the till's running total). */
@@ -127,6 +131,7 @@ export class SalesService {
       user,
       input.registerId,
     );
+    await this.entitlements.assertLimit('maxSalesPerMonth');
     const cart = await this.pricing.price(tx, input, {
       applyPromotions: options.applyPromotions,
     });
@@ -288,8 +293,17 @@ export class SalesService {
     });
   }
 
-  async list(query: ListSalesQuery) {
+  /** A sale, if the user may see its branch. */
+  async getFor(id: string, user: AuthUser) {
+    const sale = await this.get(id);
+    this.branches.assertAccess(user, sale.branchId);
+    return sale;
+  }
+
+  async list(query: ListSalesQuery, user: AuthUser) {
+    const scope = this.branches.scope(user, query.branchId);
     const where: Prisma.SaleWhereInput = {
+      ...(scope && { branchId: { in: scope } }),
       status: query.status,
       paymentStatus: query.paymentStatus,
       customerId: query.customerId,
@@ -401,6 +415,7 @@ export class SalesService {
             },
           },
         });
+        this.branches.assertAccess(user, sale.branchId);
         if (sale.shift?.status !== 'OPEN') {
           throw new ConflictException(
             'Only sales of an open shift can be voided; use a return',

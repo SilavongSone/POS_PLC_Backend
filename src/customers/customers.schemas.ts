@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -17,7 +18,7 @@ export const createCustomerSchema = z.object({
   note: text(1000).nullable().optional(),
   isActive: z.boolean().default(true),
 });
-export const updateCustomerSchema = createCustomerSchema.partial();
+export const updateCustomerSchema = patchOf(createCustomerSchema);
 
 export const listCustomersSchema = pageQuerySchema.extend({
   type: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),

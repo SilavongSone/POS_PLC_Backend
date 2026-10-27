@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 
 const text = (max: number) => z.string().trim().max(max);
 
@@ -17,5 +18,5 @@ export const createBranchSchema = z.object({
 });
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 
-export const updateBranchSchema = createBranchSchema.partial();
+export const updateBranchSchema = patchOf(createBranchSchema);
 export type UpdateBranchInput = z.infer<typeof updateBranchSchema>;

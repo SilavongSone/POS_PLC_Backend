@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 export const expenseCategorySchema = z.object({
   name: z.string().trim().min(1).max(100),
   isActive: z.boolean().default(true),
 });
-export const updateExpenseCategorySchema = expenseCategorySchema.partial();
+export const updateExpenseCategorySchema = patchOf(expenseCategorySchema);
 
 export const createExpenseSchema = z
   .object({

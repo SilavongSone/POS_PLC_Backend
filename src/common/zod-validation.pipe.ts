@@ -37,3 +37,27 @@ export const zod = <T extends z.ZodType>(schema: T) =>
 /** Documents a zod request body in Swagger. */
 export const ApiZodBody = (schema: z.ZodType) =>
   ApiBody({ schema: openApiSchema(schema) });
+
+type NoDefault<T> = T extends z.ZodDefault<infer Inner> ? Inner : T;
+type PatchShape<S extends z.ZodRawShape> = {
+  [K in keyof S]: z.ZodOptional<NoDefault<S[K]>>;
+};
+
+/**
+ * Update (PATCH) version of a create schema: every field optional and **without its
+ * default**. zod 4 applies defaults even inside `.partial()`, which would silently reset
+ * omitted fields (e.g. isActive) on every update.
+ */
+export function patchOf<S extends z.ZodRawShape>(
+  schema: z.ZodObject<S>,
+): z.ZodObject<PatchShape<S>> {
+  const shape = Object.fromEntries(
+    Object.entries(schema.shape).map(([key, field]) => [
+      key,
+      (
+        (field instanceof z.ZodDefault ? field.unwrap() : field) as z.ZodType
+      ).optional(),
+    ]),
+  );
+  return schema.extend(shape) as unknown as z.ZodObject<PatchShape<S>>;
+}

@@ -25,12 +25,14 @@ import {
   type ListExpensesQuery,
 } from './expenses.schemas.js';
 import { ExpensesService } from './expenses.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
 @ApiTags('expenses')
 @ApiBearerAuth()
 @RequirePermissions('expense.manage')
+@RequireFeature('expenses')
 @Controller()
 export class ExpensesController {
   constructor(private readonly expenses: ExpensesService) {}

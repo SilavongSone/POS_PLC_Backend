@@ -55,6 +55,7 @@ import {
 } from './catalog.schemas.js';
 import { CategoriesService } from './categories.service.js';
 import { MAX_IMAGE_BYTES, ProductsService } from './products.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 const canViewCost = (user: AuthUser) =>
@@ -231,6 +232,7 @@ export class ProductsController {
     return this.products.setPrices(body, user.id);
   }
 
+  @RequireFeature('bundles')
   @Put(':id/bundle-items')
   @RequirePermissions('product.manage')
   @ApiOperation({

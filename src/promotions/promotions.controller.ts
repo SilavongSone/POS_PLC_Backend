@@ -21,12 +21,14 @@ import {
   type UpdatePromotionInput,
 } from './promotions.schemas.js';
 import { PromotionsService } from './promotions.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
 @ApiTags('promotions')
 @ApiBearerAuth()
 @RequirePermissions('catalog.view')
+@RequireFeature('promotions')
 @Controller('promotions')
 export class PromotionsController {
   constructor(private readonly promotions: PromotionsService) {}

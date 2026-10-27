@@ -19,10 +19,12 @@ import {
   type ReceiveDebtInput,
 } from './debts.schemas.js';
 import { DebtsService } from './debts.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 @ApiTags('debts')
 @ApiBearerAuth()
 @RequirePermissions('debt.receive')
+@RequireFeature('creditSales')
 @Controller()
 export class DebtsController {
   constructor(private readonly debts: DebtsService) {}

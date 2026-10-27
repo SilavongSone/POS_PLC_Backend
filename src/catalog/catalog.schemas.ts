@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -18,14 +19,14 @@ export const createCategorySchema = z.object({
   sortOrder: z.number().int().min(0).max(9999).default(0),
   isActive: z.boolean().default(true),
 });
-export const updateCategorySchema = createCategorySchema.partial();
+export const updateCategorySchema = patchOf(createCategorySchema);
 export const listCategoriesSchema = z.object({ tree: queryBoolean.optional() });
 
 export const createBrandSchema = z.object({
   name: text(100).min(1),
   logoUrl: text(500).nullable().optional(),
 });
-export const updateBrandSchema = createBrandSchema.partial();
+export const updateBrandSchema = patchOf(createBrandSchema);
 
 // ── Products ──
 const productFields = {
@@ -94,7 +95,7 @@ function productRules<T extends z.ZodType<ProductFlags>>(schema: T) {
 
 export const createProductSchema = productRules(z.object(productFields));
 export const updateProductSchema = productRules(
-  z.object(productFields).partial().omit({ sku: true }),
+  patchOf(z.object(productFields)).omit({ sku: true }),
 );
 
 export const listProductsSchema = pageQuerySchema.extend({

@@ -39,6 +39,7 @@ import {
   type UpdateSupplierInput,
 } from './stock.schemas.js';
 import { SuppliersService } from './suppliers.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 const canViewCost = (u: AuthUser) =>
@@ -204,6 +205,7 @@ export class StockController {
     return this.queries.updateSerial(serialId, body, u.id);
   }
 
+  @RequireFeature('lots')
   @Get('lots/expiring')
   @ApiOperation({
     summary: 'Lots with stock expiring within ?withinDays (default 30)',

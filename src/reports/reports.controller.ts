@@ -20,6 +20,7 @@ import {
   type StockDocsReportQuery,
 } from './reports.schemas.js';
 import { ReportsService } from './reports.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const canViewCost = (u: AuthUser) =>
   hasPermission(u.permissions, 'product.viewCost');
@@ -65,6 +66,7 @@ export class ReportsController {
     return this.reports.salesSummary(this.scoped(q, u), canViewCost(u));
   }
 
+  @RequireFeature('advancedReports')
   @Get('best-sellers')
   bestSellers(
     @Query(zod(bestSellersSchema)) q: BestSellersQuery,
@@ -73,6 +75,7 @@ export class ReportsController {
     return this.reports.bestSellers(this.scoped(q, u), canViewCost(u));
   }
 
+  @RequireFeature('advancedReports')
   @Get('stock-value')
   @RequirePermissions('report.view', 'product.viewCost')
   @ApiOperation({ summary: 'Stock on hand valued at average cost' })
@@ -102,6 +105,7 @@ export class ReportsController {
     return this.reports.debtPayments(this.scoped(q, u));
   }
 
+  @RequireFeature('advancedReports')
   @Get('debt-aging')
   @ApiOperation({ summary: 'Outstanding credit per customer by days overdue' })
   debtAging(
@@ -127,6 +131,7 @@ export class ReportsController {
     return this.reports.voidedSales(this.scoped(q, u));
   }
 
+  @RequireFeature('advancedReports')
   @Get('customer-purchases')
   customerPurchases(
     @Query(zod(pagedRangeSchema)) q: DateRange & PageQuery,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 import { ALL_PERMISSIONS, PERMISSIONS } from '../common/permissions.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
 
@@ -13,6 +14,13 @@ const password = z
   .min(8, 'Password must be at least 8 characters')
   .max(200);
 const pin = z.string().regex(/^\d{4,6}$/, 'PIN must be 4–6 digits');
+/** Branches the user may work in; empty = every branch. */
+const branchIds = z
+  .array(z.uuid())
+  .max(100)
+  .transform((ids) => [...new Set(ids)]);
+export const LANGUAGES = ['lo', 'th', 'en'] as const;
+const language = z.enum(LANGUAGES).nullable();
 
 export const listUsersSchema = pageQuerySchema.extend({
   groupId: z.uuid().optional(),
@@ -26,6 +34,8 @@ export const createUserSchema = z.object({
   password,
   groupId: z.uuid(),
   pin: pin.optional(),
+  branchIds: branchIds.optional(),
+  language: language.optional(),
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -34,6 +44,8 @@ export const updateUserSchema = z
     fullName: z.string().trim().min(1).max(100),
     groupId: z.uuid(),
     isActive: z.boolean(),
+    branchIds,
+    language,
   })
   .partial();
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
@@ -54,5 +66,5 @@ export const createGroupSchema = z.object({
 });
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
 
-export const updateGroupSchema = createGroupSchema.partial();
+export const updateGroupSchema = patchOf(createGroupSchema);
 export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;

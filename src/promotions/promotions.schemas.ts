@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 import { queryBoolean } from '../common/pagination.js';
 
 const target = z.union([
@@ -54,7 +55,7 @@ function rules<
 }
 
 export const createPromotionSchema = rules(z.object(fields));
-export const updatePromotionSchema = rules(z.object(fields).partial());
+export const updatePromotionSchema = rules(patchOf(z.object(fields)));
 export const listPromotionsSchema = z.object({
   /** Running now (active and within dates). */
   current: queryBoolean.optional(),

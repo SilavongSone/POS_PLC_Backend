@@ -12,6 +12,7 @@ import type { Env } from '../config/env.js';
 import type { User } from '../generated/prisma/client.js';
 import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import type { AccessTokenPayload, AuthTokens, AuthUser } from './auth.types.js';
 
 /** Failed password/PIN attempts before the account is locked. */
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async login(
@@ -253,6 +255,7 @@ export class AuthService {
       await argon2.verify(await this.dummyHash, 'x');
       throw new UnauthorizedException('Invalid username or credentials');
     }
+    this.entitlements.assertNotBlocked(await this.entitlements.get(tenant.id));
     RequestContext.setTenant(tenant.id);
   }
 

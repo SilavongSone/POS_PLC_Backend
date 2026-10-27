@@ -5,12 +5,14 @@ import type {
   CreateBranchInput,
   UpdateBranchInput,
 } from './branches.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 @Injectable()
 export class BranchesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   list(includeInactive = false) {
@@ -26,6 +28,7 @@ export class BranchesService {
   }
 
   async create(input: CreateBranchInput, actorId: string) {
+    if (input.isActive) await this.entitlements.assertLimit('maxBranches');
     const branch = await this.prisma.branch.create({ data: input });
     await this.audit.log({
       userId: actorId,
@@ -39,6 +42,8 @@ export class BranchesService {
 
   async update(id: string, input: UpdateBranchInput, actorId: string) {
     const before = await this.get(id);
+    if (input.isActive && !before.isActive)
+      await this.entitlements.assertLimit('maxBranches');
     if (input.isActive === false && before.isActive) {
       const others = await this.prisma.branch.count({
         where: { isActive: true, id: { not: id } },

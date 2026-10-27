@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patchOf } from '../common/zod-validation.pipe.js';
 
 const text = (max: number) => z.string().trim().max(max);
 
@@ -83,9 +84,9 @@ export const createPaymentTypeSchema = z.object({
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(999).default(0),
 });
-export const updatePaymentTypeSchema = createPaymentTypeSchema
-  .omit({ kind: true })
-  .partial();
+export const updatePaymentTypeSchema = patchOf(
+  createPaymentTypeSchema.omit({ kind: true }),
+);
 
 export const printerConfigSchema = z.object({
   connection: z.enum(['usb', 'lan', 'bluetooth', 'none']),
@@ -109,9 +110,9 @@ export const createRegisterSchema = z.object({
   printer: printerConfigSchema.nullable().optional(),
   isActive: z.boolean().default(true),
 });
-export const updateRegisterSchema = createRegisterSchema
-  .omit({ code: true })
-  .partial();
+export const updateRegisterSchema = patchOf(
+  createRegisterSchema.omit({ code: true }),
+);
 
 export type CreateTaxRateInput = z.infer<typeof createTaxRateSchema>;
 export type UpdateTaxRateInput = z.infer<typeof updateTaxRateSchema>;

@@ -8,6 +8,7 @@ import type {
   CreateRegisterInput,
   UpdateRegisterInput,
 } from './settings.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 const withOpenShift = {
   shifts: {
@@ -33,6 +34,7 @@ export class RegistersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly branches: BranchAccessService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list() {
@@ -57,6 +59,7 @@ export class RegistersService {
 
   async create(input: CreateRegisterInput, actor: AuthUser) {
     const branchId = await this.branches.resolve(actor, input.branchId);
+    if (input.isActive) await this.entitlements.assertLimit('maxRegisters');
     const register = await this.prisma.register.create({
       data: { ...input, branchId, printer: printerData(input.printer) },
     });

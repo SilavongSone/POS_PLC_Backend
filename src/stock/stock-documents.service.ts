@@ -20,6 +20,7 @@ import {
   type MoveRef,
 } from './stock-ledger.service.js';
 import type { ListStockDocsQuery, StockDocInput } from './stock.schemas.js';
+import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 const Decimal = Prisma.Decimal;
 
@@ -76,6 +77,7 @@ export class StockDocumentsService {
     private readonly rates: ExchangeRatesService,
     private readonly audit: AuditService,
     private readonly branches: BranchAccessService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private assertCan(user: AuthUser, type: StockDocType) {
@@ -178,6 +180,8 @@ export class StockDocumentsService {
   /** Saves a DRAFT. Serial numbers are stored on the draft lines and applied on post. */
   async create(input: StockDocInput, user: AuthUser) {
     this.assertCan(user, input.type);
+    if (input.type === 'TRANSFER')
+      await this.entitlements.assertFeature('stockTransfers');
     const branches = await this.resolveBranches(input, user);
     const lakPerUnit = await this.resolveRate(input);
     await this.validateLines(input);

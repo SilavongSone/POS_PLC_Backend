@@ -459,7 +459,7 @@ describe('Stock (e2e)', () => {
       await t.http().get(`/products/${p.id}`).set(cashier.auth).expect(200)
     ).body;
     expect(detail.serialsInStock).toEqual({ DEMO: 1 });
-    expect(detail.demoUnits).toEqual([
+    expect(detail.demoUnits).toMatchObject([
       { id: unit.id, serial, priceLak: '75000' },
     ]);
   });

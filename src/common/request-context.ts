@@ -13,6 +13,21 @@ export type RequestStore = {
 
 const storage = new AsyncLocalStorage<RequestStore>();
 
+/**
+ * Runs `fn` in `store`. Prisma queries are lazy (they start on `then`), so a returned
+ * promise is also chained inside the store, where the tenant extension reads it.
+ */
+function runIn<T>(store: RequestStore, fn: () => T): T {
+  return storage.run(store, () => {
+    const result = fn();
+    return (
+      result instanceof Object && 'then' in result
+        ? (result as PromiseLike<unknown>).then((x) => x)
+        : result
+    ) as T;
+  });
+}
+
 export class TenantContextMissingError extends Error {
   constructor(what: string) {
     super(`No tenant in context for ${what}`);
@@ -22,7 +37,7 @@ export class TenantContextMissingError extends Error {
 export const RequestContext = {
   /** Runs `fn` with a fresh store; used per HTTP request, and by scripts and tests. */
   run<T>(store: RequestStore, fn: () => T): T {
-    return storage.run(store, fn);
+    return runIn(store, fn);
   },
 
   get(): RequestStore | undefined {
@@ -44,15 +59,12 @@ export const RequestContext = {
 
   /** Runs `fn` as `tenantId`, keeping the rest of the store (language, request id). */
   withTenant<T>(tenantId: string, fn: () => T): T {
-    return storage.run(
-      { ...storage.getStore(), tenantId, platform: false },
-      fn,
-    );
+    return runIn({ ...storage.getStore(), tenantId, platform: false }, fn);
   },
 
   /** Runs `fn` without tenant scoping — platform-admin code only. */
   asPlatform<T>(fn: () => T): T {
-    return storage.run(
+    return runIn(
       { ...storage.getStore(), tenantId: undefined, platform: true },
       fn,
     );

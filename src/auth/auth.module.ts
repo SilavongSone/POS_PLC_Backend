@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './guards/permissions.guard.js';
+import { EntitlementsGuard } from '../tenancy/entitlements.guard.js';
 
 @Module({
   imports: [
@@ -24,10 +25,11 @@ import { PermissionsGuard } from './guards/permissions.guard.js';
   providers: [
     AuthService,
     ApprovalService,
-    // Order matters: authenticate first, then check permissions.
+    // Order matters: authenticate, then the company's subscription and plan, then permissions.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useExisting: EntitlementsGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [AuthService, ApprovalService],
+  exports: [AuthService, ApprovalService, JwtModule],
 })
 export class AuthModule {}

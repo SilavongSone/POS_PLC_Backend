@@ -31,7 +31,7 @@ export class BranchesController {
   constructor(private readonly branches: BranchesService) {}
 
   @Get()
-  list(@Query('all', zod(queryBoolean)) all?: boolean) {
+  list(@Query('all', zod(queryBoolean.optional())) all?: boolean) {
     return this.branches.list(all);
   }
 

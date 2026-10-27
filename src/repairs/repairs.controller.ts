@@ -30,12 +30,14 @@ import {
   type UpdateTicketInput,
 } from './repairs.schemas.js';
 import { RepairsService } from './repairs.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
 @ApiTags('repairs')
 @ApiBearerAuth()
 @RequirePermissions('repair.receive')
+@RequireFeature('repairs')
 @Controller('service-tickets')
 export class RepairsController {
   constructor(private readonly repairs: RepairsService) {}

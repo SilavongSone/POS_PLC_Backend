@@ -61,6 +61,7 @@ export const listSalesSchema = pageQuerySchema.extend({
   paymentStatus: z.enum(['PAID', 'PARTIAL', 'UNPAID']).optional(),
   customerId: z.uuid().optional(),
   registerId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
   cashierId: z.uuid().optional(),
   shiftId: z.uuid().optional(),
 });

@@ -34,6 +34,7 @@ export default defineConfig({
       SIGNUP_ENABLED: 'true',
       PLATFORM_ADMIN_EMAIL: 'platform@test.local',
       PLATFORM_ADMIN_PASSWORD: 'platform-password-1',
+      THROTTLE_SIGNUP_LIMIT: '100000',
     },
     globalSetup: ['./test/global-setup.ts'],
     // Files share one database; run them one at a time.

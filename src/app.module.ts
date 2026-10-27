@@ -10,6 +10,8 @@ import type { Env } from './config/env.js';
 import { HealthController } from './health.controller.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { BranchesModule } from './branches/branches.module.js';
+import { TenancyModule } from './tenancy/tenancy.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 import { CommonModule } from './common/common.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DebtsModule } from './debts/debts.module.js';
@@ -56,6 +58,8 @@ import { UsersModule } from './users/users.module.js';
     }),
     PrismaModule,
     CommonModule,
+    TenancyModule,
+    PlatformModule,
     BranchesModule,
     AuthModule,
     UsersModule,

@@ -41,6 +41,7 @@ import {
 } from './settings.schemas.js';
 import { SettingsService } from './settings.service.js';
 import { TaxRatesService } from './tax-rates.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
@@ -126,6 +127,7 @@ export class ExchangeRatesController {
     return this.rates.history(query);
   }
 
+  @RequireFeature('multiCurrency')
   @Post()
   @RequirePermissions('exchangeRate.manage')
   @ApiOperation({ summary: 'Set a new rate (effective immediately)' })

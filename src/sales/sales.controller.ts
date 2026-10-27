@@ -33,6 +33,7 @@ import {
 } from './sales.schemas.js';
 import { SalesService } from './sales.service.js';
 import { TaxInvoicesService } from './tax-invoices.service.js';
+import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 
@@ -74,16 +75,19 @@ export class SalesController {
   @RequirePermissions('sale.create')
   @ApiOperation({
     summary:
-      'Sales (?from, to, status, paymentStatus, customerId, registerId, cashierId, shiftId, q)',
+      'Sales (?from, to, status, paymentStatus, customerId, registerId, branchId, cashierId, shiftId, q)',
   })
-  list(@Query(zod(listSalesSchema)) query: ListSalesQuery) {
-    return this.sales.list(query);
+  list(
+    @Query(zod(listSalesSchema)) query: ListSalesQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.sales.list(query, u);
   }
 
   @Get(':id')
   @RequirePermissions('sale.create')
-  get(@Param('id', id) saleId: string) {
-    return this.sales.get(saleId);
+  get(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
+    return this.sales.getFor(saleId, u);
   }
 
   @Get(':id/receipt')
@@ -121,6 +125,7 @@ export class SalesController {
     return this.sales.void(saleId, body.reason, body.approvalToken, u);
   }
 
+  @RequireFeature('taxInvoices')
   @Post(':id/tax-invoice')
   @RequirePermissions('taxInvoice.issue')
   @ApiOperation({
@@ -139,6 +144,7 @@ export class SalesController {
 @ApiTags('sales')
 @ApiBearerAuth()
 @RequirePermissions('taxInvoice.issue')
+@RequireFeature('taxInvoices')
 @Controller('tax-invoices')
 export class TaxInvoicesController {
   constructor(private readonly invoices: TaxInvoicesService) {}
