@@ -1,0 +1,160 @@
+# PLC POS — ออกแบบ SaaS: หลายบริษัท · หลายสาขา · แพ็กเกจ · หลายภาษา
+
+> สถานะ: **ออกแบบแล้ว · กำลังพัฒนา** · อัปเดตล่าสุด: 2026-10-27
+> เอกสารนี้ต่อยอดจาก [`database-design.md`](./database-design.md) (โครงสร้างร้านเดียว) และ [`operations.md`](./operations.md)
+
+## 1. เป้าหมาย
+
+- **ให้เช่าระบบ (SaaS):** บริษัทอื่นสมัครแล้วใช้ระบบเดียวกันได้ โดยข้อมูลของแต่ละบริษัทแยกขาดจากกันทั้งหมด
+- **หลายสาขา:** แต่ละบริษัทมีได้หลายสาขา สต็อกแยกตามสาขา และโอนสินค้าข้ามสาขาได้
+- **แพ็กเกจ:** มีแพ็กเกจให้เลือก เจ้าของแพลตฟอร์ม (เรา) แก้ราคา, ข้อจำกัด และฟีเจอร์ของแต่ละแพ็กเกจได้ตลอดเวลา และปรับเฉพาะบางบริษัทได้ด้วย
+- **หลายภาษา:** ลาว (หลัก), ไทย, อังกฤษ ทั้งข้อความ error, ชื่อสินค้า/หมวดหมู่, ใบเสร็จ และจำนวนเงินเป็นตัวอักษร
+
+## 2. คำศัพท์และบทบาท
+
+| คำ | ความหมาย |
+|---|---|
+| **Platform** | ตัวระบบทั้งหมด ซึ่งเราเป็นเจ้าของ |
+| **Platform admin** | ทีมของเรา: จัดการแพ็กเกจ, บริษัทลูกค้า และการสมัครใช้ · ล็อกอินแยกจากพนักงานร้าน |
+| **Tenant (บริษัท/ร้าน)** | ลูกค้าที่เช่าระบบ แต่ละรายมีรหัสบริษัท (`code`) เช่น `plc`, `abc-shop` |
+| **Branch (สาขา)** | สาขาของ tenant · เครื่องขาย, กะ, บิล และสต็อก ผูกกับสาขา |
+| **Plan (แพ็กเกจ)** | ชุดราคา + ข้อจำกัด (limits) + ฟีเจอร์ (features) |
+| **Subscription** | การสมัครใช้แพ็กเกจของ tenant: สถานะ, วันหมดอายุ และการปรับเฉพาะราย (overrides) |
+
+ร้าน PLC เดิมจะกลายเป็น tenant แรก (`code = plc`) ที่มีสาขา `MAIN` · migration ย้ายข้อมูลเดิมทั้งหมดเข้า tenant นี้โดยข้อมูลไม่หาย
+
+## 3. การแยกข้อมูลของแต่ละบริษัท (Tenant isolation)
+
+**รูปแบบที่เลือก:** ฐานข้อมูลเดียว + คอลัมน์ `tenantId` (shared database, shared schema)
+
+| ทางเลือก | ข้อดี | ข้อเสีย | ผล |
+|---|---|---|---|
+| DB แยกต่อบริษัท | แยกขาดที่สุด | ค่า cloud สูง, migrate/backup ทีละ DB, เปิดบริษัทใหม่ช้า | ไม่เลือก |
+| Schema แยกต่อบริษัท | แยกดี | Prisma รองรับไม่ดี, migration ซับซ้อน | ไม่เลือก |
+| **`tenantId` ทุกตาราง** | ต้นทุนต่ำ, เปิดบริษัทใหม่ทันที, ขยายง่าย | ต้องคุมให้ทุก query กรอง tenant | **เลือก** + ป้องกัน 4 ชั้นด้านล่าง |
+
+**การป้องกัน 4 ชั้น**
+1. **Tenant context:** หลังตรวจ token แล้ว ระบบเก็บ `tenantId` ไว้ใน `AsyncLocalStorage` ประจำ request ทำให้ทุก service รู้ว่ากำลังทำงานให้บริษัทไหน
+2. **Prisma extension (กรองอัตโนมัติ):** ทุก query ของตารางที่เป็นของ tenant จะถูกเติม `tenantId` ให้อัตโนมัติ ทั้ง `where` (อ่าน, แก้, ลบ, นับ) และ `data` (สร้าง) · **ถ้าไม่มี tenant context ระบบจะปฏิเสธ query** (fail closed) ยกเว้นงานของ platform ที่เรียกผ่าน `runAsPlatform()` อย่างชัดเจน
+3. **ตารางลูก:** เช่น รายการในบิล, การชำระเงิน, รายการในใบรับสินค้า ไม่มี `tenantId` ของตัวเอง แต่เข้าถึงผ่านแม่ที่กรอง tenant แล้วเท่านั้น
+4. **Raw SQL:** รายงาน, ล็อกแถว และเลขเอกสาร ใส่เงื่อนไข `"tenantId" = $tenant` ด้วยมือทุก query และมี e2e test ยืนยัน · **มีชุด test "cross-tenant"** ที่สร้าง 2 บริษัทแล้วพยายามอ่าน/แก้ข้อมูลข้ามกันทุก endpoint หลัก
+
+**ค่าที่เคยไม่ซ้ำทั้งระบบ จะเปลี่ยนเป็นไม่ซ้ำภายในบริษัท:** SKU, barcode, serial, username, รหัสลูกค้า, เบอร์โทรลูกค้า, เลขเอกสารทุกชนิด, ชื่อกลุ่มผู้ใช้/ประเภทชำระ/VAT/หมวดหมู่/แบรนด์, รหัสเครื่องขาย
+
+**การล็อกอิน:** พนักงานใส่ **รหัสบริษัท + username + รหัสผ่าน/PIN** · JWT มี `tid` (tenant) · refresh token ผูกกับผู้ใช้ จึงผูกกับ tenant ไปด้วย
+
+## 4. หลายสาขา
+
+| เรื่อง | การออกแบบ |
+|---|---|
+| ตาราง | `Branch` (code, ชื่อ, ที่อยู่, เบอร์โทร, หัวใบเสร็จของสาขา, isActive) |
+| เครื่องขาย/กะ/บิล | `Register.branchId` · บิล (`Sale`) บันทึก `branchId` จากเครื่องขาย |
+| สต็อก | `BranchStock (branchId, productId, qty)` คือยอดจริงของแต่ละสาขา · `Product.stockQty` = ยอดรวมทุกสาขา (อัปเดตใน transaction เดียวกัน) · `StockMovement.branchId` · serial และล็อตมี `branchId` บอกว่าอยู่สาขาไหน |
+| โอนสินค้า | เอกสารใหม่ `TRANSFER` (จากสาขา → ไปสาขา): ออกจากต้นทาง (`TRANSFER_OUT`) และเข้าปลายทาง (`TRANSFER_IN`) ใน transaction เดียว · serial ย้ายสาขา · ล็อตไปพร้อมวันหมดอายุเดิม · ต้นทุนเฉลี่ยไม่เปลี่ยน |
+| สิทธิ์ตามสาขา | `UserBranch`: ผู้ใช้ที่ไม่มีรายการ = เข้าได้ทุกสาขา · ถ้ากำหนดไว้ = เปิดกะ/ขาย/รับสินค้าได้เฉพาะสาขานั้น |
+| ขายข้ามสาขา | ขายได้เฉพาะของที่อยู่ในสาขาของเครื่องขาย (serial ต้องอยู่สาขานั้น) |
+| รายงาน | ทุกรายงานกรอง `?branchId=` ได้ · ค่าเริ่มต้นคือรวมทุกสาขาที่ผู้ใช้มีสิทธิ์ |
+| สินค้า, ลูกค้า, ราคา | ใช้ร่วมกันทั้งบริษัท |
+
+## 5. แพ็กเกจและการสมัครใช้
+
+### 5.1 Plan (แก้ได้โดย platform admin)
+```
+Plan { code, nameI18n {lo,th,en}, descriptionI18n, priceMonthlyLak, priceYearlyLak,
+       limits { maxBranches, maxRegisters, maxUsers, maxProducts, maxSalesPerMonth },   // null = ไม่จำกัด
+       features [ ... ],  trialDays, isPublic, isActive, sortOrder }
+```
+
+**ฟีเจอร์ที่เปิด/ปิดได้ (feature flags)**
+
+| key | เปิดอะไร |
+|---|---|
+| `multiCurrency` | รับ THB/USD, ราคาสินค้าเป็น USD/THB |
+| `creditSales` | ขายเชื่อ + ชำระหนี้ |
+| `promotions` | โปรโมชั่น |
+| `bundles` | ชุดสินค้า |
+| `quotations` | ใบเสนอราคา |
+| `repairs` | ระบบซ่อม/เคลม |
+| `taxInvoices` | ใบกำกับภาษี |
+| `expenses` | รายจ่าย |
+| `lots` | สินค้ามีวันหมดอายุ (ล็อต) |
+| `stockTransfers` | โอนสินค้าข้ามสาขา |
+| `advancedReports` | กำไร, สินค้าขายดี, ลูกหนี้ตามอายุหนี้, มูลค่าสต็อก |
+| `auditLog` | ดูประวัติการทำงาน (audit log) |
+
+**แพ็กเกจเริ่มต้น** (ราคาตัวอย่าง แก้ได้)
+
+| | Free | Starter | Business | Enterprise |
+|---|---|---|---|---|
+| ราคา/เดือน | 0 | 199,000 ₭ | 499,000 ₭ | 1,490,000 ₭ |
+| สาขา / เครื่องขาย / ผู้ใช้ | 1 / 1 / 2 | 1 / 2 / 5 | 3 / 6 / 20 | ไม่จำกัด |
+| สินค้า | 200 | 2,000 | 20,000 | ไม่จำกัด |
+| บิล/เดือน | 300 | ไม่จำกัด | ไม่จำกัด | ไม่จำกัด |
+| ฟีเจอร์ | พื้นฐาน | + multiCurrency, creditSales, expenses, taxInvoices | + promotions, bundles, quotations, repairs, lots, stockTransfers, advancedReports | ทั้งหมด + auditLog |
+
+### 5.2 Subscription
+```
+Subscription { tenantId, planId, status, trialEndsAt, currentPeriodEnd,
+               overrides { limits?, featuresAdd?, featuresRemove? }, note }
+status: TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
+```
+- **สิทธิ์ที่ใช้งานจริง (entitlements)** = plan + overrides เฉพาะบริษัท · cache ไว้ 30 วินาที และล้างทันทีเมื่อแก้
+- **บังคับใช้:**
+  - `@RequireFeature('repairs')` ที่ controller → ถ้าไม่มีฟีเจอร์ตอบ `403 FEATURE_NOT_IN_PLAN`
+  - limit ตรวจตอนสร้าง (สาขา, เครื่องขาย, ผู้ใช้, สินค้า, บิลต่อเดือน) → เกินตอบ `403 PLAN_LIMIT_REACHED` พร้อม `limit` และ `used`
+- **หมดอายุ:**
+  - trial หมด หรือเลย `currentPeriodEnd` → ยังใช้ได้อีก 7 วัน (grace period)
+  - หลังจากนั้นเป็น **อ่านอย่างเดียว**: GET ได้, เขียนไม่ได้ (`402 SUBSCRIPTION_INACTIVE`)
+  - `SUSPENDED` / `CANCELLED` → ล็อกอินไม่ได้ (`403 TENANT_SUSPENDED`)
+- **ผู้ดูแลของบริษัทดูได้เอง:** `GET /subscription` แสดงแพ็กเกจ, สถานะ, ฟีเจอร์ และการใช้งานเทียบกับ limit
+- การเก็บเงินค่าแพ็กเกจยังทำนอกระบบ: platform admin เป็นคนต่ออายุ (`currentPeriodEnd`) ระบบจ่ายเงินออนไลน์จะทำภายหลัง
+
+### 5.3 Platform admin API (`/api/platform/*`, ล็อกอินแยก)
+- `POST /platform/auth/login`: token ชนิด `platform` ใช้กับ API ร้านไม่ได้ และกลับกันก็ใช้ไม่ได้
+- `/platform/plans`: CRUD แพ็กเกจ, แก้ราคา, limits และ features
+- `/platform/tenants`:
+  - สร้างบริษัท (พร้อม owner, สาขาแรก, เครื่องขาย และข้อมูลเริ่มต้น)
+  - ค้นหา, ดูการใช้งาน
+  - เปลี่ยนแพ็กเกจ/สถานะ/วันหมดอายุ/overrides
+  - ระงับ/เปิด
+- `/platform/stats`: จำนวนบริษัทตามแพ็กเกจ/สถานะ, รายได้ต่อเดือน (MRR)
+- ทุกการกระทำบันทึกลง AuditLog (`tenantId` = บริษัทที่ถูกแก้)
+
+### 5.4 สมัครใช้เอง (เปิด/ปิดได้ด้วย `SIGNUP_ENABLED`)
+- `GET /public/plans`: แพ็กเกจที่เปิดให้เห็น
+- `POST /public/signup`: สร้างบริษัทแบบ TRIAL ตาม `trialDays` ของแพ็กเกจ · จำกัด 3 ครั้งต่อชั่วโมงต่อ IP
+
+## 6. หลายภาษา (i18n)
+
+| เรื่อง | วิธีทำ |
+|---|---|
+| ภาษา | `lo` (ค่าเริ่มต้น), `th`, `en` |
+| เลือกภาษาต่อ request | `?lang=` → ภาษาที่ผู้ใช้ตั้งไว้ (`User.language`) → `Accept-Language` → ภาษาเริ่มต้นของบริษัท (`app.defaultLanguage`) |
+| ข้อความ error | ทุก error มี `code` (ไม่เปลี่ยนตามภาษา) + `message` ตามภาษาที่เลือก + `params` · ข้อความแปลอยู่ใน `src/i18n/messages/{lo,th,en}.ts` |
+| validation (zod) | แปลตามชนิดของปัญหา (`too_small`, `invalid_type` ฯลฯ) |
+| ข้อมูลหลายภาษา | `nameI18n` / `descriptionI18n` (`{lo, th, en}`) ใน Category, Product, PaymentType, ExpenseCategory, Promotion, Plan · response ส่ง `name` ตามภาษาที่เลือก (ถ้าไม่มีใช้ `name` หลัก) และส่ง `nameI18n` มาด้วยสำหรับหน้าแก้ไข |
+| ใบเสร็จ/ใบกำกับ/ใบเสนอราคา | ชื่อสินค้าตามภาษาที่ขอ · จำนวนเงินเป็นตัวอักษรทั้ง 3 ภาษา (ລາວ / ไทย / English) |
+
+## 7. ปรับปรุงเพิ่มเติม (ทำพร้อมกัน)
+- **Idempotency-Key** สำหรับ `POST /sales`, `/debt-payments`, `/sales/:id/returns`: ถ้าเน็ตหลุดแล้วกดส่งซ้ำ จะไม่เกิดบิลซ้ำ
+- **`X-Request-Id`** ในทุก response และใน log ใช้ตามหาปัญหา
+- **`GET /audit-logs`** สำหรับผู้ดูแลของบริษัท (ฟีเจอร์ `auditLog`)
+- **CI (GitHub Actions):** lint, build, unit และ e2e บน PostgreSQL ทุก push
+- **Dockerfile สำหรับ production** และ `docker-compose.prod.yml`
+
+## 8. ขอบเขตที่ยังไม่ทำ (บันทึกไว้)
+- **สกุลเงินหลัก:** ยังเป็น LAK ทุกบริษัท (ตลาดลาว) · ถ้าจะขายให้ต่างประเทศต้องเปลี่ยนคอลัมน์ `*Lak` เป็นสกุลหลักของบริษัท
+- **Row-Level Security ของ PostgreSQL:** เป็นชั้นป้องกันเพิ่มในอนาคต · ตอนนี้ป้องกันที่ application 4 ชั้นและมี test ครอบคลุม
+- **จ่ายค่าแพ็กเกจออนไลน์** (BCEL OnePay ฯลฯ) และใบแจ้งหนี้ค่าแพ็กเกจอัตโนมัติ
+- **ราคาสินค้าแยกตามสาขา**
+
+## 9. ลำดับการพัฒนา
+| # | งาน |
+|---|---|
+| S1 | Schema: Tenant, Branch, BranchStock, UserBranch, Plan, Subscription, PlatformAdmin, IdempotencyKey + `tenantId`/`branchId` + unique ภายในบริษัท + migration ย้ายข้อมูลเดิมเข้า tenant `plc` |
+| S2 | Tenant context + Prisma extension (fail closed) + ล็อกอินด้วยรหัสบริษัท + แก้ raw SQL |
+| S3 | สต็อกแยกสาขา + โอนสินค้า + ขาย/คืน/ซ่อมตามสาขา + สิทธิ์ตามสาขา |
+| S4 | แพ็กเกจ, subscription, ฟีเจอร์/limit guard, platform admin API, สมัครใช้เอง, ระบบตั้งค่าเริ่มต้นของบริษัทใหม่ |
+| S5 | หลายภาษา: error codes, validation, ข้อมูลหลายภาษา, จำนวนเงินเป็นตัวอักษร 3 ภาษา |
+| S6 | Idempotency, request id, audit-log API, CI, Docker |
+| S7 | ชุด test cross-tenant, เอกสาร และวัดประสิทธิภาพซ้ำ |
