@@ -121,6 +121,62 @@ const EXPENSE_CATEGORIES = [
   'Other',
 ];
 
+/** Lao and Thai names of the starter rows (English is the row's own name). */
+const CATEGORY_I18N: Record<string, { lo: string; th: string }> = {
+  'pos-terminal': { lo: 'ເຄື່ອງ POS', th: 'เครื่อง POS' },
+  'pos-dual-screen': { lo: 'POS ສອງໜ້າຈໍ', th: 'POS สองหน้าจอ' },
+  'pos-single-screen': {
+    lo: 'POS ໜ້າຈໍດຽວ / All-in-One',
+    th: 'POS จอเดียว / All-in-One',
+  },
+  'pos-handheld': { lo: 'POS ມືຖື', th: 'POS แบบพกพา' },
+  printer: { lo: 'ເຄື່ອງພິມ', th: 'เครื่องพิมพ์' },
+  'printer-receipt': {
+    lo: 'ເຄື່ອງພິມໃບບິນ (ຄວາມຮ້ອນ)',
+    th: 'เครื่องพิมพ์ใบเสร็จ (ความร้อน)',
+  },
+  'printer-label': {
+    lo: 'ເຄື່ອງພິມສະຕິກເກີ / ບາໂຄດ',
+    th: 'เครื่องพิมพ์สติกเกอร์ / บาร์โค้ด',
+  },
+  'printer-office': {
+    lo: 'ເຄື່ອງພິມຫ້ອງການ (ເລເຊີ / ອິງເຈັດ)',
+    th: 'เครื่องพิมพ์สำนักงาน (เลเซอร์ / อิงค์เจ็ท)',
+  },
+  display: { lo: 'ໜ້າຈໍ', th: 'จอแสดงผล' },
+  'display-monitor': { lo: 'ຈໍມໍນິເຕີ', th: 'จอมอนิเตอร์' },
+  'display-touch': { lo: 'ຈໍສຳຜັດ', th: 'จอสัมผัส' },
+  'display-customer': { lo: 'ຈໍສະແດງລາຄາລູກຄ້າ', th: 'จอแสดงราคาลูกค้า' },
+  scanner: { lo: 'ເຄື່ອງສະແກນບາໂຄດ', th: 'เครื่องสแกนบาร์โค้ด' },
+  'scanner-handheld': { lo: 'ເຄື່ອງສະແກນມືຖື', th: 'เครื่องสแกนมือถือ' },
+  'scanner-desktop': { lo: 'ເຄື່ອງສະແກນຕັ້ງໂຕະ', th: 'เครื่องสแกนตั้งโต๊ะ' },
+  computer: {
+    lo: 'ຄອມພິວເຕີ (Mini PC / ໂນ໊ດບຸກ)',
+    th: 'คอมพิวเตอร์ (Mini PC / โน้ตบุ๊ก)',
+  },
+  'cash-drawer': { lo: 'ລິ້ນຊັກເກັບເງິນ', th: 'ลิ้นชักเก็บเงิน' },
+  accessory: { lo: 'ອຸປະກອນເສີມ', th: 'อุปกรณ์เสริม' },
+  consumable: { lo: 'ວັດສະດຸສິ້ນເປືອງ', th: 'วัสดุสิ้นเปลือง' },
+  software: { lo: 'ຊອບແວ / ລິຂະສິດ', th: 'ซอฟต์แวร์ / ไลเซนส์' },
+  service: { lo: 'ບໍລິການ', th: 'บริการ' },
+};
+
+const PAYMENT_I18N: Record<string, { lo: string; th: string }> = {
+  Cash: { lo: 'ເງິນສົດ', th: 'เงินสด' },
+  QR: { lo: 'QR', th: 'QR' },
+  'Bank transfer': { lo: 'ໂອນເງິນ', th: 'โอนเงิน' },
+  Card: { lo: 'ບັດ', th: 'บัตร' },
+  Credit: { lo: 'ຕິດໜີ້', th: 'เชื่อ' },
+};
+
+const EXPENSE_I18N: Record<string, { lo: string; th: string }> = {
+  Rent: { lo: 'ຄ່າເຊົ່າ', th: 'ค่าเช่า' },
+  'Electricity & water': { lo: 'ຄ່າໄຟ ແລະ ນ້ຳ', th: 'ค่าไฟและน้ำ' },
+  Salaries: { lo: 'ເງິນເດືອນ', th: 'เงินเดือน' },
+  Shipping: { lo: 'ຄ່າຂົນສົ່ງ', th: 'ค่าขนส่ง' },
+  Other: { lo: 'ອື່ນໆ', th: 'อื่น ๆ' },
+};
+
 /** LAK per unit; only used when no rate exists yet. */
 const INITIAL_RATES = { THB: '650', USD: '21800' } as const;
 
@@ -133,7 +189,13 @@ async function seedCategories(
     const category =
       (await db.category.findFirst({ where: { slug: node.slug } })) ??
       (await db.category.create({
-        data: { slug: node.slug, name: node.name, parentId, sortOrder: index },
+        data: {
+          slug: node.slug,
+          name: node.name,
+          nameI18n: CATEGORY_I18N[node.slug],
+          parentId,
+          sortOrder: index,
+        },
       }));
     if (node.children) await seedCategories(db, node.children, category.id);
   }
@@ -169,13 +231,17 @@ export async function seedReferenceData(
 
   for (const type of PAYMENT_TYPES) {
     if (!(await db.paymentType.findFirst({ where: { name: type.name } }))) {
-      await db.paymentType.create({ data: type });
+      await db.paymentType.create({
+        data: { ...type, nameI18n: PAYMENT_I18N[type.name] },
+      });
     }
   }
 
   for (const name of EXPENSE_CATEGORIES) {
     if (!(await db.expenseCategory.findFirst({ where: { name } }))) {
-      await db.expenseCategory.create({ data: { name } });
+      await db.expenseCategory.create({
+        data: { name, nameI18n: EXPENSE_I18N[name] },
+      });
     }
   }
 

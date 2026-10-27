@@ -1,0 +1,33 @@
+-- Lao and Thai names for the starter categories, payment types and expense categories,
+-- where the company has not set its own translations (nameI18n is still empty).
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງ POS", "th": "เครื่อง POS"}' WHERE "slug" = 'pos-terminal' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "POS ສອງໜ້າຈໍ", "th": "POS สองหน้าจอ"}' WHERE "slug" = 'pos-dual-screen' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "POS ໜ້າຈໍດຽວ / All-in-One", "th": "POS จอเดียว / All-in-One"}' WHERE "slug" = 'pos-single-screen' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "POS ມືຖື", "th": "POS แบบพกพา"}' WHERE "slug" = 'pos-handheld' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງພິມ", "th": "เครื่องพิมพ์"}' WHERE "slug" = 'printer' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງພິມໃບບິນ (ຄວາມຮ້ອນ)", "th": "เครื่องพิมพ์ใบเสร็จ (ความร้อน)"}' WHERE "slug" = 'printer-receipt' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງພິມສະຕິກເກີ / ບາໂຄດ", "th": "เครื่องพิมพ์สติกเกอร์ / บาร์โค้ด"}' WHERE "slug" = 'printer-label' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງພິມຫ້ອງການ (ເລເຊີ / ອິງເຈັດ)", "th": "เครื่องพิมพ์สำนักงาน (เลเซอร์ / อิงค์เจ็ท)"}' WHERE "slug" = 'printer-office' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ໜ້າຈໍ", "th": "จอแสดงผล"}' WHERE "slug" = 'display' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ຈໍມໍນິເຕີ", "th": "จอมอนิเตอร์"}' WHERE "slug" = 'display-monitor' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ຈໍສຳຜັດ", "th": "จอสัมผัส"}' WHERE "slug" = 'display-touch' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ຈໍສະແດງລາຄາລູກຄ້າ", "th": "จอแสดงราคาลูกค้า"}' WHERE "slug" = 'display-customer' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງສະແກນບາໂຄດ", "th": "เครื่องสแกนบาร์โค้ด"}' WHERE "slug" = 'scanner' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງສະແກນມືຖື", "th": "เครื่องสแกนมือถือ"}' WHERE "slug" = 'scanner-handheld' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ເຄື່ອງສະແກນຕັ້ງໂຕະ", "th": "เครื่องสแกนตั้งโต๊ะ"}' WHERE "slug" = 'scanner-desktop' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ຄອມພິວເຕີ (Mini PC / ໂນ໊ດບຸກ)", "th": "คอมพิวเตอร์ (Mini PC / โน้ตบุ๊ก)"}' WHERE "slug" = 'computer' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ລິ້ນຊັກເກັບເງິນ", "th": "ลิ้นชักเก็บเงิน"}' WHERE "slug" = 'cash-drawer' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ອຸປະກອນເສີມ", "th": "อุปกรณ์เสริม"}' WHERE "slug" = 'accessory' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ວັດສະດຸສິ້ນເປືອງ", "th": "วัสดุสิ้นเปลือง"}' WHERE "slug" = 'consumable' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ຊອບແວ / ລິຂະສິດ", "th": "ซอฟต์แวร์ / ไลเซนส์"}' WHERE "slug" = 'software' AND "nameI18n" IS NULL;
+UPDATE "Category" SET "nameI18n" = '{"lo": "ບໍລິການ", "th": "บริการ"}' WHERE "slug" = 'service' AND "nameI18n" IS NULL;
+UPDATE "PaymentType" SET "nameI18n" = '{"lo": "ເງິນສົດ", "th": "เงินสด"}' WHERE "name" = 'Cash' AND "nameI18n" IS NULL;
+UPDATE "PaymentType" SET "nameI18n" = '{"lo": "QR", "th": "QR"}' WHERE "name" = 'QR' AND "nameI18n" IS NULL;
+UPDATE "PaymentType" SET "nameI18n" = '{"lo": "ໂອນເງິນ", "th": "โอนเงิน"}' WHERE "name" = 'Bank transfer' AND "nameI18n" IS NULL;
+UPDATE "PaymentType" SET "nameI18n" = '{"lo": "ບັດ", "th": "บัตร"}' WHERE "name" = 'Card' AND "nameI18n" IS NULL;
+UPDATE "PaymentType" SET "nameI18n" = '{"lo": "ຕິດໜີ້", "th": "เชื่อ"}' WHERE "name" = 'Credit' AND "nameI18n" IS NULL;
+UPDATE "ExpenseCategory" SET "nameI18n" = '{"lo": "ຄ່າເຊົ່າ", "th": "ค่าเช่า"}' WHERE "name" = 'Rent' AND "nameI18n" IS NULL;
+UPDATE "ExpenseCategory" SET "nameI18n" = '{"lo": "ຄ່າໄຟ ແລະ ນ້ຳ", "th": "ค่าไฟและน้ำ"}' WHERE "name" = 'Electricity & water' AND "nameI18n" IS NULL;
+UPDATE "ExpenseCategory" SET "nameI18n" = '{"lo": "ເງິນເດືອນ", "th": "เงินเดือน"}' WHERE "name" = 'Salaries' AND "nameI18n" IS NULL;
+UPDATE "ExpenseCategory" SET "nameI18n" = '{"lo": "ຄ່າຂົນສົ່ງ", "th": "ค่าขนส่ง"}' WHERE "name" = 'Shipping' AND "nameI18n" IS NULL;
+UPDATE "ExpenseCategory" SET "nameI18n" = '{"lo": "ອື່ນໆ", "th": "อื่น ๆ"}' WHERE "name" = 'Other' AND "nameI18n" IS NULL;
