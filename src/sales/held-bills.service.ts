@@ -28,7 +28,11 @@ export class HeldBillsService {
     });
   }
 
-  create(input: HeldBillInput, user: AuthUser) {
+  async create(input: HeldBillInput, user: AuthUser) {
+    if (input.customerId)
+      await this.prisma.customer.findUniqueOrThrow({
+        where: { id: input.customerId },
+      });
     return this.prisma.heldBill.create({
       data: {
         label: input.label,

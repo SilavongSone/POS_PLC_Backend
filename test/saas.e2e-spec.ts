@@ -231,6 +231,111 @@ describe('SaaS (e2e)', () => {
     });
   });
 
+  describe('cross-company access is closed everywhere', () => {
+    let a: Company;
+    let b: Company;
+    beforeAll(async () => {
+      [a, b] = await Promise.all([
+        company('ENTERPRISE'),
+        company('ENTERPRISE'),
+      ]);
+    });
+
+    it('keeps reports (raw SQL) to the company’s own rows', async () => {
+      // The seeded company has sales and debts; a new company sees none of them.
+      const today = new Date().toISOString().slice(0, 10);
+      const summary = (
+        await api(b)
+          .get(`/reports/sales-summary?from=2020-01-01&to=${today}`)
+          .expect(200)
+      ).body;
+      expect(summary.totals.count).toBe(0);
+      const best = (
+        await api(b)
+          .get(`/reports/best-sellers?from=2020-01-01&to=${today}`)
+          .expect(200)
+      ).body;
+      expect(best.items).toEqual([]);
+      const aging = (await api(b).get('/reports/debt-aging').expect(200)).body;
+      expect(aging.total).toBe(0);
+      const value = (await api(b).get('/reports/stock-value').expect(200)).body;
+      expect(value.totals.products).toBe(0);
+      const dash = (await api(b).get('/reports/dashboard').expect(200)).body;
+      expect(dash.openShifts).toEqual([]);
+    });
+
+    it('refuses ids of another company in writes', async () => {
+      const customerA = (
+        await api(a)
+          .post('/customers', {
+            name: 'Only A',
+            phone: `021${Date.now() % 1e8}`,
+          })
+          .expect(201)
+      ).body;
+      await api(b)
+        .post('/held-bills', {
+          label: 'x',
+          customerId: customerA.id,
+          cart: { items: [{ productId: (await product(b)).id, quantity: 1 }] },
+        })
+        .expect(404);
+
+      const groupA = (await api(a).get('/user-groups').expect(200)).body[0].id;
+      const groupsB = (await api(b).get('/user-groups').expect(200)).body;
+      const userB = (
+        await api(b)
+          .post('/users', {
+            username: `u-${uniq()}`,
+            fullName: 'B user',
+            password: OWNER_PASSWORD,
+            groupId: groupsB[0].id,
+          })
+          .expect(201)
+      ).body.id;
+      await api(b).patch(`/users/${userB}`, { groupId: groupA }).expect(404);
+
+      const productA = await product(a);
+      await api(b)
+        .post('/stock-documents', {
+          type: 'RECEIVE',
+          items: [{ productId: productA.id, quantity: 1, unitCost: 1 }],
+        })
+        .expect(400);
+      await t
+        .http()
+        .delete(
+          `/products/${productA.id}/images/00000000-0000-4000-8000-000000000000`,
+        )
+        .set(b.auth)
+        .expect(404);
+      const branchA = (await api(a).get('/branches').expect(200)).body[0].id;
+      await api(b)
+        .post('/registers', { code: 'X1', name: 'x', branchId: branchA })
+        .expect(404);
+    });
+
+    it('does not show another company’s documents or audit trail', async () => {
+      const doc = (
+        await api(a)
+          .post('/stock-documents', {
+            type: 'ADJUST',
+            items: [{ productId: (await product(a)).id, quantity: 1 }],
+          })
+          .expect(201)
+      ).body;
+      await api(b).get(`/stock-documents/${doc.id}`).expect(404);
+      await api(b).post(`/stock-documents/${doc.id}/post`).expect(404);
+      const logs = (await api(b).get('/audit-logs?pageSize=100').expect(200))
+        .body;
+      expect(
+        logs.items.every(
+          (l: { entityId: string | null }) => l.entityId !== doc.id,
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('branches', () => {
     let c: Company;
     let main: string;

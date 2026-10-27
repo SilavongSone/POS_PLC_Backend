@@ -29,6 +29,7 @@ import type {
 import { CategoriesService } from './categories.service.js';
 import { costToLak, priceToLak, roundUpLak } from './pricing.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
+import { RequestContext } from '../common/request-context.js';
 
 const listInclude = {
   category: { select: { id: true, name: true, slug: true } },
@@ -502,7 +503,9 @@ export class ProductsService {
     await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
 
     const name = `${randomUUID()}.${ext}`;
-    const dir = path.join(this.uploadRoot(), 'products');
+    // One folder per company, so a company's files can be exported or removed together.
+    const folder = `products/${RequestContext.tenantId()}`;
+    const dir = path.join(this.uploadRoot(), folder);
     await mkdir(dir, { recursive: true });
     await writeFile(path.join(dir, name), file.buffer);
 
@@ -513,13 +516,15 @@ export class ProductsService {
     return this.prisma.productImage.create({
       data: {
         productId,
-        url: `/api/uploads/products/${name}`,
+        url: `/api/uploads/${folder}/${name}`,
         sortOrder: (last?.sortOrder ?? -1) + 1,
       },
     });
   }
 
   async removeImage(productId: string, imageId: string) {
+    // Images are not tenant-scoped rows: reach them only through an own product.
+    await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
     const image = await this.prisma.productImage.findFirst({
       where: { id: imageId, productId },
     });
@@ -536,6 +541,7 @@ export class ProductsService {
 
   /** Sets image order; the first image is the product's main picture. */
   async reorderImages(productId: string, imageIds: string[]) {
+    await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
     const images = await this.prisma.productImage.findMany({
       where: { productId },
     });

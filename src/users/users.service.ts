@@ -138,6 +138,11 @@ export class UsersService {
         'You cannot deactivate yourself or change your own group',
       );
     }
+    if (input.groupId) {
+      await this.prisma.userGroup.findUniqueOrThrow({
+        where: { id: input.groupId },
+      });
+    }
     if (input.isActive === false || input.groupId) {
       await this.assertNotLastAdmin(id, input.groupId);
     }

@@ -14,7 +14,7 @@ trap 'kill $PID 2>/dev/null' EXIT
 for i in $(seq 1 40); do curl -s localhost:4100/api/health >/dev/null && break; sleep 0.5; done
 B=http://localhost:4100/api
 TOK=$(curl -s -X POST $B/auth/login -H 'content-type: application/json' \
-  -d "{\"username\":\"admin\",\"password\":\"${BENCH_ADMIN_PASSWORD:-admin1234}\"}" \
+  -d "{\"tenantCode\":\"${BENCH_TENANT:-plc}\",\"username\":\"admin\",\"password\":\"${BENCH_ADMIN_PASSWORD:-admin1234}\"}" \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['accessToken'])")
 load() { # 10 connections for 8 s
   $AC -c 10 -d 8 -j -H "Authorization=Bearer $TOK" -H "Accept-Encoding=gzip" "$2" 2>/dev/null \

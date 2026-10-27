@@ -1,6 +1,6 @@
 # PLC POS — ความปลอดภัย ประสิทธิภาพ และการติดตั้งใช้งานจริง
 
-> อัปเดตล่าสุด: 2026-10-26 · คู่กับ [`api-overview.md`](./api-overview.md)
+> อัปเดตล่าสุด: 2026-10-27 (เพิ่มหลายบริษัท/SaaS) · คู่กับ [`api-overview.md`](./api-overview.md)
 
 ## 1. ตั้งค่าก่อนขึ้น cloud (production)
 
@@ -15,7 +15,14 @@
 | `DATABASE_POOL_MAX` | `10` ต่อ instance | จำนวน connection DB (รวมทุก instance ต้องน้อยกว่า `max_connections`) |
 | `DATABASE_STATEMENT_TIMEOUT_MS` | `30000` | SQL ที่รันนานเกินนี้จะถูกยกเลิก |
 | `BODY_LIMIT` | `1mb` | ขนาด JSON สูงสุดต่อ request |
-| `UPLOAD_DIR` | volume ถาวร เช่น `/data/uploads` | เก็บรูปสินค้า |
+| `UPLOAD_DIR` | volume ถาวร เช่น `/data/uploads` | เก็บรูปสินค้า (แยกโฟลเดอร์ตามบริษัท) |
+| `DEFAULT_TENANT_CODE` | ว่าง (SaaS) หรือ `plc` (ร้านเดียว) | ล็อกอินโดยไม่ต้องส่งรหัสบริษัท |
+| `SIGNUP_ENABLED` | `false` จนพร้อมเปิดขาย | เปิด `POST /api/public/signup` |
+| `THROTTLE_SIGNUP_LIMIT` | `3` | จำนวนการสมัครต่อชั่วโมงต่อ IP |
+| `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD` | อีเมลจริง + รหัสยาว | seed สร้าง platform admin คนแรก (ครั้งเดียว) |
+| `SEED_TENANT_CODE` / `SEED_ADMIN_PASSWORD` | `plc` / รหัสยาว | บริษัทและ admin ที่ seed สร้าง |
+
+**ติดตั้งด้วย Docker:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (PostgreSQL + migrate/seed ครั้งเดียว + API, health check ในตัว) · CI ใน `.github/workflows/ci.yml` ตรวจ migration, format, lint, typecheck, unit, e2e และ build ทุก PR
 
 **รายการตรวจก่อนเปิดใช้:** เปลี่ยนรหัสผ่าน `admin` · ตั้ง PIN ให้ผู้จัดการ · ใช้ HTTPS เท่านั้น · backup DB ทุกวัน (`pg_dump`) และเก็บนอกเครื่อง · ตั้ง uptime monitor ยิง `GET /api/health`
 
@@ -23,6 +30,8 @@
 
 | ด้าน | วิธีที่ใช้ |
 |---|---|
+| แยกข้อมูลบริษัท | ทุก query ถูกกรองด้วย `tenantId` อัตโนมัติ (Prisma extension) และปฏิเสธถ้าไม่รู้บริษัท · raw SQL กรองเอง · DB ปฏิเสธการเขียนที่ไม่มี `tenantId` · id ที่ client ส่งมาถูกตรวจว่าเป็นของบริษัทเดียวกัน · มี e2e ข้ามบริษัท · token ของ platform admin ใช้กับ API ร้านไม่ได้และกลับกัน |
+| แพ็กเกจ | บริษัทที่ถูกระงับเข้าไม่ได้ · หมดอายุเกิน 7 วันอ่านได้อย่างเดียว · ฟีเจอร์และ limit ตรวจที่ server |
 | ยืนยันตัวตน | JWT อายุ 15 นาที + refresh token แบบหมุนเวียน (ใช้ token เก่าซ้ำ → ออกจากระบบทุกเครื่อง) · เก็บเฉพาะค่า hash ของ token · ลบ token ที่หมดอายุอัตโนมัติ |
 | รหัสผ่าน/PIN | argon2 · ล็อกบัญชี 15 นาทีเมื่อผิด 5 ครั้ง · error เหมือนกันทั้งกรณีไม่มีผู้ใช้และรหัสผิด |
 | เดารหัส | จำกัด 10 ครั้งต่อนาทีต่อ IP สำหรับ login/PIN/refresh/อนุมัติ และ 600 request ต่อนาทีต่อ IP สำหรับทั้งระบบ (ตอบ `429` พร้อม `Retry-After`) |
@@ -48,16 +57,18 @@
 
 ก่อนแก้ = โค้ด commit `7a3eed9` บนฐานข้อมูลเดียวกันโดยไม่มี index ใหม่ · หลังแก้ = โค้ดปัจจุบัน
 
-| Endpoint | ก่อน | หลัง | ดีขึ้น |
+| Endpoint | ก่อน | หลัง | หลังทำ SaaS (2026-10-27) |
 |---|---|---|---|
-| รายงานยอดขาย 1 เดือน (รายวัน) | **29,088 ms** | **42 ms** | ~690× |
-| รายงานยอดขาย 1 ปี (รายเดือน) | **> 120,000 ms** (timeout) | **297 ms** | > 400× |
-| รายการบิลขาย (20 รายการ) | 27 req/s · p50 353 ms | 250 req/s · p50 39 ms | 9× |
-| รายชื่อลูกค้า + ยอดหนี้ | 146 req/s · p50 67 ms | 295 req/s · p50 32 ms | 2× |
-| ค้นหาลูกค้า | 133 req/s · p50 73 ms | 216 req/s · p50 45 ms | 1.6× |
-| ค้นหาสินค้า "model 77" | 150 req/s · p50 65 ms | 251 req/s · p50 38 ms | 1.7× |
-| สแกนบาร์โค้ด | 270 req/s · p50 36 ms | 258 req/s · p50 36 ms | เท่าเดิม (เร็วอยู่แล้ว) |
-| ค้นหาสินค้า "printer" (ตรง 17% ของสินค้าทั้งหมด) | 121 req/s | 115 req/s | เท่าเดิม |
+| รายงานยอดขาย 1 เดือน (รายวัน) | **29,088 ms** | **42 ms** | 67 ms |
+| รายงานยอดขาย 1 ปี (รายเดือน) | **> 120,000 ms** (timeout) | **297 ms** | 405 ms |
+| รายการบิลขาย (20 รายการ) | 27 req/s · p50 353 ms | 250 req/s · p50 39 ms | 186 req/s · p50 52 ms |
+| รายชื่อลูกค้า + ยอดหนี้ | 146 req/s · p50 67 ms | 295 req/s · p50 32 ms | 255 req/s · p50 38 ms |
+| ค้นหาลูกค้า | 133 req/s · p50 73 ms | 216 req/s · p50 45 ms | 179 req/s · p50 54 ms |
+| ค้นหาสินค้า "model 77" | 150 req/s · p50 65 ms | 251 req/s · p50 38 ms | 202 req/s · p50 48 ms |
+| สแกนบาร์โค้ด | 270 req/s · p50 36 ms | 258 req/s · p50 36 ms | 192 req/s · p50 50 ms |
+| ค้นหาสินค้า "printer" (ตรง 17% ของสินค้าทั้งหมด) | 121 req/s | 115 req/s | 98 req/s · p99 201 ms |
+
+**หลังทำ SaaS ช้าลงประมาณ 15–30%** ต่อ instance: ส่วนกรอง `tenantId` ใน Prisma แทบไม่มีต้นทุน (วัดได้ ~0.03 ms ต่อ query) แต่ทุก request ทำงานเพิ่ม: โหลดสาขาที่ผู้ใช้เข้าได้, ตรวจสถานะแพ็กเกจ (cache 30 วินาที), แปลชื่อตามภาษา และ request context · ทุก endpoint ยังผ่านเป้า < 300 ms ต่อการสแกน/ค้นหา และเพิ่ม instance ได้เมื่อมีหลายบริษัท
 
 ทั้งหมดผ่านเป้า < 300 ms ต่อการสแกนหรือค้นหา (p99 ที่ 10 connection พร้อมกันยังต่ำกว่า 180 ms) · วัดซ้ำได้ด้วย `scripts/bench/run.sh`
 
@@ -69,6 +80,6 @@
 - **PostgreSQL:** เปิด `pg_stat_statements` เพื่อหา query ช้า
 
 ## 4. การทดสอบ
-- `pnpm test`: 38 unit test
-- `pnpm test:e2e`: 97 API test รวมชุดความปลอดภัย (headers, CORS, body limit, gzip, page cap, rate limit)
+- `pnpm test`: 58 unit test
+- `pnpm test:e2e`: 118 API test รวมชุดความปลอดภัย (headers, CORS, body limit, gzip, page cap, rate limit) และชุดหลายบริษัท (แยกข้อมูล, สาขา, แพ็กเกจ, ระงับบัญชี, สมัครเอง)
 - `scripts/bench/run.sh`: วัดประสิทธิภาพ (ดูวิธีเตรียมข้อมูลที่หัวไฟล์)

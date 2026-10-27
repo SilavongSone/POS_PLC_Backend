@@ -121,7 +121,9 @@
 | สินค้าหมดอายุ / ใกล้หมดอายุ | `StockLot.expiryDate` |
 | กำไร | `SaleItem.unitPriceLak − unitCostLak` |
 
-## 4. รายการตารางทั้งหมด (40 ตาราง)
+## 4. รายการตารางทั้งหมด (40 ตาราง + 8 ตาราง SaaS)
+
+> **SaaS (2026-10-27):** เพิ่ม `Tenant`, `Branch`, `BranchStock`, `UserBranch`, `Plan`, `Subscription`, `PlatformAdmin`, `IdempotencyKey` · ทุกตารางของบริษัทมี `tenantId` และค่าที่ต้องไม่ซ้ำกลายเป็น "ไม่ซ้ำภายในบริษัท" · ตารางที่ผูกกับสาขามี `branchId` · รายละเอียดและเหตุผลอยู่ใน [`saas-design.md`](./saas-design.md)
 
 ✅ = มีใน schema ปัจจุบัน (อาจมีฟิลด์เพิ่ม), 🆕 = ตารางใหม่
 
