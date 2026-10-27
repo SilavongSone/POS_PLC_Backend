@@ -31,6 +31,27 @@ import { costToLak, priceToLak, roundUpLak } from './pricing.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import { RequestContext } from '../common/request-context.js';
 
+type BranchPriceRow = {
+  retailPrice: Prisma.Decimal;
+  wholesalePrice: Prisma.Decimal | null;
+};
+
+/** The product with its price at a branch; `branchPrice` tells whether one applied. */
+export function atBranch<
+  T extends {
+    retailPrice: Prisma.Decimal;
+    wholesalePrice: Prisma.Decimal | null;
+  },
+>(p: T, bp: BranchPriceRow | undefined): T & { branchPrice: boolean } {
+  if (!bp) return { ...p, branchPrice: false };
+  return {
+    ...p,
+    retailPrice: bp.retailPrice,
+    wholesalePrice: bp.wholesalePrice ?? p.wholesalePrice,
+    branchPrice: true,
+  };
+}
+
 const listInclude = {
   category: { select: { id: true, name: true, slug: true } },
   brand: { select: { id: true, name: true } },
@@ -100,6 +121,21 @@ export class ProductsService {
   }
 
   /** Current selling prices in LAK for a product row. */
+  /** Prices set for these products at one branch (empty without a branch). */
+  async branchPriceMap(
+    productIds: string[],
+    branchId: string | undefined,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    if (!branchId || !productIds.length)
+      return new Map<string, BranchPriceRow>();
+    const rows = await db.branchPrice.findMany({
+      where: { branchId, productId: { in: productIds } },
+      select: { productId: true, retailPrice: true, wholesalePrice: true },
+    });
+    return new Map(rows.map((r) => [r.productId, r]));
+  }
+
   lakPrices(
     p: {
       priceCurrency: Currency;
@@ -181,14 +217,65 @@ export class ProductsService {
       this.prisma.product.count({ where }),
       this.pricingContext(),
     ]);
+    const prices = await this.branchPriceMap(
+      rows.map((r) => r.id),
+      query.branchId,
+    );
     return toPage(
-      rows.map((r) => this.present(r, ctx, canViewCost)),
+      rows.map((r) =>
+        this.present(atBranch(r, prices.get(r.id)), ctx, canViewCost),
+      ),
       total,
       query,
     );
   }
 
-  async get(id: string, canViewCost: boolean) {
+  async setBranchPrices(
+    id: string,
+    input: {
+      items: {
+        branchId: string;
+        retailPrice: number;
+        wholesalePrice?: number | null;
+      }[];
+    },
+    actorId: string,
+    canViewCost: boolean,
+  ) {
+    await this.prisma.product.findUniqueOrThrow({ where: { id } });
+    const branchIds = input.items.map((i) => i.branchId);
+    const known = await this.prisma.branch.count({
+      where: { id: { in: branchIds } },
+    });
+    if (known !== branchIds.length)
+      throw new BadRequestException('Unknown branch');
+    const before = await this.prisma.branchPrice.findMany({
+      where: { productId: id },
+    });
+    await this.prisma.$transaction([
+      this.prisma.branchPrice.deleteMany({ where: { productId: id } }),
+      this.prisma.branchPrice.createMany({
+        data: input.items.map((i) => ({
+          productId: id,
+          branchId: i.branchId,
+          retailPrice: i.retailPrice,
+          wholesalePrice: i.wholesalePrice ?? null,
+        })),
+      }),
+    ]);
+    await this.audit.log({
+      userId: actorId,
+      action: 'PRODUCT_BRANCH_PRICES',
+      entity: 'Product',
+      entityId: id,
+      before,
+      after: input.items,
+    });
+    return this.get(id, canViewCost);
+  }
+
+  /** A product; with `branchId`, priced as at that branch. */
+  async get(id: string, canViewCost: boolean, branchId?: string) {
     const [row, ctx, serialCounts] = await Promise.all([
       this.prisma.product.findUniqueOrThrow({
         where: { id },
@@ -201,7 +288,7 @@ export class ProductsService {
         _count: true,
       }),
     ]);
-    const [demoUnits, branchStock] = await Promise.all([
+    const [demoUnits, branchStock, branchPrices, prices] = await Promise.all([
       this.prisma.serialNumber.findMany({
         where: { productId: id, status: 'IN_STOCK', condition: 'DEMO' },
         select: { id: true, serial: true, priceLak: true, branchId: true },
@@ -214,9 +301,26 @@ export class ProductsService {
         },
         orderBy: { branch: { code: 'asc' } },
       }),
+      this.prisma.branchPrice.findMany({
+        where: { productId: id },
+        select: {
+          retailPrice: true,
+          wholesalePrice: true,
+          branch: { select: { id: true, code: true, name: true } },
+        },
+        orderBy: { branch: { code: 'asc' } },
+      }),
+      this.branchPriceMap([id], branchId),
     ]);
     return {
-      ...this.present(row, ctx, canViewCost),
+      ...this.present(atBranch(row, prices.get(id)), ctx, canViewCost),
+      /** Prices that differ by branch (in the product's price currency). */
+      branchPrices: branchPrices.map(({ branch, ...p }) => ({
+        branchId: branch.id,
+        code: branch.code,
+        name: branch.name,
+        ...p,
+      })),
       /** On hand per branch; stockQty is the total. */
       branchStock: branchStock.map((b) => ({ ...b.branch, qty: b.qty })),
       serialsInStock: Object.fromEntries(
@@ -230,13 +334,16 @@ export class ProductsService {
    * Scanner lookup for the till: exact barcode, SKU, or a serial number.
    * A serial hit also returns the unit (status, new/demo, own price).
    */
-  async lookup(code: string, canViewCost: boolean) {
+  async lookup(code: string, canViewCost: boolean, branchId?: string) {
     const product = await this.prisma.product.findFirst({
       where: { OR: [{ barcode: code }, { sku: code.toUpperCase() }] },
       select: { id: true },
     });
     if (product)
-      return { product: await this.get(product.id, canViewCost), serial: null };
+      return {
+        product: await this.get(product.id, canViewCost, branchId),
+        serial: null,
+      };
 
     const serial = await this.prisma.serialNumber.findFirst({
       where: { serial: code },
@@ -253,7 +360,10 @@ export class ProductsService {
     });
     if (!serial)
       throw new NotFoundException(`No product or serial matches "${code}"`);
-    return { product: await this.get(serial.productId, canViewCost), serial };
+    return {
+      product: await this.get(serial.productId, canViewCost, branchId),
+      serial,
+    };
   }
 
   async create(

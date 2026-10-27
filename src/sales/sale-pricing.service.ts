@@ -3,7 +3,7 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
-import { ProductsService } from '../catalog/products.service.js';
+import { atBranch, ProductsService } from '../catalog/products.service.js';
 import { CustomersService } from '../customers/customers.service.js';
 import {
   Prisma,
@@ -56,7 +56,10 @@ export type PricedLine = {
 export type PriceInput = Pick<
   QuoteSaleInput,
   'customerId' | 'priceTier' | 'items' | 'discountLak'
->;
+> & {
+  /** Branch selling (the till's): its own prices apply where set. */
+  branchId?: string;
+};
 
 export type PriceOptions = {
   /** false: price without scanned serials (quotations). */
@@ -161,6 +164,11 @@ export class SalePricingService {
       this.taxRates.getDefault(db),
       this.settings.get('tax.pricesIncludeVat', db),
     ]);
+    const branchPrices = await this.products.branchPriceMap(
+      ids,
+      input.branchId,
+      db,
+    );
     const byId = new Map(products.map((p) => [p.id, p]));
     const parentOf = new Map(categories.map((c) => [c.id, c.parentId]));
     const ancestors = (categoryId: string | null) => {
@@ -231,7 +239,7 @@ export class SalePricingService {
       }
 
       const { retailPriceLak, wholesalePriceLak } = this.products.lakPrices(
-        p,
+        atBranch(p, branchPrices.get(p.id)),
         ctx,
       );
       const wholesale =

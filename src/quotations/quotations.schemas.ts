@@ -7,6 +7,8 @@ const isoDate = z.iso.date().transform((d) => new Date(`${d}T00:00:00Z`));
 
 export const quotationSchema = z.object({
   customerId: z.uuid(),
+  /** Branch quoting: its own prices apply. */
+  branchId: z.uuid().optional(),
   validUntil: isoDate,
   priceTier: z.enum(['RETAIL', 'WHOLESALE']).optional(),
   items: z

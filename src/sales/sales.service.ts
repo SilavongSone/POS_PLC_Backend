@@ -83,7 +83,14 @@ export class SalesService {
   /** Prices a cart without saving anything (for the till's running total). */
   async quote(input: QuoteSaleInput) {
     return this.prisma.$transaction(async (tx) => {
-      const cart = await this.pricing.price(tx, input);
+      const register = await tx.register.findUniqueOrThrow({
+        where: { id: input.registerId },
+        select: { branchId: true },
+      });
+      const cart = await this.pricing.price(tx, {
+        ...input,
+        branchId: register.branchId,
+      });
       const plan = input.payments.length
         ? await this.pricing
             .planPayments(tx, cart, input.payments)
@@ -132,9 +139,11 @@ export class SalesService {
       input.registerId,
     );
     await this.entitlements.assertLimit('maxSalesPerMonth');
-    const cart = await this.pricing.price(tx, input, {
-      applyPromotions: options.applyPromotions,
-    });
+    const cart = await this.pricing.price(
+      tx,
+      { ...input, branchId: shift.register.branchId },
+      { applyPromotions: options.applyPromotions },
+    );
 
     const approvedBy: Record<string, string> = {};
     for (const permission of options.preApproved ? [] : cart.needsApproval) {

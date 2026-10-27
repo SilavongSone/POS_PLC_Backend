@@ -438,6 +438,95 @@ describe('SaaS (e2e)', () => {
       );
     });
 
+    it('sells at the branch’s own price where one is set', async () => {
+      const p = await product(c, {
+        retailPrice: 100_000,
+        wholesalePrice: 90_000,
+      });
+      await api(c)
+        .post('/stock-documents', {
+          type: 'RECEIVE',
+          branchId: second,
+          items: [{ productId: p.id, quantity: 5, unitCost: 50_000 }],
+        })
+        .expect(201)
+        .then((r) =>
+          api(c).post(`/stock-documents/${r.body.id}/post`).expect(200),
+        );
+
+      const set = await t
+        .http()
+        .put(`/products/${p.id}/branch-prices`)
+        .set(c.auth)
+        .send({ items: [{ branchId: second, retailPrice: 120_000 }] })
+        .expect(200);
+      expect(set.body.branchPrices).toEqual([
+        expect.objectContaining({
+          branchId: second,
+          retailPrice: '120000',
+          wholesalePrice: null,
+        }),
+      ]);
+      // Product price elsewhere, branch price there; wholesale falls back to the product's.
+      expect(
+        (await api(c).get(`/products/${p.id}`).expect(200)).body.retailPriceLak,
+      ).toBe('100000');
+      const there = (
+        await api(c).get(`/products/${p.id}?branchId=${second}`).expect(200)
+      ).body;
+      expect(there).toMatchObject({
+        retailPriceLak: '120000',
+        wholesalePriceLak: '90000',
+        branchPrice: true,
+      });
+      const listed = (
+        await api(c).get(`/products?q=${p.sku}&branchId=${second}`).expect(200)
+      ).body;
+      expect(listed.items[0].retailPriceLak).toBe('120000');
+
+      const register = (
+        await api(c)
+          .post('/registers', {
+            code: 'R3',
+            name: 'B2 till 2',
+            branchId: second,
+          })
+          .expect(201)
+      ).body;
+      const quote = (
+        await api(c)
+          .post('/sales/quote', {
+            registerId: register.id,
+            items: [{ productId: p.id, quantity: 1 }],
+          })
+          .expect(200)
+      ).body;
+      expect(quote.totalLak).toBe('120000');
+      const atMain = (await api(c).get('/registers').expect(200)).body.find(
+        (r: { branchId: string }) => r.branchId === main,
+      );
+      const mainQuote = (
+        await api(c)
+          .post('/sales/quote', {
+            registerId: atMain.id,
+            items: [{ productId: p.id, quantity: 1 }],
+          })
+          .expect(200)
+      ).body;
+      expect(mainQuote.totalLak).toBe('100000');
+
+      await t
+        .http()
+        .put(`/products/${p.id}/branch-prices`)
+        .set(c.auth)
+        .send({ items: [] })
+        .expect(200);
+      expect(
+        (await api(c).get(`/products/${p.id}?branchId=${second}`).expect(200))
+          .body.retailPriceLak,
+      ).toBe('100000');
+    });
+
     it('limits users to their branches', async () => {
       const groups = (await api(c).get('/user-groups').expect(200)).body as {
         id: string;

@@ -63,6 +63,8 @@ export class QuotationsService {
 
   /** Prices the lines like a sale (manual prices allowed: quotation.manage covers them). */
   private async priced(tx: Prisma.TransactionClient, input: QuotationInput) {
+    if (input.branchId)
+      await tx.branch.findUniqueOrThrow({ where: { id: input.branchId } });
     const cart = await this.pricing.price(tx, input, { requireSerials: false });
     return {
       totals: {
@@ -91,6 +93,7 @@ export class QuotationsService {
         data: {
           quoteNo: await this.docNumbers.daily(tx, 'Q'),
           customerId: input.customerId,
+          branchId: input.branchId,
           validUntil: input.validUntil,
           note: input.note,
           createdById: user.id,

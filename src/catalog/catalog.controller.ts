@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   BadRequestException,
   Body,
@@ -39,6 +40,8 @@ import {
   lookupSchema,
   reorderImagesSchema,
   setPricesSchema,
+  branchPricesSchema,
+  type BranchPricesInput,
   updateBrandSchema,
   updateCategorySchema,
   updateProductSchema,
@@ -58,6 +61,7 @@ import { MAX_IMAGE_BYTES, ProductsService } from './products.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
+const branchQuery = z.object({ branchId: z.uuid().optional() });
 const canViewCost = (user: AuthUser) =>
   hasPermission(user.permissions, 'product.viewCost');
 
@@ -172,15 +176,40 @@ export class ProductsController {
   @Get('lookup')
   @ApiOperation({ summary: 'Scan lookup: exact barcode, SKU or serial number' })
   lookup(
-    @Query(zod(lookupSchema)) query: { code: string },
+    @Query(zod(lookupSchema)) query: { code: string; branchId?: string },
     @CurrentUser() user: AuthUser,
   ) {
-    return this.products.lookup(query.code, canViewCost(user));
+    return this.products.lookup(query.code, canViewCost(user), query.branchId);
   }
 
   @Get(':id')
-  get(@Param('id', id) productId: string, @CurrentUser() user: AuthUser) {
-    return this.products.get(productId, canViewCost(user));
+  @ApiOperation({ summary: 'A product (?branchId: priced as at that branch)' })
+  get(
+    @Param('id', id) productId: string,
+    @Query(zod(branchQuery)) query: { branchId?: string },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.products.get(productId, canViewCost(user), query.branchId);
+  }
+
+  @Put(':id/branch-prices')
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary:
+      'Set different prices per branch (replaces the list; others use the product price)',
+  })
+  @ApiZodBody(branchPricesSchema)
+  setBranchPrices(
+    @Param('id', id) productId: string,
+    @Body(zod(branchPricesSchema)) body: BranchPricesInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.products.setBranchPrices(
+      productId,
+      body,
+      user.id,
+      canViewCost(user),
+    );
   }
 
   @Post()

@@ -111,11 +111,35 @@ export const listProductsSchema = pageQuerySchema.extend({
   lowStock: queryBoolean.optional(),
   inStock: queryBoolean.optional(),
   sort: z.enum(['name', 'sku', 'stockQty', 'updatedAt']).default('name'),
+  /** Show prices as at this branch. */
+  branchId: z.uuid().optional(),
 });
 
 export const lookupSchema = z.object({
   code: z.string().trim().min(1).max(100),
+  /** Price as at this branch (the till's). */
+  branchId: z.uuid().optional(),
 });
+
+/** Replaces all branch prices of a product; branches not listed use the product price. */
+export const branchPricesSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        branchId: z.uuid(),
+        retailPrice: money,
+        wholesalePrice: money.nullable().optional(),
+      }),
+    )
+    .max(500)
+    .refine(
+      (items) => new Set(items.map((i) => i.branchId)).size === items.length,
+      {
+        message: 'Each branch once',
+      },
+    ),
+});
+export type BranchPricesInput = z.infer<typeof branchPricesSchema>;
 
 export const bulkPriceSchema = z
   .object({
