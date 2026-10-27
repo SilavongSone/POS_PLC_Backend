@@ -33,3 +33,10 @@ export function localToday(now = new Date(), timeZone = APP_TIMEZONE): string {
   const { year, month, day } = localDateParts(now, timeZone);
   return `${year}-${month}-${day}`;
 }
+
+/** Same day `months` later (UTC calendar). */
+export function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+}

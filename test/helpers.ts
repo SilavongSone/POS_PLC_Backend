@@ -71,6 +71,8 @@ export async function createTestApp(): Promise<TestApp> {
   }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({
     bodyParser: false,
+    // Webhooks verify signatures over the exact bytes received (req.rawBody).
+    rawBody: true,
   });
   configureApp(app);
   await app.init();

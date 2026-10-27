@@ -22,6 +22,7 @@ import type {
   QuoteSaleInput,
 } from './sales.schemas.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
+import { addMonths } from '../common/time.js';
 
 const saleInclude = {
   items: {
@@ -58,12 +59,6 @@ const saleInclude = {
     select: { id: true, invoiceNo: true },
   },
 } satisfies Prisma.SaleInclude;
-
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
-}
 
 @Injectable()
 export class SalesService {

@@ -22,6 +22,8 @@ import type { Env } from '../config/env.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
 import { SignupService } from '../tenancy/signup.service.js';
+import { BillingService } from '../billing/billing.service.js';
+import { pageQuerySchema } from '../common/pagination.js';
 import { AccountService } from '../account/account.service.js';
 import { GoogleIdentityService } from '../account/google-identity.service.js';
 import { RequestContext } from '../common/request-context.js';
@@ -58,6 +60,16 @@ import {
 import { PlatformService } from './platform.service.js';
 
 const id = new ParseUUIDPipe();
+const platformInvoicesSchema = pageQuerySchema.extend({
+  status: z.enum(['PENDING', 'PAID', 'CANCELLED']).optional(),
+  tenantId: z.uuid().optional(),
+});
+const markPaidSchema = z.object({
+  method: z
+    .enum(['BANK_TRANSFER', 'CASH', 'ONLINE', 'OTHER'])
+    .default('BANK_TRANSFER'),
+  reference: z.string().trim().max(100).optional(),
+});
 type PlatformRequest = Request & { platformAdmin: PlatformAdminUser };
 
 const SignupThrottle = () =>
@@ -105,6 +117,7 @@ export class PlatformController {
     private readonly platform: PlatformService,
     private readonly provisioning: ProvisioningService,
     private readonly account: AccountService,
+    private readonly billing: BillingService,
   ) {}
 
   @Get('plans')
@@ -190,6 +203,33 @@ export class PlatformController {
       body,
       req.platformAdmin.id,
     );
+  }
+
+  @Get('invoices')
+  @ApiOperation({
+    summary: 'Plan invoices of all companies (?status, tenantId, page)',
+  })
+  listInvoices(
+    @Query(zod(platformInvoicesSchema))
+    q: z.infer<typeof platformInvoicesSchema>,
+  ) {
+    return this.billing.listAll(q);
+  }
+
+  @Post('invoices/:id/mark-paid')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Record a payment seen in the bank; extends the subscription',
+  })
+  @ApiZodBody(markPaidSchema)
+  markPaid(
+    @Param('id', id) invoiceId: string,
+    @Body(zod(markPaidSchema)) body: z.infer<typeof markPaidSchema>,
+    @Req() req: PlatformRequest,
+  ) {
+    return this.billing.markPaid(invoiceId, body, {
+      platformAdminId: req.platformAdmin.id,
+    });
   }
 
   @Get('stats')

@@ -14,6 +14,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { AccountModule } from './account/account.module.js';
 import { PlatformModule } from './platform/platform.module.js';
+import { BillingModule } from './billing/billing.module.js';
 import { CommonModule } from './common/common.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DebtsModule } from './debts/debts.module.js';
@@ -63,6 +64,7 @@ import { UsersModule } from './users/users.module.js';
     MailModule,
     AccountModule,
     TenancyModule,
+    BillingModule,
     PlatformModule,
     BranchesModule,
     AuthModule,

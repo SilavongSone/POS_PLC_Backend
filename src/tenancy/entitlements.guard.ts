@@ -34,7 +34,11 @@ export class EntitlementsGuard implements CanActivate {
     if (store && isLang(e.defaultLanguage))
       store.tenantLang = e.defaultLanguage;
     this.entitlements.assertNotBlocked(e);
-    if (!READS.has(request.method) && !request.path.startsWith('/api/auth/')) {
+    // Signing in/out and paying the plan stay possible while read-only.
+    const exempt = ['/api/auth/', '/api/billing/'].some((p) =>
+      request.path.startsWith(p),
+    );
+    if (!READS.has(request.method) && !exempt) {
       this.entitlements.assertWritable(e);
     }
     const feature = this.reflector.getAllAndOverride<Feature | undefined>(

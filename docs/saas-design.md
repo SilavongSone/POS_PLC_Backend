@@ -151,7 +151,8 @@ status: TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
 - **ESC/POS ที่ server:** ไม่ทำ · เครื่องพิมพ์ใบเสร็จส่วนใหญ่ไม่มีตัวอักษรลาวใน code page ต้องพิมพ์เป็นรูป (raster) ซึ่งต้องใช้ฟอนต์ลาวตอนวาด → ให้ frontend วาดใบเสร็จ (มีฟอนต์ลาวอยู่แล้ว) แล้วพิมพ์ผ่าน browser / print bridge ในร้าน · ลิ้นชักเงินเปิดผ่าน driver ของเครื่องพิมพ์ ("open cash drawer before printing")
 
 ## 9. รายละเอียดที่ตัดสินใจระหว่างพัฒนา
-- **ID ของข้อมูลเดิม:** migration ย้ายข้อมูลเดิมเข้า tenant `tenant_plc` (รหัส `plc`), สาขา `branch_plc_main` (รหัส `MAIN`), แพ็กเกจ Enterprise สถานะ ACTIVE ไม่มีวันหมดอายุ · `BranchStock` เติมจาก `Product.stockQty`
+- **ข้อมูลเดิม:** migration ย้ายข้อมูลเดิมเข้าบริษัทรหัส `plc`, สาขารหัส `MAIN`, แพ็กเกจ Enterprise สถานะ ACTIVE ไม่มีวันหมดอายุ · `BranchStock` เติมจาก `Product.stockQty`
+- **ID เป็น UUID เสมอ:** migration แรกใช้ id อ่านง่าย (`tenant_plc` ฯลฯ) ซึ่ง API ที่ตรวจรูปแบบ UUID ใช้ไม่ได้ → migration `20261028100000_uuid_ids_for_migrated_rows` เปลี่ยนเป็น UUID (foreign key ทุกตัวเป็น ON UPDATE CASCADE) · token เดิมใช้ไม่ได้ ต้องล็อกอินใหม่ครั้งเดียว
 - **ติดตั้งแบบบริษัทเดียว:** ตั้ง `DEFAULT_TENANT_CODE=plc` แล้ว login ไม่ต้องส่ง `tenantCode`
 - **เลือกสาขาอัตโนมัติ:** งานหลังร้าน (ใบรับ/เบิก/ปรับ/โอน, ใบซ่อม, เครื่องขาย) ส่ง `branchId` หรือไม่ส่งก็ได้ถ้าผู้ใช้เข้าได้สาขาเดียว · ถ้ามีหลายสาขาแล้วไม่ส่ง → `400 BRANCH_REQUIRED`
 - **บิลขาย** ใช้สาขาของเครื่องขาย · **คืนสินค้า/ยกเลิกบิล** คืนสต็อกเข้าสาขาที่ขาย · **ชำระหนี้** บันทึกสาขาของกะที่รับเงิน

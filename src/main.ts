@@ -9,6 +9,8 @@ async function bootstrap() {
     bufferLogs: true,
     // Body parsers are registered in configureApp with explicit size limits.
     bodyParser: false,
+    // Webhooks verify signatures over the exact bytes received (req.rawBody).
+    rawBody: true,
   });
   app.useLogger(app.get(Logger));
   configureApp(app);
