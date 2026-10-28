@@ -12,6 +12,18 @@ describe('time helpers (Asia/Vientiane, UTC+7)', () => {
     );
   });
 
+  it('works for other zones, including negative offsets', () => {
+    expect(startOfLocalDay('2026-10-26', 'UTC').toISOString()).toBe(
+      '2026-10-26T00:00:00.000Z',
+    );
+    expect(startOfLocalDay('2026-10-26', 'Asia/Kolkata').toISOString()).toBe(
+      '2026-10-25T18:30:00.000Z',
+    );
+    expect(
+      startOfLocalDay('2026-01-15', 'America/New_York').toISOString(),
+    ).toBe('2026-01-15T05:00:00.000Z');
+  });
+
   it('formats today as YYYY-MM-DD', () => {
     expect(localToday(new Date('2026-12-31T18:00:00Z'))).toBe('2027-01-01');
   });

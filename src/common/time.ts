@@ -23,9 +23,39 @@ export function startOfLocalDay(
 ): Date {
   // Vientiane has no DST, so the offset at noon that day is the offset at midnight.
   const noonUtc = new Date(`${isoDate}T12:00:00Z`);
-  const local = new Date(noonUtc.toLocaleString('en-US', { timeZone }));
-  const offsetMs = local.getTime() - noonUtc.getTime();
+  const offsetMs = timeZoneOffsetMs(noonUtc, timeZone);
   return new Date(new Date(`${isoDate}T00:00:00Z`).getTime() - offsetMs);
+}
+
+/**
+ * Offset of `timeZone` from UTC at `date`, in ms (positive east of UTC).
+ * Reads the zone's wall-clock parts and rebuilds them as UTC, so the result
+ * does not depend on the server's own time zone.
+ */
+function timeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, Number(p.value)]),
+  );
+  const wallClockAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+  return wallClockAsUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
 
 /** Today's date as `YYYY-MM-DD` in the shop's time zone. */
