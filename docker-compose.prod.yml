@@ -1,0 +1,61 @@
+# Production stack: PostgreSQL + migrations + API. Put a TLS reverse proxy (Caddy,
+# nginx) in front of port 4000 and set TRUST_PROXY=1.
+#   cp .env.example .env.prod   # fill in secrets
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-plc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-plc_pos}
+      TZ: Asia/Vientiane
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-plc}']
+      interval: 5s
+      retries: 20
+
+  migrate:
+    build: { context: ., target: migrate }
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-plc_pos}?schema=public
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build: { context: ., target: runtime }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-plc_pos}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
+      DEFAULT_TENANT_CODE: ${DEFAULT_TENANT_CODE:-}
+      APP_URL: ${APP_URL:?set APP_URL}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      BILLING_BANK_INFO: ${BILLING_BANK_INFO:-}
+      BILLING_PAY_URL: ${BILLING_PAY_URL:-}
+      BILLING_WEBHOOK_SECRET: ${BILLING_WEBHOOK_SECRET:-}
+    ports:
+      - '4000:4000'
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  uploads:
