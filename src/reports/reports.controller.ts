@@ -21,6 +21,8 @@ import {
 } from './reports.schemas.js';
 import { ReportsService } from './reports.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
+import { ApiZodQuery, ApiZodResponse } from '../common/openapi.js';
+import { dashboardSchema } from './reports.responses.js';
 
 const canViewCost = (u: AuthUser) =>
   hasPermission(u.permissions, 'product.viewCost');
@@ -42,6 +44,8 @@ export class ReportsController {
   }
 
   @Get('dashboard')
+  @ApiZodQuery(branchPageSchema.pick({ branchId: true }))
+  @ApiZodResponse(dashboardSchema)
   @ApiOperation({
     summary:
       "Today's sales, last 7 days, top products, alerts, debts, open shifts",

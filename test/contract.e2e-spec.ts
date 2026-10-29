@@ -35,6 +35,7 @@ import {
   paymentTypesSchema,
   registersSchema,
 } from '../src/settings/settings.responses.js';
+import { dashboardSchema } from '../src/reports/reports.responses.js';
 import { shiftSchema } from '../src/shifts/shifts.responses.js';
 import { subscriptionSchema } from '../src/tenancy/subscription.responses.js';
 import { createTestApp, TEST_PASSWORD, type TestApp } from './helpers.js';
@@ -569,6 +570,20 @@ describe('API contract (e2e)', () => {
             .expect(200),
         );
         expect(printed.printCount).toBe(1);
+      });
+
+      it('dashboard after the sale', async () => {
+        const dash = conforms(
+          dashboardSchema,
+          await t
+            .http()
+            .get('/reports/dashboard')
+            .set(manager.auth)
+            .expect(200),
+        );
+        expect(dash.today.count).toBeGreaterThan(0);
+        expect(dash.topProductsToday.length).toBeGreaterThan(0);
+        expect(dash.today.profitLak).toBeDefined();
       });
     });
   });

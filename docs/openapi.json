@@ -106,6 +106,49 @@
         ],
         "type": "object"
       },
+      "BestSeller": {
+        "additionalProperties": false,
+        "properties": {
+          "costLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "productId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "profitLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "revenueLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "sku",
+          "name",
+          "quantity",
+          "revenueLak"
+        ],
+        "type": "object"
+      },
       "Branch": {
         "additionalProperties": false,
         "properties": {
@@ -408,6 +451,138 @@
           "LAK",
           "THB",
           "USD"
+        ],
+        "type": "object"
+      },
+      "Dashboard": {
+        "additionalProperties": false,
+        "properties": {
+          "alerts": {
+            "additionalProperties": false,
+            "properties": {
+              "lotsExpiringIn30Days": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "lowStockProducts": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "repairsReadyForPickup": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "lowStockProducts",
+              "lotsExpiringIn30Days",
+              "repairsReadyForPickup"
+            ],
+            "type": "object"
+          },
+          "date": {
+            "type": "string"
+          },
+          "debts": {
+            "additionalProperties": false,
+            "properties": {
+              "openSales": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "outstandingLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "overdueLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "openSales",
+              "outstandingLak",
+              "overdueLak"
+            ],
+            "type": "object"
+          },
+          "last7Days": {
+            "items": {
+              "$ref": "#/components/schemas/SalesGroup"
+            },
+            "type": "array"
+          },
+          "openShifts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "openedAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "register": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                },
+                "user": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fullName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fullName"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "id",
+                "openedAt",
+                "register",
+                "user"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "today": {
+            "$ref": "#/components/schemas/SalesTotals"
+          },
+          "topProductsToday": {
+            "items": {
+              "$ref": "#/components/schemas/BestSeller"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "today",
+          "last7Days",
+          "topProductsToday",
+          "alerts",
+          "debts",
+          "openShifts"
         ],
         "type": "object"
       },
@@ -2748,6 +2923,123 @@
           "totalInWords",
           "totalInWordsAll",
           "isReprint"
+        ],
+        "type": "object"
+      },
+      "SalesGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "costLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "discountLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "marginPercent": {
+            "description": "Decimal number as a string",
+            "nullable": true,
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "netLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "profitLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "totalLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "vatLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count",
+          "totalLak",
+          "vatLak",
+          "discountLak",
+          "netLak"
+        ],
+        "type": "object"
+      },
+      "SalesTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "costLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "discountLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "marginPercent": {
+            "description": "Decimal number as a string",
+            "nullable": true,
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "netLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "profitLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "totalLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "vatLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "totalLak",
+          "vatLak",
+          "discountLak",
+          "netLak"
         ],
         "type": "object"
       },
@@ -9920,10 +10212,27 @@
     "/api/reports/dashboard": {
       "get": {
         "operationId": "ReportsController_dashboard",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branchId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
