@@ -21,6 +21,7 @@ export const lo: Record<string, string> = {
   INSUFFICIENT_STOCK: 'ສິນຄ້າບໍ່ພໍ',
   BRANCH_REQUIRED: 'ກະລຸນາເລືອກສາຂາ',
   BRANCH_FORBIDDEN: 'ທ່ານບໍ່ມີສິດໃຊ້ສາຂານີ້',
+  TAX_RATE_INVALID: 'ກະລຸນາເລືອກອັດຕາ VAT ທີ່ເປີດໃຊ້ຢູ່',
   FEATURE_NOT_IN_PLAN: 'ແພັກເກດຂອງທ່ານບໍ່ມີ{feature}',
   PLAN_LIMIT_REACHED:
     'ແພັກເກດຂອງທ່ານໃຊ້{limit}ໄດ້ສູງສຸດ {max} (ໃຊ້ແລ້ວ {used})',

@@ -226,7 +226,7 @@ erDiagram
 2. ราคาสินค้าเก็บใน `priceCurrency` ถ้าเป็น USD/THB ราคากีบจะเท่ากับ `price × อัตราปัจจุบัน` **ปัดขึ้น**ตามหน่วย `pricing.lakRounding` (ค่าเริ่มต้น 1,000 กีบ) แล้ว snapshot ไว้ใน `SaleItem`
 3. ลำดับการเลือกราคา: ราคาเฉพาะชิ้นของตัวโชว์ (`SerialNumber.priceLak`) → ราคาส่ง (ถ้าลูกค้าเป็น WHOLESALE หรือจำนวนถึง `wholesaleMinQty`) → ราคาปลีก จากนั้นจึงหักโปรโมชั่นที่ใช้ได้และดีที่สุด**หนึ่งรายการ**
 4. แก้ราคาด้วยมือได้เฉพาะผู้มีสิทธิ์ `price.override` โดยบันทึก `priceOverriddenById` + `AuditLog`
-5. VAT (ค่าเริ่มต้น 12%): ใบขาย snapshot `vatPercent` จาก `TaxRate` ที่เป็นค่าเริ่มต้น ถ้าราคารวม VAT แล้ว `vatLak = total × p / (100 + p)` ถ้ายังไม่รวม `vatLak = (subtotal − discount) × p / 100`
+5. VAT (ค่าเริ่มต้น 12%): ใบขาย snapshot `vatPercent` จาก `TaxRate` ของสาขาที่ขาย (`Branch.taxRateId`, 2026-10-29: แต่ละสาขาตั้งอัตราเองได้) ถ้าสาขาไม่ได้ตั้งหรืออัตราถูกปิด ใช้ `TaxRate` ที่เป็นค่าเริ่มต้นของบริษัท ถ้าราคารวม VAT แล้ว `vatLak = total × p / (100 + p)` ถ้ายังไม่รวม `vatLak = (subtotal − discount) × p / 100`
 
 **การขายและการชำระเงิน**
 6. ผลรวมของ `Payment.amountLak` ต้องไม่น้อยกว่า `Sale.totalLak` โดยการชำระแบบ `CREDIT` นับเป็นหนี้ และเงินทอนคืนเป็น LAK เท่านั้น

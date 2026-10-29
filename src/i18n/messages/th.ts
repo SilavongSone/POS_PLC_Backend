@@ -21,6 +21,7 @@ export const th: Record<string, string> = {
   INSUFFICIENT_STOCK: 'สินค้าไม่พอ',
   BRANCH_REQUIRED: 'กรุณาเลือกสาขา',
   BRANCH_FORBIDDEN: 'คุณไม่มีสิทธิ์ใช้สาขานี้',
+  TAX_RATE_INVALID: 'กรุณาเลือกอัตรา VAT ที่เปิดใช้งานอยู่',
   FEATURE_NOT_IN_PLAN: 'แพ็กเกจของคุณไม่มี{feature}',
   PLAN_LIMIT_REACHED: 'แพ็กเกจของคุณใช้{limit}ได้สูงสุด {max} (ใช้แล้ว {used})',
   SUBSCRIPTION_INACTIVE: 'แพ็กเกจหมดอายุแล้ว กรุณาต่ออายุเพื่อแก้ไขข้อมูล',

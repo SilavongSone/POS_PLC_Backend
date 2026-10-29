@@ -12,6 +12,7 @@ describe('Sale cost visibility and branch access (e2e)', () => {
   let otherRegisterId: string;
   let otherBranchId: string;
   let saleId: string;
+  let productId: string;
   const uniq = () =>
     Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -61,6 +62,7 @@ describe('Sale cost visibility and branch access (e2e)', () => {
         })
         .expect(201)
     ).body as { id: string };
+    productId = product.id;
     const doc = (
       await t
         .http()
@@ -178,5 +180,57 @@ describe('Sale cost visibility and branch access (e2e)', () => {
     expect(unrestricted.map((r) => r.id)).toEqual(
       expect.arrayContaining([registerId, otherRegisterId]),
     );
+  });
+
+  it('charges the branch’s own VAT rate, else the company default', async () => {
+    const admin = await t.userWith('Admin');
+    const vatOf = async (user: User, register: string) =>
+      (
+        await t
+          .http()
+          .post('/sales/quote')
+          .set(user.auth)
+          .send({
+            registerId: register,
+            items: [{ productId, quantity: 1 }],
+          })
+          .expect(200)
+      ).body.vatPercent as string;
+    const companyRate = await vatOf(cashier, registerId);
+
+    const rate = (
+      await t
+        .http()
+        .post('/tax-rates')
+        .set(admin.auth)
+        .send({ name: `Branch VAT ${uniq()}`, percent: 7 })
+        .expect(201)
+    ).body as { id: string };
+    const branch = await t
+      .http()
+      .patch(`/branches/${otherBranchId}`)
+      .set(admin.auth)
+      .send({ taxRateId: rate.id })
+      .expect(200);
+    expect(branch.body.taxRateId).toBe(rate.id);
+
+    expect(await vatOf(otherBranchUser, otherRegisterId)).toBe('7');
+    expect(await vatOf(cashier, registerId)).toBe(companyRate);
+
+    // An inactive rate falls back to the default and cannot be chosen.
+    await t
+      .http()
+      .patch(`/tax-rates/${rate.id}`)
+      .set(admin.auth)
+      .send({ isActive: false })
+      .expect(200);
+    expect(await vatOf(otherBranchUser, otherRegisterId)).toBe(companyRate);
+    const bad = await t
+      .http()
+      .patch(`/branches/${otherBranchId}`)
+      .set(admin.auth)
+      .send({ taxRateId: rate.id })
+      .expect(400);
+    expect(bad.body.code).toBe('TAX_RATE_INVALID');
   });
 });

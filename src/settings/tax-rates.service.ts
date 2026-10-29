@@ -32,6 +32,21 @@ export class TaxRatesService {
     );
   }
 
+  /** The branch's own active rate, else the company default. */
+  async forBranch(
+    branchId: string | undefined,
+    db: Prisma.TransactionClient,
+  ): Promise<TaxRate | null> {
+    if (branchId) {
+      const branch = await db.branch.findFirst({
+        where: { id: branchId },
+        select: { taxRate: true },
+      });
+      if (branch?.taxRate?.isActive) return branch.taxRate;
+    }
+    return this.getDefault(db);
+  }
+
   async create(input: CreateTaxRateInput, actorId: string) {
     const rate = await this.prisma.taxRate.create({ data: input });
     await this.log(actorId, 'TAX_RATE_CREATE', rate.id, undefined, rate);

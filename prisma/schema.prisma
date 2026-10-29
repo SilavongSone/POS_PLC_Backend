@@ -293,7 +293,7 @@ model PaymentType {
   @@unique([tenantId, name])
 }
 
-/// VAT/tax rates. Exactly one should be the default.
+/// VAT/tax rates. Exactly one should be the default; a branch may use another (Branch.taxRateId).
 model TaxRate {
   id        String   @id @default(uuid())
   tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
@@ -306,6 +306,7 @@ model TaxRate {
   products   Product[]
   sales      Sale[]
   quotations Quotation[]
+  branches   Branch[]
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, name])
@@ -1260,11 +1261,14 @@ model Branch {
   phone         String?
   /// Extra line printed on receipts of this branch.
   receiptHeader String?
+  /// VAT rate for sales of this branch; null uses the company's default rate.
+  taxRateId     String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  taxRate           TaxRate?        @relation(fields: [taxRateId], references: [id])
   stock             BranchStock[]
   users             UserBranch[]
   stockDocuments    StockDocument[] @relation("DocBranch")

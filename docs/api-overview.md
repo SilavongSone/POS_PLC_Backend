@@ -27,7 +27,7 @@
 | Health | `GET /health` (ไม่ต้องล็อกอิน) | — |
 | Auth | `POST /auth/login` (email + password; if the same credentials match multiple companies, choose one; API clients may still use username), `/auth/pin-login` (tenantCode + username + PIN), `/auth/google` (`idToken`), `/auth/google/link`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/refresh`, `/auth/logout`, `GET/PATCH /auth/me` (ภาษา), `POST /auth/change-password`, `PUT /auth/pin`, `POST /auth/approve` | — |
 | บริษัท/แพ็กเกจ | `GET /company`, `PATCH /company` (ชื่อ, ภาษาเริ่มต้น) · `GET /subscription` (แพ็กเกจ, สถานะ, ฟีเจอร์, limit และการใช้งาน) | แก้: `settings.manage` |
-| สาขา | `GET /branches`, `POST /branches`, `PATCH /branches/:id` | แก้: `settings.manage` |
+| สาขา | `GET /branches`, `POST /branches`, `PATCH /branches/:id` (`taxRateId` = VAT ของสาขา, `null` = ใช้ค่าเริ่มต้นของบริษัท) | แก้: `settings.manage` |
 | ประวัติ | `GET /audit-logs` (`?action, entity, entityId, userId, from, to`) | `auditLog.view` + ฟีเจอร์ `auditLog` |
 | สมัคร/ราคา | `GET /public/plans` · `POST /public/signup` → อีเมลรหัส 6 หลัก → `/public/signup/verify` (สร้างบริษัท + ได้ token) · `/public/signup/resend` · `/public/signup/google` (เปิดด้วย `SIGNUP_ENABLED`) | สาธารณะ |
 | ค่าแพ็กเกจ | `POST /billing/checkout { planCode, months }`, `GET /billing/invoices`, `POST /billing/invoices/:id/cancel` · gateway เรียก `POST /public/billing/webhook` | `settings.manage` |

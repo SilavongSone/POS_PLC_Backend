@@ -14,6 +14,8 @@ export const createBranchSchema = z.object({
   phone: text(50).nullish(),
   /** Printed under the shop name on receipts of this branch. */
   receiptHeader: text(500).nullish(),
+  /** VAT rate of this branch; null uses the company's default rate. */
+  taxRateId: z.uuid().nullish(),
   isActive: z.boolean().default(true),
 });
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;

@@ -136,34 +136,28 @@ export class SalePricingService {
     const priceTier = input.priceTier ?? customer?.priceTier ?? 'RETAIL';
 
     const ids = [...new Set(input.items.map((i) => i.productId))];
-    const [
-      products,
-      ctx,
-      promotions,
-      categories,
-      defaultRate,
-      pricesIncludeVat,
-    ] = await Promise.all([
-      db.product.findMany({
-        where: { id: { in: ids } },
-        include: {
-          taxRate: true,
-          bundleItems: { include: { component: true } },
-        },
-      }),
-      this.products.pricingContext(db),
-      db.promotion.findMany({
-        where: {
-          isActive: true,
-          startsAt: { lte: new Date() },
-          OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
-        },
-        include: { items: true },
-      }),
-      db.category.findMany({ select: { id: true, parentId: true } }),
-      this.taxRates.getDefault(db),
-      this.settings.get('tax.pricesIncludeVat', db),
-    ]);
+    const [products, ctx, promotions, categories, saleRate, pricesIncludeVat] =
+      await Promise.all([
+        db.product.findMany({
+          where: { id: { in: ids } },
+          include: {
+            taxRate: true,
+            bundleItems: { include: { component: true } },
+          },
+        }),
+        this.products.pricingContext(db),
+        db.promotion.findMany({
+          where: {
+            isActive: true,
+            startsAt: { lte: new Date() },
+            OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+          },
+          include: { items: true },
+        }),
+        db.category.findMany({ select: { id: true, parentId: true } }),
+        this.taxRates.forBranch(input.branchId, db),
+        this.settings.get('tax.pricesIncludeVat', db),
+      ]);
     const branchPrices = await this.products.branchPriceMap(
       ids,
       input.branchId,
@@ -325,7 +319,7 @@ export class SalePricingService {
 
     // One VAT rate per sale; lines with a 0% product rate are exempt.
     // The bill discount is shared across lines in proportion to their amounts.
-    const vatPercent = defaultRate?.percent ?? new Decimal(0);
+    const vatPercent = saleRate?.percent ?? new Decimal(0);
     const vatableBefore = lines
       .filter((l) => !l.vatExempt)
       .reduce((s, l) => s.add(l.lineTotalLak), new Decimal(0));
@@ -348,7 +342,7 @@ export class SalePricingService {
       lines,
       subtotalLak,
       discountLak,
-      taxRateId: defaultRate?.id ?? null,
+      taxRateId: saleRate?.id ?? null,
       vatPercent,
       pricesIncludeVat,
       vatLak,
