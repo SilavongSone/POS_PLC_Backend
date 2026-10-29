@@ -53,17 +53,25 @@ export const provisionTenantSchema = z.object({
 });
 export type ProvisionTenantInput = z.infer<typeof provisionTenantSchema>;
 
+/** Plan for a self-service sign-up; the first public plan with a trial when omitted. */
+const signupPlanSchema = z.string().trim().toUpperCase().min(1).max(30);
+
+/**
+ * Self-service sign-up: only the shop name, e-mail and password are required. The company
+ * code, owner username/name and plan are derived when omitted (see SignupService).
+ */
 export const signupSchema = provisionTenantSchema
-  .pick({
-    code: true,
-    name: true,
-    phone: true,
-    email: true,
-    defaultLanguage: true,
-    planCode: true,
-    owner: true,
-  })
-  .extend({ email: z.email() });
+  .pick({ name: true, phone: true, defaultLanguage: true })
+  .extend({
+    email: z.email().trim().toLowerCase(),
+    code: tenantCodeSchema.optional(),
+    planCode: signupPlanSchema.optional(),
+    owner: z.object({
+      username: ownerSchema.shape.username.optional(),
+      fullName: ownerSchema.shape.fullName.optional(),
+      password: ownerSchema.shape.password,
+    }),
+  });
 export type SignupInput = z.infer<typeof signupSchema>;
 
 export const verifySignupSchema = z.object({
@@ -77,12 +85,10 @@ export const resendSignupSchema = z.object({ requestId: z.uuid() });
 
 /** Sign-up with Google: the owner is the Google account (no password). */
 export const googleSignupSchema = provisionTenantSchema
-  .pick({
-    code: true,
-    name: true,
-    phone: true,
-    defaultLanguage: true,
-    planCode: true,
-  })
-  .extend({ idToken: z.string().min(20).max(5000) });
+  .pick({ name: true, phone: true, defaultLanguage: true })
+  .extend({
+    code: tenantCodeSchema.optional(),
+    planCode: signupPlanSchema.optional(),
+    idToken: z.string().min(20).max(5000),
+  });
 export type GoogleSignupInput = z.infer<typeof googleSignupSchema>;

@@ -24,10 +24,22 @@ const MAX_ATTEMPTS = 5;
 const MAX_RESENDS = 3;
 const PER_EMAIL_PER_HOUR = 5;
 
-type Payload = Omit<SignupInput, 'owner'> & {
+type Payload = Omit<SignupInput, 'owner' | 'code' | 'planCode'> & {
+  code: string;
+  planCode: string;
   owner: { username: string; fullName: string; passwordHash: string };
   resends?: number;
 };
+
+/** Owner login name from an e-mail: "Somchai.K@gmail.com" → "somchai.k". */
+function usernameFromEmail(email: string) {
+  const name = email
+    .split('@')[0]
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 50)
+    .toLowerCase();
+  return name.length >= 3 ? name : `owner-${name}`.slice(0, 50);
+}
 
 const codeInvalid = () =>
   new BadRequestException({
@@ -50,8 +62,7 @@ export class SignupService {
   ) {}
 
   async request(input: SignupInput) {
-    await this.provisioning.assertCodeFree(input.code);
-    await this.provisioning.planFor(input.planCode, { publicOnly: true });
+    const { code: tenantCode, planCode } = await this.companyDefaults(input);
     const recent = await this.prisma.signupRequest.count({
       where: {
         email: input.email,
@@ -70,9 +81,11 @@ export class SignupService {
     const { owner, ...company } = input;
     const payload: Payload = {
       ...company,
+      code: tenantCode,
+      planCode,
       owner: {
-        username: owner.username,
-        fullName: owner.fullName,
+        username: owner.username ?? usernameFromEmail(input.email),
+        fullName: owner.fullName ?? input.name,
         passwordHash: await argon2.hash(owner.password),
       },
     };
@@ -80,7 +93,7 @@ export class SignupService {
     const req = await this.prisma.signupRequest.create({
       data: {
         email: input.email,
-        code: input.code,
+        code: tenantCode,
         payload,
         codeHash: hashSecret(code),
         expiresAt: this.expiry(),
@@ -174,20 +187,19 @@ export class SignupService {
         code: 'GOOGLE_EMAIL_UNVERIFIED',
       });
     }
-    await this.provisioning.assertCodeFree(input.code);
     const { idToken: _token, ...company } = input;
-    const username =
-      identity.email
-        .split('@')[0]
-        .replace(/[^a-zA-Z0-9._-]/g, '')
-        .slice(0, 50) || 'owner';
+    const defaults = await this.companyDefaults({
+      ...input,
+      email: identity.email,
+    });
     const { tenant, owner } = await this.provisioning.provision(
       {
         ...company,
+        ...defaults,
         email: identity.email,
         status: 'TRIAL',
         owner: {
-          username: username.length >= 3 ? username : `owner-${username}`,
+          username: usernameFromEmail(identity.email),
           fullName: identity.name,
           email: identity.email,
           emailVerified: true,
@@ -197,6 +209,23 @@ export class SignupService {
       { publicOnly: true },
     );
     return this.signedIn(tenant, owner.id);
+  }
+
+  /** The chosen (or derived) company code, checked free, and a public plan. */
+  private async companyDefaults(input: {
+    name: string;
+    email: string;
+    code?: string;
+    planCode?: string;
+  }) {
+    const code =
+      input.code ?? (await this.provisioning.freeCode(input.name, input.email));
+    await this.provisioning.assertCodeFree(code);
+    const plan = await this.provisioning.planFor(
+      input.planCode ?? (await this.provisioning.defaultSignupPlanCode()),
+      { publicOnly: true },
+    );
+    return { code, planCode: plan.code };
   }
 
   private async signedIn(

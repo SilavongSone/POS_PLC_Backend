@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -12,7 +13,10 @@ import {
   ensureFirstBranch,
   seedReferenceData,
 } from './reference-data.js';
-import type { ProvisionTenantInput } from './tenancy.schemas.js';
+import {
+  type ProvisionTenantInput,
+  tenantCodeSchema,
+} from './tenancy.schemas.js';
 
 const DAY = 86_400_000;
 
@@ -34,6 +38,43 @@ export class ProvisioningService {
       throw new BadRequestException('Unknown plan');
     }
     return plan;
+  }
+
+  /** Plan for a sign-up that did not pick one: the first public plan with a trial. */
+  async defaultSignupPlanCode(): Promise<string> {
+    const plans = await this.prisma.plan.findMany({
+      where: { isActive: true, isPublic: true },
+      orderBy: { sortOrder: 'asc' },
+      select: { code: true, trialDays: true },
+    });
+    const plan = plans.find((p) => p.trialDays > 0) ?? plans[0];
+    if (!plan) throw new BadRequestException('Unknown plan');
+    return plan.code;
+  }
+
+  /**
+   * A free company code from the shop name (Latin letters and digits), else from the
+   * e-mail's local part: "PLC Shop" → "plc-shop", or "plc-shop-2" when that is taken.
+   */
+  async freeCode(shopName: string, email: string): Promise<string> {
+    const slug = (s: string) =>
+      s
+        .normalize('NFKD')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 24)
+        .replace(/-+$/, '');
+    const bases = [slug(shopName), slug(email.split('@')[0] ?? ''), 'shop'];
+    const base =
+      bases.find((b) => tenantCodeSchema.safeParse(b).success) ?? 'shop';
+    for (let n = 1; n <= 50; n++) {
+      const code = n === 1 ? base : `${base}-${n}`;
+      if (!tenantCodeSchema.safeParse(code).success) continue;
+      if (!(await this.prisma.tenant.findUnique({ where: { code } })))
+        return code;
+    }
+    return `${base}-${randomInt(1000, 10000)}`;
   }
 
   /** Throws 409 TENANT_CODE_TAKEN when the company code is in use. */

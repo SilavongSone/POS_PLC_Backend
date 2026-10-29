@@ -97,6 +97,62 @@ describe('Accounts and e-mail (e2e)', () => {
         .expect(400);
     });
 
+    it('needs only shop name, e-mail and password; derives code, owner and plan', async () => {
+      const local = `quick.${uniq()}`;
+      const email = `${local}@example.com`;
+      const signup = (name: string) =>
+        t
+          .http()
+          .post('/public/signup')
+          .send({ name, email, owner: { password: PASSWORD } })
+          .expect(201);
+      const verify = async (requestId: string) =>
+        (
+          await t
+            .http()
+            .post('/public/signup/verify')
+            .send({ requestId, code: codeFrom(email) })
+            .expect(200)
+        ).body;
+
+      // A Lao shop name has no Latin letters: the code comes from the e-mail.
+      const lao = await verify((await signup('ຮ້ານ ທົດລອງ')).body.requestId);
+      const fromEmail = local.replace(/[^a-z0-9]+/g, '-');
+      expect(lao.tenant.code).toBe(fromEmail);
+      expect(lao.user).toMatchObject({
+        username: local,
+        fullName: 'ຮ້ານ ທົດລອງ',
+        email,
+      });
+      const sub = (
+        await t
+          .http()
+          .get('/subscription')
+          .set({ Authorization: `Bearer ${lao.accessToken as string}` })
+          .expect(200)
+      ).body;
+      expect(sub.status).toBe('TRIAL');
+
+      // The owner signs in with the derived code and username.
+      await t
+        .http()
+        .post('/auth/login')
+        .send({
+          tenantCode: lao.tenant.code,
+          username: local,
+          password: PASSWORD,
+        })
+        .expect(200);
+
+      // A Latin shop name gives the code; a taken code gets a number.
+      const latinName = `Quick ${uniq()}`;
+      const first = await verify((await signup(latinName)).body.requestId);
+      const base = latinName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      expect(first.tenant.code).toBe(base);
+      const second = await verify((await signup(latinName)).body.requestId);
+      expect(second.tenant.code).toBe(`${base}-2`);
+    });
+
     it('stops guessing after 5 wrong codes, and can resend a new one', async () => {
       const code = `su-${uniq()}`;
       const email = `${code}@example.com`;

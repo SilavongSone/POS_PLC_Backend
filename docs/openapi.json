@@ -8340,11 +8340,6 @@
                   },
                   "owner": {
                     "properties": {
-                      "email": {
-                        "format": "email",
-                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
-                        "type": "string"
-                      },
                       "fullName": {
                         "maxLength": 100,
                         "minLength": 1,
@@ -8363,8 +8358,6 @@
                       }
                     },
                     "required": [
-                      "username",
-                      "fullName",
                       "password"
                     ],
                     "type": "object"
@@ -8381,10 +8374,8 @@
                   }
                 },
                 "required": [
-                  "code",
                   "name",
                   "email",
-                  "planCode",
                   "owner"
                 ],
                 "type": "object"
@@ -8495,9 +8486,7 @@
                   }
                 },
                 "required": [
-                  "code",
                   "name",
-                  "planCode",
                   "idToken"
                 ],
                 "type": "object"
