@@ -106,6 +106,143 @@
         ],
         "type": "object"
       },
+      "Branch": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "receiptHeader": {
+            "nullable": true,
+            "type": "string"
+          },
+          "taxRateId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "address",
+          "phone",
+          "receiptHeader",
+          "taxRateId",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "BranchListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "_count": {
+            "additionalProperties": false,
+            "properties": {
+              "registers": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "registers"
+            ],
+            "type": "object"
+          },
+          "address": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "receiptHeader": {
+            "nullable": true,
+            "type": "string"
+          },
+          "taxRateId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "address",
+          "phone",
+          "receiptHeader",
+          "taxRateId",
+          "isActive",
+          "createdAt",
+          "updatedAt",
+          "_count"
+        ],
+        "type": "object"
+      },
       "CashCount": {
         "additionalProperties": false,
         "properties": {
@@ -2807,6 +2944,209 @@
           "expiresAt"
         ],
         "type": "object"
+      },
+      "Subscription": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          },
+          "company": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "defaultLanguage": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "name",
+              "defaultLanguage"
+            ],
+            "type": "object"
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "defaultLanguage": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "enum": [
+                "multiCurrency",
+                "creditSales",
+                "promotions",
+                "bundles",
+                "quotations",
+                "repairs",
+                "taxInvoices",
+                "expenses",
+                "lots",
+                "stockTransfers",
+                "advancedReports",
+                "auditLog"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "graceEndsAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "limits": {
+            "additionalProperties": false,
+            "properties": {
+              "maxBranches": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              },
+              "maxProducts": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              },
+              "maxRegisters": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              },
+              "maxSalesPerMonth": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              },
+              "maxUsers": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "maxBranches",
+              "maxRegisters",
+              "maxUsers",
+              "maxProducts",
+              "maxSalesPerMonth"
+            ],
+            "type": "object"
+          },
+          "plan": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "name"
+            ],
+            "type": "object"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "TRIAL",
+              "ACTIVE",
+              "PAST_DUE",
+              "SUSPENDED",
+              "CANCELLED"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "trialEndsAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "usage": {
+            "additionalProperties": false,
+            "properties": {
+              "maxBranches": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "maxProducts": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "maxRegisters": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "maxSalesPerMonth": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "maxUsers": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "maxBranches",
+              "maxRegisters",
+              "maxUsers",
+              "maxProducts",
+              "maxSalesPerMonth"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "company",
+          "tenantId",
+          "defaultLanguage",
+          "plan",
+          "status",
+          "trialEndsAt",
+          "currentPeriodEnd",
+          "graceEndsAt",
+          "features",
+          "limits",
+          "blocked",
+          "readOnly",
+          "usage"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -3360,7 +3700,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -3958,7 +4305,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BranchListItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -4053,7 +4410,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -12272,7 +12636,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [

@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodResponse } from '../common/openapi.js';
 import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EntitlementsService } from './entitlements.service.js';
+import { subscriptionSchema } from './subscription.responses.js';
 
 @ApiTags('subscription')
 @ApiBearerAuth()
@@ -14,6 +16,7 @@ export class SubscriptionController {
   ) {}
 
   @Get()
+  @ApiZodResponse(subscriptionSchema)
   @ApiOperation({
     summary:
       "The company's plan, status, features, limits and current usage (for every user)",

@@ -4,8 +4,13 @@ import { z } from 'zod';
 import { GoogleIdentityService } from '../src/account/google-identity.service.js';
 import {
   authTokensSchema,
+  authUserSchema,
   emailVerifiedSchema,
 } from '../src/auth/auth.responses.js';
+import {
+  branchesSchema,
+  branchSchema,
+} from '../src/branches/branches.responses.js';
 import {
   categoriesSchema,
   productDetailSchema,
@@ -31,6 +36,7 @@ import {
   registersSchema,
 } from '../src/settings/settings.responses.js';
 import { shiftSchema } from '../src/shifts/shifts.responses.js';
+import { subscriptionSchema } from '../src/tenancy/subscription.responses.js';
 import { createTestApp, TEST_PASSWORD, type TestApp } from './helpers.js';
 
 type User = Awaited<ReturnType<TestApp['userWith']>>;
@@ -433,6 +439,29 @@ describe('API contract (e2e)', () => {
       conforms(
         registersSchema,
         await t.http().get('/registers').set(cashier.auth).expect(200),
+      );
+    });
+
+    it('app shell: me, branches, subscription', async () => {
+      conforms(
+        authUserSchema,
+        await t.http().get('/auth/me').set(cashier.auth).expect(200),
+      );
+      const branches = conforms(
+        branchesSchema,
+        await t.http().get('/branches?all=true').set(cashier.auth).expect(200),
+      );
+      conforms(
+        branchSchema,
+        await t
+          .http()
+          .get(`/branches/${branches[0].id}`)
+          .set(cashier.auth)
+          .expect(200),
+      );
+      conforms(
+        subscriptionSchema,
+        await t.http().get('/subscription').set(cashier.auth).expect(200),
       );
     });
 

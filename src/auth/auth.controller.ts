@@ -22,7 +22,7 @@ import {
   VALIDATION,
 } from '../common/openapi.js';
 import { ApprovalService } from './approval.service.js';
-import { authTokensSchema } from './auth.responses.js';
+import { authTokensSchema, authUserSchema } from './auth.responses.js';
 import { AuthService } from './auth.service.js';
 import {
   approveSchema,
@@ -139,6 +139,7 @@ export class AuthController {
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'The signed-in user with group and permissions' })
+  @ApiZodResponse(authUserSchema)
   me(@CurrentUser() user: AuthUser): AuthUser {
     return user;
   }
