@@ -4,6 +4,8 @@ import { pageQuerySchema } from '../common/pagination.js';
 const text = (max: number) => z.string().trim().max(max);
 const lakAmount = z.coerce.number().int().min(0).max(1e15);
 const isoDate = z.iso.date().transform((d) => new Date(`${d}T00:00:00Z`));
+/** List filters: a calendar day in the shop's time zone (see common/time.ts). */
+const localDay = z.iso.date();
 
 export const saleItemSchema = z.object({
   productId: z.uuid(),
@@ -55,8 +57,8 @@ export const quoteSaleSchema = createSaleSchema
   .extend({ payments: z.array(paymentSchema).max(10).default([]) });
 
 export const listSalesSchema = pageQuerySchema.extend({
-  from: isoDate.optional(),
-  to: isoDate.optional(),
+  from: localDay.optional(),
+  to: localDay.optional(),
   status: z.enum(['COMPLETED', 'VOIDED']).optional(),
   paymentStatus: z.enum(['PAID', 'PARTIAL', 'UNPAID']).optional(),
   customerId: z.uuid().optional(),
@@ -92,8 +94,8 @@ export const issueTaxInvoiceSchema = z.object({
 export const cancelTaxInvoiceSchema = z.object({ reason: text(300).min(1) });
 
 export const listTaxInvoicesSchema = pageQuerySchema.extend({
-  from: isoDate.optional(),
-  to: isoDate.optional(),
+  from: localDay.optional(),
+  to: localDay.optional(),
 });
 
 export type SaleItemInput = z.infer<typeof saleItemSchema>;

@@ -25,10 +25,15 @@ import {
   signupPendingSchema,
 } from '../src/platform/platform.responses.js';
 import {
+  heldBillCreatedSchema,
+  heldBillDetailSchema,
+  heldBillsSchema,
   printCountSchema,
+  salePageSchema,
   saleQuoteSchema,
   saleReceiptSchema,
   saleSchema,
+  taxInvoiceSchema,
 } from '../src/sales/sales.responses.js';
 import {
   currentRatesSchema,
@@ -584,6 +589,99 @@ describe('API contract (e2e)', () => {
         expect(dash.today.count).toBeGreaterThan(0);
         expect(dash.topProductsToday.length).toBeGreaterThan(0);
         expect(dash.today.profitLak).toBeDefined();
+      });
+
+      it('sale list and detail, tax invoice, then void', async () => {
+        const today = new Date().toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Vientiane',
+        });
+        const page = conforms(
+          salePageSchema,
+          await t
+            .http()
+            .get(`/sales?from=${today}&to=${today}&pageSize=5`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+        expect(page.items.some((s) => s.id === saleId)).toBe(true);
+        conforms(
+          saleSchema,
+          await t.http().get(`/sales/${saleId}`).set(cashier.auth).expect(200),
+        );
+
+        const invoice = conforms(
+          taxInvoiceSchema,
+          await t
+            .http()
+            .post(`/sales/${saleId}/tax-invoice`)
+            .set(manager.auth)
+            .send({ buyerName: 'Buyer Co.', buyerTaxId: '123456789' })
+            .expect(201),
+        );
+        const read = conforms(
+          taxInvoiceSchema,
+          await t
+            .http()
+            .get(`/tax-invoices/${invoice.id}`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+        // Cashiers issue invoices but never see cost.
+        expect(read.sale.items[0]).not.toHaveProperty('unitCostLak');
+        // A sale with a live tax invoice can't be voided.
+        await t
+          .http()
+          .post(`/tax-invoices/${invoice.id}/cancel`)
+          .set(manager.auth)
+          .send({ reason: 'contract test' })
+          .expect(200);
+
+        const voided = conforms(
+          saleSchema,
+          await t
+            .http()
+            .post(`/sales/${saleId}/void`)
+            .set(manager.auth)
+            .send({ reason: 'contract test' })
+            .expect(200),
+        );
+        expect(voided.status).toBe('VOIDED');
+      });
+
+      it('held bills', async () => {
+        const cart = {
+          items: [{ productId: serialProduct.id, quantity: 1 }],
+          lines: [{ name: 'shown on the till' }],
+        };
+        const held = conforms(
+          heldBillCreatedSchema,
+          await t
+            .http()
+            .post('/held-bills')
+            .set(cashier.auth)
+            .send({ label: 'Table 1', cart })
+            .expect(201),
+        );
+        const list = conforms(
+          heldBillsSchema,
+          await t.http().get('/held-bills').set(cashier.auth).expect(200),
+        );
+        expect(list.some((b) => b.id === held.id)).toBe(true);
+        const one = conforms(
+          heldBillDetailSchema,
+          await t
+            .http()
+            .get(`/held-bills/${held.id}`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+        // Extra cart fields the till keeps come back as sent.
+        expect(one.cart.lines).toEqual(cart.lines);
+        await t
+          .http()
+          .delete(`/held-bills/${held.id}`)
+          .set(cashier.auth)
+          .expect(204);
       });
     });
   });

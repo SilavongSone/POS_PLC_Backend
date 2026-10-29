@@ -193,6 +193,8 @@ sequenceDiagram
 | Cashier | `catalog.view`, `sale.create`, `sale.hold`, `sale.reprint`, `taxInvoice.issue`, `customer.manage`, `debt.receive`, `shift.operate`, `cash.move`, `repair.receive` |
 | Viewer | `catalog.view` |
 
+> **2026-10-29:** `GET /sales/:id/receipt` มี `branch` (ชื่อ, ที่อยู่, โทร, `receiptHeader`) ของสาขาที่ขาย · `from`/`to` ของ `GET /sales` และ `GET /tax-invoices` เป็นวันตามเวลาร้าน (Asia/Vientiane) · `GET /tax-invoices/:id` ไม่ส่ง `unitCostLak`
+
 ## Postman
 
 1. **Import** → [`postman/plc-pos.postman_collection.json`](./postman/plc-pos.postman_collection.json) เพื่อใช้ collection ที่จัดหมวดไว้แล้ว; import [`openapi.json`](./openapi.json) ได้เช่นกันเพื่อสร้าง collection จากสัญญา API

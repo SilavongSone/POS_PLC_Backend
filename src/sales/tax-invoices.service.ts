@@ -9,6 +9,7 @@ import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { startOfLocalDay } from '../common/time.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { lakToWords, lakToWordsAll } from '../i18n/amount-words.js';
 import type {
@@ -96,12 +97,17 @@ export class TaxInvoicesService {
       }),
       this.settings.getAll(),
     ]);
-    const sale = invoice.sale;
+    // The invoice never shows cost; cashiers who issue invoices may not see it.
+    const sale = {
+      ...invoice.sale,
+      items: invoice.sale.items.map(({ unitCostLak: _cost, ...item }) => item),
+    };
     const amountBeforeVat = sale.pricesIncludeVat
       ? sale.totalLak.sub(sale.vatLak)
       : sale.subtotalLak.sub(sale.discountLak);
     return {
       ...invoice,
+      sale,
       seller: {
         name: store['store.companyName'] || store['store.name'],
         taxId: store['store.taxId'],
@@ -123,8 +129,10 @@ export class TaxInvoicesService {
   async list(query: ListTaxInvoicesQuery) {
     const where: Prisma.TaxInvoiceWhereInput = {
       issuedAt: {
-        gte: query.from,
-        lt: query.to && new Date(query.to.getTime() + 86_400_000),
+        gte: query.from && startOfLocalDay(query.from),
+        lt:
+          query.to &&
+          new Date(startOfLocalDay(query.to).getTime() + 86_400_000),
       },
       ...(query.q && {
         OR: [

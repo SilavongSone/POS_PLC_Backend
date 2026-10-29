@@ -23,7 +23,7 @@ import type {
   QuoteSaleInput,
 } from './sales.schemas.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
-import { addMonths } from '../common/time.js';
+import { addMonths, startOfLocalDay } from '../common/time.js';
 
 /**
  * Drops each line's cost snapshot unless the user may see costs (product.viewCost),
@@ -331,8 +331,10 @@ export class SalesService {
       cashierId: query.cashierId,
       shiftId: query.shiftId,
       createdAt: {
-        gte: query.from,
-        lt: query.to && new Date(query.to.getTime() + 86_400_000),
+        gte: query.from && startOfLocalDay(query.from),
+        lt:
+          query.to &&
+          new Date(startOfLocalDay(query.to).getTime() + 86_400_000),
       },
       ...(query.q && { receiptNo: { contains: query.q, mode: 'insensitive' } }),
     };
@@ -369,7 +371,12 @@ export class SalesService {
       this.getFor(id, user),
       this.settings.getAll(),
     ]);
+    const branch = await this.prisma.branch.findUniqueOrThrow({
+      where: { id: sale.branchId },
+      select: { name: true, address: true, phone: true, receiptHeader: true },
+    });
     return {
+      branch,
       store: {
         name: store['store.name'],
         companyName: store['store.companyName'],

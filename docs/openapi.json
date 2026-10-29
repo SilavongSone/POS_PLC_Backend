@@ -651,6 +651,251 @@
         ],
         "type": "object"
       },
+      "HeldBill": {
+        "additionalProperties": false,
+        "properties": {
+          "branchId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "cart": {
+            "additionalProperties": {},
+            "properties": {
+              "items": {
+                "items": {
+                  "additionalProperties": {},
+                  "properties": {},
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "type": "object"
+          },
+          "cashierId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customerId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branchId",
+          "tenantId",
+          "label",
+          "cashierId",
+          "customerId",
+          "cart",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "HeldBillDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "branchId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "cart": {
+            "additionalProperties": {},
+            "properties": {
+              "items": {
+                "items": {
+                  "additionalProperties": {},
+                  "properties": {},
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "type": "object"
+          },
+          "cashierId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customer": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "customerId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branchId",
+          "tenantId",
+          "label",
+          "cashierId",
+          "customerId",
+          "cart",
+          "createdAt",
+          "customer"
+        ],
+        "type": "object"
+      },
+      "HeldBillListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "branchId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "cart": {
+            "additionalProperties": {},
+            "properties": {
+              "items": {
+                "items": {
+                  "additionalProperties": {},
+                  "properties": {},
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "type": "object"
+          },
+          "cashier": {
+            "additionalProperties": false,
+            "properties": {
+              "fullName": {
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "type": "object"
+          },
+          "cashierId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customer": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "customerId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branchId",
+          "tenantId",
+          "label",
+          "cashierId",
+          "customerId",
+          "cart",
+          "createdAt",
+          "cashier",
+          "customer"
+        ],
+        "type": "object"
+      },
       "PaymentPlan": {
         "additionalProperties": false,
         "properties": {
@@ -2629,6 +2874,282 @@
         ],
         "type": "object"
       },
+      "SaleListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "_count": {
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "type": "object"
+          },
+          "branchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "cashier": {
+            "additionalProperties": false,
+            "properties": {
+              "fullName": {
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "type": "object"
+          },
+          "cashierId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "changeLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customer": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "customerId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "discountLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "dueDate": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "note": {
+            "nullable": true,
+            "type": "string"
+          },
+          "paidLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "paymentStatus": {
+            "enum": [
+              "PAID",
+              "PARTIAL",
+              "UNPAID"
+            ],
+            "type": "string"
+          },
+          "priceTier": {
+            "enum": [
+              "RETAIL",
+              "WHOLESALE"
+            ],
+            "type": "string"
+          },
+          "pricesIncludeVat": {
+            "type": "boolean"
+          },
+          "printCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "quotationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "receiptNo": {
+            "type": "string"
+          },
+          "register": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "code"
+            ],
+            "type": "object"
+          },
+          "registerId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "shiftId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "COMPLETED",
+              "VOIDED"
+            ],
+            "type": "string"
+          },
+          "subtotalLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "taxRateId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "totalLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "vatLak": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "vatPercent": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "voidReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "voidedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "voidedById": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branchId",
+          "tenantId",
+          "receiptNo",
+          "status",
+          "paymentStatus",
+          "cashierId",
+          "registerId",
+          "shiftId",
+          "customerId",
+          "quotationId",
+          "priceTier",
+          "subtotalLak",
+          "discountLak",
+          "taxRateId",
+          "vatPercent",
+          "pricesIncludeVat",
+          "vatLak",
+          "totalLak",
+          "paidLak",
+          "changeLak",
+          "dueDate",
+          "note",
+          "printCount",
+          "voidedById",
+          "voidedAt",
+          "voidReason",
+          "createdAt",
+          "customer",
+          "cashier",
+          "register",
+          "_count"
+        ],
+        "type": "object"
+      },
+      "SalePage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleListItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "pageSize": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object"
+      },
       "SalePayment": {
         "additionalProperties": false,
         "properties": {
@@ -2841,6 +3362,33 @@
       "SaleReceipt": {
         "additionalProperties": false,
         "properties": {
+          "branch": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "nullable": true,
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phone": {
+                "nullable": true,
+                "type": "string"
+              },
+              "receiptHeader": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "phone",
+              "receiptHeader"
+            ],
+            "type": "object"
+          },
           "isReprint": {
             "type": "boolean"
           },
@@ -2918,6 +3466,7 @@
         },
         "required": [
           "store",
+          "branch",
           "paperSize",
           "sale",
           "totalInWords",
@@ -3437,6 +3986,539 @@
           "blocked",
           "readOnly",
           "usage"
+        ],
+        "type": "object"
+      },
+      "TaxInvoice": {
+        "additionalProperties": false,
+        "properties": {
+          "amounts": {
+            "additionalProperties": false,
+            "properties": {
+              "beforeVatLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "totalInWords": {
+                "type": "string"
+              },
+              "totalInWordsAll": {
+                "additionalProperties": false,
+                "properties": {
+                  "en": {
+                    "type": "string"
+                  },
+                  "lo": {
+                    "type": "string"
+                  },
+                  "th": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "lo",
+                  "th",
+                  "en"
+                ],
+                "type": "object"
+              },
+              "totalLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "vatLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "vatPercent": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "beforeVatLak",
+              "vatPercent",
+              "vatLak",
+              "totalLak",
+              "totalInWords",
+              "totalInWordsAll"
+            ],
+            "type": "object"
+          },
+          "buyerAddress": {
+            "nullable": true,
+            "type": "string"
+          },
+          "buyerName": {
+            "type": "string"
+          },
+          "buyerPhone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "buyerTaxId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "cancelReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "invoiceNo": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuedBy": {
+            "additionalProperties": false,
+            "properties": {
+              "fullName": {
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "type": "object"
+          },
+          "issuedById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sale": {
+            "additionalProperties": false,
+            "properties": {
+              "branchId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "cashierId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "changeLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "createdAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "customerId": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              },
+              "discountLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "dueDate": {
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "items": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "discountLak": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "lineTotalLak": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "listPriceLak": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "priceOverriddenById": {
+                      "format": "uuid",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "productId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "productName": {
+                      "type": "string"
+                    },
+                    "promotionId": {
+                      "format": "uuid",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "saleId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "serialNumbers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "serial": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "serial"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "tenantId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "unitPriceLak": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "warrantyMonths": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "tenantId",
+                    "saleId",
+                    "productId",
+                    "productName",
+                    "quantity",
+                    "listPriceLak",
+                    "unitPriceLak",
+                    "priceOverriddenById",
+                    "promotionId",
+                    "discountLak",
+                    "lineTotalLak",
+                    "warrantyMonths",
+                    "serialNumbers"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "note": {
+                "nullable": true,
+                "type": "string"
+              },
+              "paidLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "paymentStatus": {
+                "enum": [
+                  "PAID",
+                  "PARTIAL",
+                  "UNPAID"
+                ],
+                "type": "string"
+              },
+              "payments": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "amountLak": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "currency": {
+                      "enum": [
+                        "LAK",
+                        "THB",
+                        "USD"
+                      ],
+                      "type": "string"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "lakPerUnit": {
+                      "description": "Decimal number as a string",
+                      "pattern": "^-?\\d+(\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "paymentType": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "CASH",
+                            "BANK_TRANSFER",
+                            "QR",
+                            "CARD",
+                            "CREDIT"
+                          ],
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    "paymentTypeId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "reference": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "saleId": {
+                      "format": "uuid",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "saleId",
+                    "paymentTypeId",
+                    "currency",
+                    "amount",
+                    "lakPerUnit",
+                    "amountLak",
+                    "reference",
+                    "createdAt",
+                    "paymentType"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "priceTier": {
+                "enum": [
+                  "RETAIL",
+                  "WHOLESALE"
+                ],
+                "type": "string"
+              },
+              "pricesIncludeVat": {
+                "type": "boolean"
+              },
+              "printCount": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "quotationId": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              },
+              "receiptNo": {
+                "type": "string"
+              },
+              "registerId": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              },
+              "shiftId": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "COMPLETED",
+                  "VOIDED"
+                ],
+                "type": "string"
+              },
+              "subtotalLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "taxRateId": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              },
+              "tenantId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "totalLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "vatLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "vatPercent": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "voidReason": {
+                "nullable": true,
+                "type": "string"
+              },
+              "voidedAt": {
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "voidedById": {
+                "format": "uuid",
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "branchId",
+              "tenantId",
+              "receiptNo",
+              "status",
+              "paymentStatus",
+              "cashierId",
+              "registerId",
+              "shiftId",
+              "customerId",
+              "quotationId",
+              "priceTier",
+              "subtotalLak",
+              "discountLak",
+              "taxRateId",
+              "vatPercent",
+              "pricesIncludeVat",
+              "vatLak",
+              "totalLak",
+              "paidLak",
+              "changeLak",
+              "dueDate",
+              "note",
+              "printCount",
+              "voidedById",
+              "voidedAt",
+              "voidReason",
+              "createdAt",
+              "items",
+              "payments"
+            ],
+            "type": "object"
+          },
+          "saleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "seller": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "logoUrl": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "taxId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "taxId",
+              "address",
+              "phone",
+              "logoUrl"
+            ],
+            "type": "object"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "invoiceNo",
+          "saleId",
+          "buyerName",
+          "buyerTaxId",
+          "buyerAddress",
+          "buyerPhone",
+          "issuedById",
+          "issuedAt",
+          "cancelledAt",
+          "cancelReason",
+          "issuedBy",
+          "sale",
+          "seller",
+          "amounts"
         ],
         "type": "object"
       }
@@ -6062,7 +7144,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HeldBillListItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -6172,7 +7264,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldBill"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -6227,7 +7326,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldBillDetail"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -10452,10 +11558,137 @@
     "/api/sales": {
       "get": {
         "operationId": "SalesController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "COMPLETED",
+                "VOIDED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "paymentStatus",
+            "required": false,
+            "schema": {
+              "enum": [
+                "PAID",
+                "PARTIAL",
+                "UNPAID"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "customerId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "registerId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branchId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cashierId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shiftId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalePage"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -11012,7 +12245,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sale"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -11344,7 +12584,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxInvoice"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -11396,7 +12643,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sale"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [
@@ -13177,7 +14431,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxInvoice"
+                }
+              }
+            },
+            "description": "Success"
           }
         },
         "security": [

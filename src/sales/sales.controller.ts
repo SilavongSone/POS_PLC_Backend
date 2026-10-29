@@ -20,6 +20,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import {
   ApiErrors,
+  ApiZodQuery,
   ApiZodResponse,
   errors,
   PERMISSION,
@@ -29,10 +30,15 @@ import {
 } from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import {
+  heldBillCreatedSchema,
+  heldBillDetailSchema,
+  heldBillsSchema,
   printCountSchema,
+  salePageSchema,
   saleQuoteSchema,
   saleReceiptSchema,
   saleSchema,
+  taxInvoiceSchema,
 } from './sales.responses.js';
 import { HeldBillsService } from './held-bills.service.js';
 import {
@@ -128,6 +134,8 @@ export class SalesController {
 
   @Get()
   @RequirePermissions('sale.create')
+  @ApiZodQuery(listSalesSchema)
+  @ApiZodResponse(salePageSchema)
   @ApiOperation({
     summary:
       'Sales (?from, to, status, paymentStatus, customerId, registerId, branchId, cashierId, shiftId, q)',
@@ -141,6 +149,7 @@ export class SalesController {
 
   @Get(':id')
   @RequirePermissions('sale.create')
+  @ApiZodResponse(saleSchema)
   async get(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
     return withoutCost(await this.sales.getFor(saleId, u), u);
   }
@@ -189,6 +198,7 @@ export class SalesController {
       'Void a sale of the open shift (sale.void or a manager approvalToken)',
   })
   @ApiZodBody(voidSaleSchema)
+  @ApiZodResponse(saleSchema)
   async void(
     @Param('id', id) saleId: string,
     @Body(zod(voidSaleSchema)) body: { reason: string; approvalToken?: string },
@@ -207,6 +217,7 @@ export class SalesController {
     summary: 'Issue a VAT invoice (buyer defaults to the customer)',
   })
   @ApiZodBody(issueTaxInvoiceSchema)
+  @ApiZodResponse(taxInvoiceSchema)
   issueInvoice(
     @Param('id', id) saleId: string,
     @Body(zod(issueTaxInvoiceSchema)) body: IssueTaxInvoiceInput,
@@ -233,6 +244,7 @@ export class TaxInvoicesController {
   @ApiOperation({
     summary: 'Invoice with seller, buyer, lines and amounts for A4 printing',
   })
+  @ApiZodResponse(taxInvoiceSchema)
   get(@Param('id', id) invoiceId: string) {
     return this.invoices.get(invoiceId);
   }
@@ -258,11 +270,13 @@ export class HeldBillsController {
   constructor(private readonly bills: HeldBillsService) {}
 
   @Get()
+  @ApiZodResponse(heldBillsSchema)
   list() {
     return this.bills.list();
   }
 
   @Get(':id')
+  @ApiZodResponse(heldBillDetailSchema)
   get(@Param('id', id) billId: string) {
     return this.bills.get(billId);
   }
@@ -270,6 +284,7 @@ export class HeldBillsController {
   @Post()
   @ApiOperation({ summary: 'Park the current cart' })
   @ApiZodBody(heldBillSchema)
+  @ApiZodResponse(heldBillCreatedSchema)
   create(
     @Body(zod(heldBillSchema)) body: HeldBillInput,
     @CurrentUser() u: AuthUser,

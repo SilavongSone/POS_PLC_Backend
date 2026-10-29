@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   apiSchema,
+  pageOf,
   currencySchema,
   dateTimeString,
   decimalString,
@@ -167,38 +168,43 @@ export const salePaymentSchema = apiSchema(
   }),
 );
 
+/** Sale columns (shared by the list and the detail). */
+const saleFields = {
+  id: z.uuid(),
+  branchId: z.uuid(),
+  tenantId: z.uuid(),
+  receiptNo: z.string(),
+  status: z.enum(['COMPLETED', 'VOIDED']),
+  paymentStatus,
+  cashierId: z.uuid(),
+  registerId: z.uuid().nullable(),
+  shiftId: z.uuid().nullable(),
+  customerId: z.uuid().nullable(),
+  quotationId: z.uuid().nullable(),
+  priceTier,
+  subtotalLak: decimalString,
+  discountLak: decimalString,
+  taxRateId: z.uuid().nullable(),
+  vatPercent: decimalString,
+  pricesIncludeVat: z.boolean(),
+  vatLak: decimalString,
+  totalLak: decimalString,
+  /** Non-credit payments (+ later debt payments); totalLak − paidLak is still owed. */
+  paidLak: decimalString,
+  changeLak: decimalString,
+  dueDate: dateTimeString.nullable(),
+  note: z.string().nullable(),
+  printCount: z.int().min(0),
+  voidedById: z.uuid().nullable(),
+  voidedAt: dateTimeString.nullable(),
+  voidReason: z.string().nullable(),
+  createdAt: dateTimeString,
+};
+
 export const saleSchema = apiSchema(
   'Sale',
   z.strictObject({
-    id: z.uuid(),
-    branchId: z.uuid(),
-    tenantId: z.uuid(),
-    receiptNo: z.string(),
-    status: z.enum(['COMPLETED', 'VOIDED']),
-    paymentStatus,
-    cashierId: z.uuid(),
-    registerId: z.uuid().nullable(),
-    shiftId: z.uuid().nullable(),
-    customerId: z.uuid().nullable(),
-    quotationId: z.uuid().nullable(),
-    priceTier,
-    subtotalLak: decimalString,
-    discountLak: decimalString,
-    taxRateId: z.uuid().nullable(),
-    vatPercent: decimalString,
-    pricesIncludeVat: z.boolean(),
-    vatLak: decimalString,
-    totalLak: decimalString,
-    /** Non-credit payments (+ later debt payments); totalLak − paidLak is still owed. */
-    paidLak: decimalString,
-    changeLak: decimalString,
-    dueDate: dateTimeString.nullable(),
-    note: z.string().nullable(),
-    printCount: z.int().min(0),
-    voidedById: z.uuid().nullable(),
-    voidedAt: dateTimeString.nullable(),
-    voidReason: z.string().nullable(),
-    createdAt: dateTimeString,
+    ...saleFields,
     items: z.array(saleItemSchema),
     payments: z.array(salePaymentSchema),
     customer: z
@@ -236,6 +242,13 @@ export const saleReceiptSchema = apiSchema(
       logoUrl: z.string(),
       footer: z.string(),
     }),
+    /** The selling branch; receiptHeader is its extra line under the shop name. */
+    branch: z.strictObject({
+      name: z.string(),
+      address: z.string().nullable(),
+      phone: z.string().nullable(),
+      receiptHeader: z.string().nullable(),
+    }),
     paperSize: z.enum(['58mm', '80mm', 'A5', 'A4']),
     sale: saleSchema,
     /** Total in words in the request language. */
@@ -253,4 +266,111 @@ export const saleReceiptSchema = apiSchema(
 export const printCountSchema = apiSchema(
   'PrintCount',
   z.strictObject({ printCount: z.int().min(1) }),
+);
+
+// ── GET /sales ──
+
+export const saleListItemSchema = apiSchema(
+  'SaleListItem',
+  z.strictObject({
+    ...saleFields,
+    customer: z.strictObject({ id: z.uuid(), name: z.string() }).nullable(),
+    cashier: userRef,
+    register: z.strictObject({ id: z.uuid(), code: z.string() }).nullable(),
+    _count: z.strictObject({ items: z.int() }),
+  }),
+);
+export const salePageSchema = apiSchema('SalePage', pageOf(saleListItemSchema));
+
+// ── /held-bills ──
+
+const heldBillFields = {
+  id: z.uuid(),
+  branchId: z.uuid().nullable(),
+  tenantId: z.uuid(),
+  label: z.string().nullable(),
+  cashierId: z.uuid(),
+  customerId: z.uuid().nullable(),
+  /** The till's cart snapshot, stored as sent: { items: [...], ... }. */
+  cart: z.looseObject({ items: z.array(z.looseObject({})) }),
+  createdAt: dateTimeString,
+};
+const customerRef = z.strictObject({ id: z.uuid(), name: z.string() });
+
+export const heldBillCreatedSchema = apiSchema(
+  'HeldBill',
+  z.strictObject(heldBillFields),
+);
+export const heldBillDetailSchema = apiSchema(
+  'HeldBillDetail',
+  z.strictObject({ ...heldBillFields, customer: customerRef.nullable() }),
+);
+export const heldBillsSchema = z.array(
+  apiSchema(
+    'HeldBillListItem',
+    z.strictObject({
+      ...heldBillFields,
+      cashier: userRef,
+      customer: customerRef.nullable(),
+    }),
+  ),
+);
+
+// ── /tax-invoices/:id ──
+
+const { unitCostLak: _cost, ...printedItemShape } = saleItemSchema.shape;
+
+/** Ready to print on A4: the invoice, its sale (no cost), seller and amounts. */
+export const taxInvoiceSchema = apiSchema(
+  'TaxInvoice',
+  z.strictObject({
+    id: z.uuid(),
+    tenantId: z.uuid(),
+    invoiceNo: z.string(),
+    saleId: z.uuid(),
+    buyerName: z.string(),
+    buyerTaxId: z.string().nullable(),
+    buyerAddress: z.string().nullable(),
+    buyerPhone: z.string().nullable(),
+    issuedById: z.uuid(),
+    issuedAt: dateTimeString,
+    cancelledAt: dateTimeString.nullable(),
+    cancelReason: z.string().nullable(),
+    issuedBy: userRef,
+    sale: z.strictObject({
+      ...saleFields,
+      items: z.array(
+        z
+          .strictObject({
+            ...printedItemShape,
+            serialNumbers: z.array(z.strictObject({ serial: z.string() })),
+          })
+          .omit({ promotion: true }),
+      ),
+      payments: z.array(
+        salePaymentSchema.omit({ paymentType: true }).extend({
+          paymentType: z.strictObject({ name: z.string(), kind: paymentKind }),
+        }),
+      ),
+    }),
+    seller: z.strictObject({
+      name: z.string(),
+      taxId: z.string(),
+      address: z.string(),
+      phone: z.string(),
+      logoUrl: z.string(),
+    }),
+    amounts: z.strictObject({
+      beforeVatLak: decimalString,
+      vatPercent: decimalString,
+      vatLak: decimalString,
+      totalLak: decimalString,
+      totalInWords: z.string(),
+      totalInWordsAll: z.strictObject({
+        lo: z.string(),
+        th: z.string(),
+        en: z.string(),
+      }),
+    }),
+  }),
 );
