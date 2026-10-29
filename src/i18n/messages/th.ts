@@ -3,7 +3,7 @@ export const th: Record<string, string> = {
   BAD_REQUEST: 'คำขอไม่ถูกต้อง',
   VALIDATION_FAILED: 'ข้อมูลบางช่องไม่ถูกต้อง',
   UNAUTHORIZED: 'กรุณาเข้าสู่ระบบอีกครั้ง',
-  INVALID_CREDENTIALS: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+  INVALID_CREDENTIALS: 'ข้อมูลเข้าสู่ระบบไม่ถูกต้อง',
   FORBIDDEN: 'คุณไม่มีสิทธิ์ทำรายการนี้',
   MISSING_PERMISSION: 'ต้องมีสิทธิ์ "{permission}"',
   NOT_FOUND: 'ไม่พบข้อมูล',

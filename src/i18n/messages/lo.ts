@@ -3,7 +3,7 @@ export const lo: Record<string, string> = {
   BAD_REQUEST: 'ຄຳຮ້ອງຂໍບໍ່ຖືກຕ້ອງ',
   VALIDATION_FAILED: 'ຂໍ້ມູນບາງຊ່ອງບໍ່ຖືກຕ້ອງ',
   UNAUTHORIZED: 'ກະລຸນາເຂົ້າສູ່ລະບົບອີກຄັ້ງ',
-  INVALID_CREDENTIALS: 'ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ',
+  INVALID_CREDENTIALS: 'ຂໍ້ມູນເຂົ້າລະບົບບໍ່ຖືກຕ້ອງ',
   FORBIDDEN: 'ທ່ານບໍ່ມີສິດເຮັດລາຍການນີ້',
   MISSING_PERMISSION: 'ຕ້ອງມີສິດ "{permission}"',
   NOT_FOUND: 'ບໍ່ພົບຂໍ້ມູນ',

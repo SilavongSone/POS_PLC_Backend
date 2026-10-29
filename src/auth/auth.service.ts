@@ -32,7 +32,7 @@ function hashToken(token: string): string {
 
 @Injectable()
 export class AuthService {
-  /** Verified against when the username is unknown, so response time doesn't reveal valid usernames. */
+  /** Verified for unknown e-mails/usernames so timing does not reveal valid accounts. */
   private readonly dummyHash = argon2.hash('not-a-real-password');
 
   constructor(
@@ -44,17 +44,112 @@ export class AuthService {
 
   async login(
     tenantCode: string | undefined,
-    username: string,
+    email: string | undefined,
+    username: string | undefined,
     password: string,
   ): Promise<AuthTokens> {
-    await this.enterTenant(tenantCode);
-    const user = await this.verifyCredential(username, (u) =>
-      argon2.verify(u.passwordHash, password),
+    // Keep the old username request shape working for existing API clients.
+    if (!email) {
+      await this.enterTenant(tenantCode);
+      const user = await this.verifyCredential(username!, (u) =>
+        argon2.verify(u.passwordHash, password),
+      );
+      return this.issueTokens(
+        user.id,
+        this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
+      );
+    }
+
+    const defaultTenant = this.config.get('DEFAULT_TENANT_CODE', {
+      infer: true,
+    });
+    if (tenantCode || defaultTenant) {
+      await this.enterTenant(tenantCode);
+      const user = await this.verifyEmailCredential(email, password);
+      return this.issueTokens(
+        user.id,
+        this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
+      );
+    }
+
+    const users = await RequestContext.asPlatform(() =>
+      this.prisma.user.findMany({
+        where: { email, isActive: true, tenant: { isActive: true } },
+        include: { tenant: { select: { code: true, name: true } } },
+      }),
     );
+    if (!users.length) {
+      await argon2.verify(await this.dummyHash, 'x');
+      throw this.invalidCredentials('Invalid e-mail or password');
+    }
+
+    const now = Date.now();
+    const unlocked = users.filter(
+      (user) => !user.lockedUntil || user.lockedUntil.getTime() <= now,
+    );
+    const matches: typeof users = [];
+    for (const user of unlocked) {
+      if (await argon2.verify(user.passwordHash, password)) matches.push(user);
+    }
+
+    if (!matches.length) {
+      if (!unlocked.length) {
+        const lockedUntil = users
+          .map((user) => user.lockedUntil)
+          .filter((value): value is Date => !!value)
+          .sort((a, b) => b.getTime() - a.getTime())[0];
+        throw new HttpException(
+          { message: 'Account is temporarily locked', lockedUntil },
+          HttpStatus.LOCKED,
+        );
+      }
+      await RequestContext.asPlatform(() =>
+        Promise.all(
+          unlocked.map(async (user) => {
+            const failed = user.failedLoginCount + 1;
+            const lock = failed >= MAX_FAILED_LOGINS;
+            await this.prisma.user.update({
+              where: { id: user.id },
+              data: lock
+                ? {
+                    failedLoginCount: 0,
+                    lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000),
+                  }
+                : { failedLoginCount: failed },
+            });
+          }),
+        ),
+      );
+      throw this.invalidCredentials('Invalid e-mail or password');
+    }
+
+    if (matches.length > 1) {
+      const companyMap = new Map(
+        matches.map((user) => [user.tenant.code, user.tenant]),
+      );
+      throw new ConflictException({
+        message: 'Choose the company to sign in to',
+        code: 'TENANT_REQUIRED',
+        companies: [...companyMap.values()],
+      });
+    }
+
+    const user = matches[0];
+    await this.enterTenant(user.tenant.code);
+    if (user.failedLoginCount > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginCount: 0, lockedUntil: null },
+      });
+    }
     return this.issueTokens(
       user.id,
       this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
     );
+  }
+
+  private invalidCredentials(message: string) {
+    return new UnauthorizedException({ message, code: 'INVALID_CREDENTIALS' });
   }
 
   /** A password-length session for a user already authenticated another way (Google, sign-up). */
@@ -263,19 +358,31 @@ export class AuthService {
 
   /**
    * Checks a password or PIN with lockout: after MAX_FAILED_LOGINS wrong attempts the
-   * account is locked for LOCK_MINUTES. Errors never say whether the username exists.
+   * account is locked for LOCK_MINUTES. Errors never say whether the account exists.
    */
   async verifyCredential(
     username: string,
     check: (user: User) => Promise<boolean>,
   ) {
     const user = await this.prisma.user.findFirst({ where: { username } });
+    return this.verifyUserCredential(user, check);
+  }
+
+  private async verifyEmailCredential(email: string, password: string) {
+    const user = await this.prisma.user.findFirst({ where: { email } });
+    return this.verifyUserCredential(user, (candidate) =>
+      argon2.verify(candidate.passwordHash, password),
+    );
+  }
+
+  private async verifyUserCredential(
+    user: User | null,
+    check: (user: User) => Promise<boolean>,
+    invalidMessage = 'Invalid username or credentials',
+  ) {
     if (!user || !user.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw new UnauthorizedException({
-        message: 'Invalid username or credentials',
-        code: 'INVALID_CREDENTIALS',
-      });
+      throw this.invalidCredentials(invalidMessage);
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new HttpException(
@@ -299,10 +406,7 @@ export class AuthService {
             }
           : { failedLoginCount: failed },
       });
-      throw new UnauthorizedException({
-        message: 'Invalid username or credentials',
-        code: 'INVALID_CREDENTIALS',
-      });
+      throw this.invalidCredentials(invalidMessage);
     }
 
     if (user.failedLoginCount > 0 || user.lockedUntil) {
@@ -320,6 +424,10 @@ export class AuthService {
   ): Promise<AuthTokens> {
     const user = await this.findActiveUser(userId);
     if (!user) throw new UnauthorizedException('User is inactive or missing');
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: user.tenantId },
+      select: { code: true },
+    });
 
     const expiresIn = this.config.get('ACCESS_TOKEN_TTL', { infer: true });
     const payload: AccessTokenPayload = {
@@ -343,7 +451,13 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken, expiresIn, user };
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn,
+      tenantCode: tenant.code,
+      user,
+    };
   }
 
   /**
@@ -359,7 +473,7 @@ export class AuthService {
     if (!tenant?.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
       throw new UnauthorizedException({
-        message: 'Invalid username or credentials',
+        message: 'Invalid sign-in details',
         code: 'INVALID_CREDENTIALS',
       });
     }

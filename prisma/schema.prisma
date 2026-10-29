@@ -214,6 +214,7 @@ model User {
   @@unique([tenantId, username])
   @@unique([tenantId, email])
   @@unique([tenantId, googleSub])
+  @@index([email])
 }
 
 model RefreshToken {

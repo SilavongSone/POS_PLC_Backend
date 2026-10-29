@@ -25,7 +25,7 @@
 | โมดูล | Route หลัก | สิทธิ์ |
 |---|---|---|
 | Health | `GET /health` (ไม่ต้องล็อกอิน) | — |
-| Auth | `POST /auth/login`, `/auth/pin-login` (`tenantCode`), `/auth/google` (`idToken`), `/auth/google/link`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/refresh`, `/auth/logout`, `GET/PATCH /auth/me` (ภาษา), `POST /auth/change-password`, `PUT /auth/pin`, `POST /auth/approve` | — |
+| Auth | `POST /auth/login` (email + password; if the same credentials match multiple companies, choose one; API clients may still use username), `/auth/pin-login` (tenantCode + username + PIN), `/auth/google` (`idToken`), `/auth/google/link`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/refresh`, `/auth/logout`, `GET/PATCH /auth/me` (ภาษา), `POST /auth/change-password`, `PUT /auth/pin`, `POST /auth/approve` | — |
 | บริษัท/แพ็กเกจ | `GET /company`, `PATCH /company` (ชื่อ, ภาษาเริ่มต้น) · `GET /subscription` (แพ็กเกจ, สถานะ, ฟีเจอร์, limit และการใช้งาน) | แก้: `settings.manage` |
 | สาขา | `GET /branches`, `POST /branches`, `PATCH /branches/:id` | แก้: `settings.manage` |
 | ประวัติ | `GET /audit-logs` (`?action, entity, entityId, userId, from, to`) | `auditLog.view` + ฟีเจอร์ `auditLog` |
@@ -82,7 +82,8 @@ sequenceDiagram
 ```
 
 ### 1.1 ล็อกอินและบริษัท
-- หน้า login มีช่อง **รหัสบริษัท** (จำไว้ในเครื่องได้) → `POST /auth/login { tenantCode, username, password }` · หรือปุ่ม **Google** → `POST /auth/google { idToken }` (ถ้าได้ `409 TENANT_REQUIRED` ให้เลือกบริษัทจาก `companies` แล้วส่ง `tenantCode` ซ้ำ)
+- หน้า login ใช้ **อีเมล + รหัสผ่าน** → `POST /auth/login { email, password }` · ถ้าบัญชีตรงกับหลายบริษัท จะได้ `409 TENANT_REQUIRED` (หลังรหัสผ่านถูกต้อง) พร้อม `companies`; ส่งซ้ำพร้อม `tenantCode` ที่เลือก · API client เดิมยังใช้ `{ tenantCode, username, password }` ได้
+- PIN sign-in ที่เครื่องขายยังใช้ `POST /auth/pin-login { tenantCode, username, pin }`
 - ลืมรหัสผ่าน → `POST /auth/forgot-password { email }` → ผู้ใช้กดลิงก์ในอีเมล (`APP_URL/reset-password?token=`) → `POST /auth/reset-password { token, newPassword }` · ลิงก์ยืนยันอีเมลชี้ไป `APP_URL/verify-email?token=` → `POST /auth/verify-email { token }`
 - สมัครร้านใหม่ → `POST /public/signup` → หน้าใส่รหัส 6 หลัก (หรือลิงก์ `APP_URL/signup/verify?request=&code=`) → `POST /public/signup/verify`
 - หลังล็อกอิน `GET /subscription` เพื่อซ่อนเมนูที่แพ็กเกจไม่มี (`features`) และแสดงคำเตือนใกล้หมดอายุ (`trialEndsAt`, `currentPeriodEnd`, `graceEndsAt`) · ถ้าได้ `402 SUBSCRIPTION_INACTIVE` ให้แสดงว่าอ่านได้อย่างเดียว
@@ -194,16 +195,11 @@ sequenceDiagram
 
 ## Postman
 
-1. **Import** → ไฟล์ [`openapi.json`](./openapi.json) (สร้างจากโค้ดด้วย `pnpm openapi:export` ห้ามแก้เอง) → Postman สร้าง collection ให้ · ตั้ง collection variable `baseUrl` = `{{baseUrl}}`
-2. **Import** → [`postman/plc-pos.local.postman_environment.json`](./postman/plc-pos.local.postman_environment.json) แล้วใส่ `password` เองในเครื่อง (ไฟล์ใน repo ไม่มีรหัสผ่านหรือ token — ห้าม commit ค่าจริง)
-3. ที่ request `POST /auth/login` ใส่ body `{ "tenantCode": "{{tenantCode}}", "username": "{{username}}", "password": "{{password}}" }` และใน **Scripts → Post-response**:
-   ```js
-   const body = pm.response.json();
-   pm.environment.set('accessToken', body.accessToken);
-   pm.environment.set('refreshToken', body.refreshToken);
-   ```
-4. ที่ระดับ collection ตั้ง **Authorization → Bearer Token** = `{{accessToken}}` · token หมดอายุใน 15 นาที → ยิง login ใหม่ (หรือ `POST /auth/refresh`)
-5. API เปลี่ยน → `pnpm openapi:export` แล้ว import `openapi.json` ใหม่ (ไม่ต้องดูแล collection ด้วยมือ)
+1. **Import** → [`postman/plc-pos.postman_collection.json`](./postman/plc-pos.postman_collection.json) เพื่อใช้ collection ที่จัดหมวดไว้แล้ว; import [`openapi.json`](./openapi.json) ได้เช่นกันเพื่อสร้าง collection จากสัญญา API
+2. **Import** → [`postman/plc-pos.local.postman_environment.json`](./postman/plc-pos.local.postman_environment.json) แล้วใส่ `email` และ `password` ของผู้ใช้ในเครื่อง (อย่า commit ค่าจริง)
+3. เลือก environment `PLC POS — local` แล้วส่ง `POST /auth/login`; token จะถูกบันทึกอัตโนมัติ · ถ้าได้ `TENANT_REQUIRED` ให้ส่งซ้ำพร้อม `tenantCode` ของบริษัทที่เลือก
+4. Collection ตั้งค่า Bearer token = `{{accessToken}}` ไว้แล้ว · เมื่อ token หมดอายุ ให้ login ใหม่หรือใช้ `POST /auth/refresh`
+5. API เปลี่ยน → `pnpm openapi:export` แล้ว import `openapi.json` ใหม่
 
 ## การทดสอบ
 

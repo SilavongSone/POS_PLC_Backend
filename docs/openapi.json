@@ -16,6 +16,9 @@
           "refreshToken": {
             "type": "string"
           },
+          "tenantCode": {
+            "type": "string"
+          },
           "user": {
             "$ref": "#/components/schemas/AuthUser"
           }
@@ -24,6 +27,7 @@
           "accessToken",
           "refreshToken",
           "expiresIn",
+          "tenantCode",
           "user"
         ],
         "type": "object"
@@ -2765,6 +2769,9 @@
             ],
             "type": "object"
           },
+          "tenantCode": {
+            "type": "string"
+          },
           "user": {
             "$ref": "#/components/schemas/AuthUser"
           }
@@ -2774,6 +2781,7 @@
           "accessToken",
           "refreshToken",
           "expiresIn",
+          "tenantCode",
           "user"
         ],
         "type": "object"
@@ -3184,6 +3192,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "email": {
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "type": "string"
+                  },
                   "password": {
                     "maxLength": 200,
                     "minLength": 1,
@@ -3200,7 +3213,6 @@
                   }
                 },
                 "required": [
-                  "username",
                   "password"
                 ],
                 "type": "object"
@@ -3250,6 +3262,16 @@
             },
             "description": "Not allowed. Codes: TENANT_SUSPENDED"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: TENANT_REQUIRED"
+          },
           "423": {
             "content": {
               "application/json": {
@@ -3271,7 +3293,7 @@
             "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
           }
         },
-        "summary": "Sign in with username and password",
+        "summary": "Sign in with e-mail and password",
         "tags": [
           "auth"
         ]
@@ -3512,6 +3534,16 @@
               }
             },
             "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: TENANT_REQUIRED"
           },
           "423": {
             "content": {

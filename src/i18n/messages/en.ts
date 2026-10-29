@@ -3,7 +3,7 @@ export const en: Record<string, string> = {
   BAD_REQUEST: 'The request is not valid',
   VALIDATION_FAILED: 'Some fields are not valid',
   UNAUTHORIZED: 'Please sign in again',
-  INVALID_CREDENTIALS: 'Wrong username or password',
+  INVALID_CREDENTIALS: 'Invalid sign-in details',
   FORBIDDEN: 'You are not allowed to do this',
   MISSING_PERMISSION: 'You need the permission "{permission}"',
   NOT_FOUND: 'Not found',

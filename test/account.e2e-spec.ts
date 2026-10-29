@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { GoogleIdentityService } from '../src/account/google-identity.service.js';
 import { MailService } from '../src/mail/mail.service.js';
 import { createTestApp, type TestApp } from './helpers.js';
@@ -194,6 +195,81 @@ describe('Accounts and e-mail (e2e)', () => {
         .post('/public/signup/verify')
         .send({ requestId: req.requestId, code: codeFrom(email) })
         .expect(200);
+    });
+  });
+
+  describe('sign-in with e-mail', () => {
+    // Tests run with DEFAULT_TENANT_CODE; without it the e-mail is looked up in every company.
+    let restore: () => void;
+    beforeAll(() => {
+      const config = t.app.get(ConfigService);
+      const get = config.get.bind(config);
+      config.get = ((key: string, ...rest: unknown[]) =>
+        key === 'DEFAULT_TENANT_CODE'
+          ? undefined
+          : (get as (...a: unknown[]) => unknown)(
+              key,
+              ...rest,
+            )) as typeof config.get;
+      restore = () => (config.get = get);
+    });
+    afterAll(() => restore());
+
+    const signupWith = async (email: string, name: string) => {
+      const req = (
+        await t
+          .http()
+          .post('/public/signup')
+          .send({ name, email, owner: { password: PASSWORD } })
+          .expect(201)
+      ).body;
+      return (
+        await t
+          .http()
+          .post('/public/signup/verify')
+          .send({ requestId: req.requestId, code: codeFrom(email) })
+          .expect(200)
+      ).body;
+    };
+    const login = (body: object) => t.http().post('/auth/login').send(body);
+
+    it('signs in by e-mail alone, and asks for the company when several match', async () => {
+      const email = `login-${uniq()}@example.com`;
+      const one = await signupWith(email, `Login A ${uniq()}`);
+
+      const single = await login({ email, password: PASSWORD }).expect(200);
+      expect(single.body.tenantCode).toBe(one.tenant.code);
+      expect(single.body.user.email).toBe(email);
+
+      for (const wrong of [
+        { email, password: 'wrong-password-1' },
+        { email: `nobody-${uniq()}@example.com`, password: PASSWORD },
+      ]) {
+        expect((await login(wrong).expect(401)).body.code).toBe(
+          'INVALID_CREDENTIALS',
+        );
+      }
+
+      const two = await signupWith(email, `Login B ${uniq()}`);
+      const ask = await login({ email, password: PASSWORD }).expect(409);
+      expect(ask.body.code).toBe('TENANT_REQUIRED');
+      expect(
+        (ask.body.companies as { code: string }[]).map((c) => c.code),
+      ).toEqual(
+        expect.arrayContaining([one.tenant.code, two.tenant.code]) as unknown,
+      );
+      expect(ask.body.companies).toHaveLength(2);
+
+      const chosen = await login({
+        email,
+        password: PASSWORD,
+        tenantCode: two.tenant.code,
+      }).expect(200);
+      expect(chosen.body.tenantCode).toBe(two.tenant.code);
+
+      // Either e-mail or username, not both or neither.
+      await login({ password: PASSWORD }).expect(400);
+      await login({ email, username: 'x', password: PASSWORD }).expect(400);
     });
   });
 

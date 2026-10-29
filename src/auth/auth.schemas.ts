@@ -9,11 +9,18 @@ const tenantCode = z
   .regex(/^[a-z0-9][a-z0-9-]{1,30}$/, 'Invalid company code')
   .optional();
 
-export const loginSchema = z.object({
-  tenantCode,
-  username: z.string().trim().min(1).max(50),
-  password: z.string().min(1).max(200),
-});
+export const loginSchema = z
+  .object({
+    tenantCode,
+    email: z.email().trim().toLowerCase().optional(),
+    /** Kept for existing API clients; the app's password login uses e-mail. */
+    username: z.string().trim().min(1).max(50).optional(),
+    password: z.string().min(1).max(200),
+  })
+  .refine((input) => Boolean(input.email) !== Boolean(input.username), {
+    message: 'Send either e-mail or username',
+    path: ['email'],
+  });
 export type LoginInput = z.infer<typeof loginSchema>;
 
 const pin = z.string().regex(/^\d{4,6}$/, 'PIN must be 4–6 digits');

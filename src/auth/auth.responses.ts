@@ -30,6 +30,8 @@ export const authTokensShape = {
   refreshToken: z.string(),
   /** Access token lifetime in seconds. */
   expiresIn: z.int().positive(),
+  /** Company selected during login; saved on this device for PIN sign-in. */
+  tenantCode: z.string(),
   user: authUserSchema,
 };
 export const authTokensSchema = apiSchema(

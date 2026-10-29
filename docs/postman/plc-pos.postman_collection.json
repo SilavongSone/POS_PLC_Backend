@@ -1,0 +1,3980 @@
+{
+  "info": {
+    "_postman_id": "6c5bb686-2495-4b89-94b0-3c871fd20b48",
+    "name": "PLC POS API",
+    "description": "Generated from backend/docs/openapi.json. Select PLC POS — local, enter your email and password in the environment, then run POST /auth/login. If multiple companies match, repeat with the selected tenantCode.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "App",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}"
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "audit-logs",
+      "item": [
+        {
+          "name": "GET /audit-logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs"
+            },
+            "description": "Audit trail, newest first (?action, entity, entityId, userId, from, to)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login"
+            },
+            "description": "Sign in with e-mail and password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.accessToken) pm.environment.set('accessToken', body.accessToken);",
+                  "  if (body.refreshToken) pm.environment.set('refreshToken', body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me"
+            },
+            "description": "The signed-in user with group and permissions"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /auth/me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me"
+            },
+            "description": "Set your own language (lo, th, en; null = company default)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"lo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/approve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/approve"
+            },
+            "description": "Manager approval at the till: returns a 2-minute token for one permission, bound to the signed-in user",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"value\",\n  \"permission\": \"catalog.view\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/change-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password"
+            },
+            "description": "Change own password (signs out all sessions)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"value\",\n  \"newPassword\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/forgot-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password"
+            },
+            "description": "E-mail a reset link (only to confirmed addresses; same answer either way)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/google",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google"
+            },
+            "description": "Sign in with a Google ID token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/google/link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/link"
+            },
+            "description": "Link your account to a Google account",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout"
+            },
+            "description": "Revoke a refresh token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/pin-login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/pin-login"
+            },
+            "description": "Quick sign-in at a till with username and PIN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"value\",\n  \"pin\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh"
+            },
+            "description": "Exchange a refresh token for new tokens (rotation)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/resend-verification",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-verification"
+            },
+            "description": "Send the confirmation link for your e-mail again"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password"
+            },
+            "description": "Set a new password with the e-mailed token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"value\",\n  \"newPassword\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/verify-email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email"
+            },
+            "description": "Confirm an e-mail address with the link token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /auth/pin",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/pin"
+            },
+            "description": "Set own 4–6 digit PIN (requires current password)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"value\",\n  \"pin\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "billing",
+      "item": [
+        {
+          "name": "POST /billing/checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/billing/checkout"
+            },
+            "description": "Invoice for 1/3/6/12 months of a plan, with how to pay it",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planCode\": \"value\",\n  \"months\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /billing/invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/billing/invoices"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /billing/invoices/{{id}}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/billing/invoices/{id}/cancel",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "branches",
+      "item": [
+        {
+          "name": "GET /branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/branches?all={{all}}"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /branches",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/branches"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"value\",\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /branches/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/branches/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /branches/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/branches/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"value\",\n  \"code\": \"value\",\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"phone\": \"value\",\n  \"receiptHeader\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "catalog",
+      "item": [
+        {
+          "name": "GET /brands",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/brands"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /brands",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/brands"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /brands/{{id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/brands/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /brands/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/brands/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"logoUrl\": \"value\",\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories?tree="
+            },
+            "description": "Categories (flat, or nested with ?tree=true)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /categories",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /categories/{{id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /categories/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"parentId\": \"{{id}}\",\n  \"slug\": \"value\",\n  \"sortOrder\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=&pageSize=&q=&categoryId=&brandId=&type=&isActive=&lowStock=&inStock=&sort=&branchId="
+            },
+            "description": "Search products (?q, categoryId incl. subcategories, brandId, type, isActive, lowStock, inStock, sort, page)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products"
+            },
+            "description": "Create a product (stock comes in through stock documents)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"value\",\n  \"name\": \"value\",\n  \"retailPrice\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/bulk-price",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/bulk-price"
+            },
+            "description": "Raise/lower prices by a percentage for many products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"percent\": -90\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/lookup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/lookup?code={{code}}&branchId="
+            },
+            "description": "Scan lookup: exact barcode, SKU or serial number"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /products/prices",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/prices"
+            },
+            "description": "Set explicit prices for many products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}?branchId=",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "A product (?branchId: priced as at that branch)"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /products/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barcode\": \"value\",\n  \"brandId\": \"{{id}}\",\n  \"categoryId\": \"{{id}}\",\n  \"costCurrency\": \"LAK\",\n  \"costPrice\": 0,\n  \"description\": \"value\",\n  \"descriptionI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"isActive\": false,\n  \"location\": \"value\",\n  \"lowStockAlert\": 0,\n  \"model\": \"value\",\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"priceCurrency\": \"LAK\",\n  \"retailPrice\": 0,\n  \"specs\": {},\n  \"taxRateId\": \"{{id}}\",\n  \"trackExpiry\": false,\n  \"trackSerial\": false,\n  \"trackStock\": false,\n  \"type\": \"STANDARD\",\n  \"unit\": \"value\",\n  \"warrantyMonths\": 0,\n  \"wholesaleMinQty\": 1,\n  \"wholesalePrice\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /products/{{id}}/branch-prices",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}/branch-prices",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Set different prices per branch (replaces the list; others use the product price)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"branchId\": \"{{id}}\",\n      \"retailPrice\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /products/{{id}}/bundle-items",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}/bundle-items",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Set the components of a BUNDLE product (e.g. POS set)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"componentId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/{{id}}/images",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}/images",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Upload a JPEG/PNG/WebP image (≤ 5 MB) as form field \"file\"",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /products/{{id}}/images/order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}/images/order",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageIds\": [\n    \"{{id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /products/{{id}}/images/{{imageId}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{id}/images/{imageId}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                },
+                {
+                  "key": "imageId",
+                  "value": "{{imageId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "company",
+      "item": [
+        {
+          "name": "GET /company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/company"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /company",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/company"
+            },
+            "description": "Company name, tax details and default language",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"defaultLanguage\": \"lo\",\n  \"email\": \"value\",\n  \"legalName\": \"value\",\n  \"name\": \"value\",\n  \"phone\": \"value\",\n  \"taxId\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "customers",
+      "item": [
+        {
+          "name": "GET /customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers"
+            },
+            "description": "Search customers (?q name/company/code/phone, type, withDebt)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customers/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Customer with unpaid credit and purchase totals"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /customers/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"value\",\n  \"companyName\": \"value\",\n  \"creditLimitLak\": 0,\n  \"email\": \"value\",\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"note\": \"value\",\n  \"phone\": \"value\",\n  \"priceTier\": \"RETAIL\",\n  \"taxId\": \"value\",\n  \"type\": \"INDIVIDUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "debts",
+      "item": [
+        {
+          "name": "GET /customers/{{id}}/debts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{id}/debts",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "A customer's unpaid credit sales, oldest first"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /debt-payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/debt-payments"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /debt-payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/debt-payments"
+            },
+            "description": "Receive a debt payment (one sale, or oldest debts first)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{id}}\",\n  \"paymentTypeId\": \"{{id}}\",\n  \"amount\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "expenses",
+      "item": [
+        {
+          "name": "GET /expense-categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expense-categories"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /expense-categories",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/expense-categories"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /expense-categories/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/expense-categories/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /expenses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expenses"
+            },
+            "description": "Expenses (?categoryId, from, to, q) with the LAK total"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /expenses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/expenses"
+            },
+            "description": "Record an expense (fromDrawer=true takes cash from the open shift)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{id}}\",\n  \"description\": \"value\",\n  \"amount\": 0,\n  \"paymentTypeId\": \"{{id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /expenses/{{id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expenses/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health"
+            },
+            "description": "OK when the API can reach the database",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "platform",
+      "item": [
+        {
+          "name": "POST /platform/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/auth/login"
+            },
+            "description": "Platform admin sign-in (separate from company users)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"value\",\n  \"password\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /platform/invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/invoices"
+            },
+            "description": "Plan invoices of all companies (?status, tenantId, page)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /platform/invoices/{{id}}/mark-paid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/invoices/{id}/mark-paid",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Record a payment seen in the bank; extends the subscription",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"BANK_TRANSFER\",\n  \"reference\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /platform/plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/plans"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /platform/plans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/plans"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"value\",\n  \"name\": \"value\",\n  \"limits\": {\n    \"maxBranches\": 0,\n    \"maxRegisters\": 0,\n    \"maxUsers\": 0,\n    \"maxProducts\": 0,\n    \"maxSalesPerMonth\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /platform/plans/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/plans/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Change price, limits, features or visibility",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descriptionI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"features\": [\n    \"multiCurrency\"\n  ],\n  \"isActive\": false,\n  \"isPublic\": false,\n  \"limits\": {\n    \"maxBranches\": 0,\n    \"maxRegisters\": 0,\n    \"maxUsers\": 0,\n    \"maxProducts\": 0,\n    \"maxSalesPerMonth\": 0\n  },\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"priceMonthlyLak\": 0,\n  \"priceYearlyLak\": 0,\n  \"sortOrder\": 0,\n  \"trialDays\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /platform/stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/stats"
+            },
+            "description": "Companies by plan and status; monthly recurring revenue"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /platform/tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/tenants"
+            },
+            "description": "Companies (?q, status, planId, page)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /platform/tenants",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/tenants"
+            },
+            "description": "Create a company with its owner, first branch, till and starter data",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"value\",\n  \"name\": \"value\",\n  \"planCode\": \"value\",\n  \"owner\": {\n    \"username\": \"value\",\n    \"fullName\": \"value\",\n    \"password\": \"value\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /platform/tenants/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/tenants/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /platform/tenants/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/tenants/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Company details; isActive=false suspends all its users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"defaultLanguage\": \"lo\",\n  \"email\": \"value\",\n  \"isActive\": false,\n  \"legalName\": \"value\",\n  \"name\": \"value\",\n  \"phone\": \"value\",\n  \"taxId\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /platform/tenants/{{id}}/subscription",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/platform/tenants/{id}/subscription",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Change plan, status, trial/period end or per-company overrides",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPeriodEnd\": null,\n  \"note\": \"value\",\n  \"overrides\": {\n    \"featuresAdd\": [\n      \"multiCurrency\"\n    ],\n    \"featuresRemove\": [\n      \"multiCurrency\"\n    ],\n    \"limits\": {\n      \"maxBranches\": 0,\n      \"maxProducts\": 0,\n      \"maxRegisters\": 0,\n      \"maxSalesPerMonth\": 0,\n      \"maxUsers\": 0\n    }\n  },\n  \"planId\": \"{{id}}\",\n  \"status\": \"TRIAL\",\n  \"trialEndsAt\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "promotions",
+      "item": [
+        {
+          "name": "GET /promotions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/promotions"
+            },
+            "description": "Promotions (?current=true for the ones running now)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /promotions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promotions"
+            },
+            "description": "Percent or per-unit LAK discount for products/categories (best one applies)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"discountType\": \"PERCENT\",\n  \"value\": 0,\n  \"startsAt\": \"2026-01-01T00:00:00.000Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /promotions/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/promotions/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /promotions/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promotions/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Update; sending targets replaces them; isActive=false stops it",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountType\": \"PERCENT\",\n  \"endsAt\": \"2026-01-01T00:00:00.000Z\",\n  \"isActive\": false,\n  \"minQty\": 1,\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"startsAt\": \"2026-01-01T00:00:00.000Z\",\n  \"targets\": [\n    null\n  ],\n  \"value\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "public",
+      "item": [
+        {
+          "name": "POST /public/billing/webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/billing/webhook"
+            },
+            "description": "Payment confirmation: header X-Signature: sha256=<hex HMAC-SHA256 of the body with BILLING_WEBHOOK_SECRET>",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{id}}\",\n  \"status\": \"PAID\",\n  \"amountLak\": 0,\n  \"reference\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /public/plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/plans"
+            },
+            "description": "Plans offered on the website",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /public/signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/signup"
+            },
+            "description": "Start a trial: e-mails a 6-digit code; the company is created by /public/signup/verify",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"email\": \"value\",\n  \"owner\": {\n    \"password\": \"value\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /public/signup/google",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/signup/google"
+            },
+            "description": "Start a trial with a Google account (e-mail already confirmed by Google)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"idToken\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /public/signup/resend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/signup/resend"
+            },
+            "description": "Send a new code (at most 3 times)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /public/signup/verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/signup/verify"
+            },
+            "description": "Check the e-mailed code: creates the company and signs the owner in",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{id}}\",\n  \"code\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "quotations",
+      "item": [
+        {
+          "name": "GET /quotations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/quotations"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /quotations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/quotations"
+            },
+            "description": "Create a quotation priced like a sale (Q-YYMMDD-0001)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{id}}\",\n  \"validUntil\": \"2026-01-01\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /quotations/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/quotations/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Quotation with seller details and total in Lao words (for A4/PDF)"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /quotations/{{id}}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/quotations/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{id}}\",\n  \"validUntil\": \"2026-01-01\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /quotations/{{id}}/convert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/quotations/{id}/convert",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Sell a sent/accepted quotation at the quoted prices",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registerId\": \"{{id}}\",\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{id}}\",\n      \"amount\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /quotations/{{id}}/status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/quotations/{id}/status",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SENT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "repairs",
+      "item": [
+        {
+          "name": "GET /service-tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets"
+            },
+            "description": "Repair tickets (?status, open, customerId, q ticket/serial/device/phone)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /service-tickets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets"
+            },
+            "description": "Receive a device for repair or warranty claim (T-YYMMDD-0001)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{id}}\",\n  \"problem\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /service-tickets/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Ticket with lines, history and print data (receipt / quotation / bill)"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /service-tickets/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Diagnosis, promised date, warranty given on the repair, vendor",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessories\": \"value\",\n  \"diagnosis\": \"value\",\n  \"promisedAt\": \"2026-01-01T00:00:00.000Z\",\n  \"supplierId\": \"{{id}}\",\n  \"underWarranty\": false,\n  \"warrantyDays\": 0,\n  \"warrantyTerms\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /service-tickets/{{id}}/deliver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets/{id}/deliver",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Hand back; charges the repair through a sale unless under warranty",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"value\",\n  \"partSerials\": {},\n  \"payments\": [],\n  \"registerId\": \"{{id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /service-tickets/{{id}}/lines",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets/{id}/lines",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Set the repair quotation: parts and labour",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"type\": \"PART\",\n      \"description\": \"value\",\n      \"unitPriceLak\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /service-tickets/{{id}}/status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-tickets/{id}/status",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DIAGNOSING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "reports",
+      "item": [
+        {
+          "name": "GET /reports/best-sellers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/best-sellers"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/customer-purchases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/customer-purchases"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/dashboard"
+            },
+            "description": "Today's sales, last 7 days, top products, alerts, debts, open shifts"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/debt-aging",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/debt-aging"
+            },
+            "description": "Outstanding credit per customer by days overdue"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/debt-payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/debt-payments"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/expenses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/expenses"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/repairs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/repairs"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/sales-summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/sales-summary"
+            },
+            "description": "Sales totals (VAT, discounts, cost, profit) by day, month, cashier, register, branch or payment type"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/stock-documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/stock-documents"
+            },
+            "description": "Goods received / issued / adjusted per product (?type)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/stock-value",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/stock-value"
+            },
+            "description": "Stock on hand valued at average cost"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reports/voided-sales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/voided-sales"
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "returns",
+      "item": [
+        {
+          "name": "GET /returns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/returns"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /returns/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/returns/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales/{{id}}/returns",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}/returns",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Return items of a sale: refund, restock or mark defective",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"value\",\n  \"paymentTypeId\": \"{{id}}\",\n  \"items\": [\n    {\n      \"saleItemId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "sales",
+      "item": [
+        {
+          "name": "GET /held-bills",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/held-bills"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /held-bills",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/held-bills"
+            },
+            "description": "Park the current cart",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart\": {\n    \"items\": [\n      {\n        \"productId\": \"{{id}}\",\n        \"quantity\": 1\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /held-bills/{{id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/held-bills/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /held-bills/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/held-bills/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /sales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sales"
+            },
+            "description": "Sales (?from, to, status, paymentStatus, customerId, registerId, branchId, cashierId, shiftId, q)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales"
+            },
+            "description": "Complete a sale in the open shift: stock/serials out, payments in any currency, credit within limit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registerId\": \"{{id}}\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{id}}\",\n      \"amount\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales/quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/quote"
+            },
+            "description": "Price a cart (tier, promotions, VAT, payments) without saving",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registerId\": \"{{id}}\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /sales/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales/{{id}}/printed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}/printed",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Record a print (prints after the first are audited reprints)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /sales/{{id}}/receipt",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}/receipt",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Receipt data: store, lines, payments, total in Lao words"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales/{{id}}/tax-invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}/tax-invoice",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Issue a VAT invoice (buyer defaults to the customer)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerAddress\": \"value\",\n  \"buyerName\": \"value\",\n  \"buyerPhone\": \"value\",\n  \"buyerTaxId\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /sales/{{id}}/void",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{id}/void",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Void a sale of the open shift (sale.void or a manager approvalToken)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /tax-invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tax-invoices"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /tax-invoices/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tax-invoices/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Invoice with seller, buyer, lines and amounts for A4 printing"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /tax-invoices/{{id}}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tax-invoices/{id}/cancel",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "settings",
+      "item": [
+        {
+          "name": "GET /exchange-rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/exchange-rates"
+            },
+            "description": "Rate history (?currency, limit)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /exchange-rates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/exchange-rates"
+            },
+            "description": "Set a new rate (effective immediately)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"THB\",\n  \"lakPerUnit\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /exchange-rates/current",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/exchange-rates/current"
+            },
+            "description": "Latest LAK rate per currency"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /payment-types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment-types?active="
+            },
+            "description": "Payment types (?active=true for the till)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payment-types",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment-types"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"kind\": \"CASH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /payment-types/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment-types/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Rename, reorder or switch a payment type on/off",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"nameI18n\": {\n    \"en\": \"value\",\n    \"lo\": \"value\",\n    \"th\": \"value\"\n  },\n  \"requiresReference\": false,\n  \"sortOrder\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /registers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/registers"
+            },
+            "description": "Registers (tills) in the user's branches, with their open shift, if any"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /registers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/registers"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"value\",\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /registers/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/registers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /registers/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/registers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchId\": \"{{id}}\",\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"printer\": {\n    \"connection\": \"usb\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/settings"
+            },
+            "description": "Store, receipt, tax and pricing settings"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/settings"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"app.timezone\": \"Asia/Vientiane\",\n  \"pricing.lakRounding\": 1,\n  \"receipt.defaultSize\": \"58mm\",\n  \"receipt.footer\": \"value\",\n  \"repair.warrantyTerms\": \"value\",\n  \"store.address\": \"value\",\n  \"store.companyName\": \"value\",\n  \"store.logoUrl\": \"value\",\n  \"store.name\": \"value\",\n  \"store.phone\": \"value\",\n  \"store.taxId\": \"value\",\n  \"tax.pricesIncludeVat\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /tax-rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tax-rates"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /tax-rates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tax-rates"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"percent\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /tax-rates/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tax-rates/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false,\n  \"name\": \"value\",\n  \"percent\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /tax-rates/{{id}}/default",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tax-rates/{id}/default",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Make this the VAT rate for new sales"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "shifts",
+      "item": [
+        {
+          "name": "GET /shifts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shifts"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /shifts/current",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/current"
+            },
+            "description": "The signed-in user's open shift (empty body when none)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /shifts/open",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/open"
+            },
+            "description": "Open a shift on a register with the counted opening cash",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registerId\": \"{{id}}\",\n  \"openingCash\": {\n    \"LAK\": 0,\n    \"THB\": 0,\n    \"USD\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /shifts/{{id}}/cash-movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{id}/cash-movements",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /shifts/{{id}}/cash-movements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{id}/cash-movements",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Put cash into / take cash out of the drawer",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PAY_IN\",\n  \"currency\": \"LAK\",\n  \"amount\": 0,\n  \"reason\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /shifts/{{id}}/close",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{id}/close",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Close with the counted cash; returns the Z-report",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"closingCash\": {\n    \"LAK\": 0,\n    \"THB\": 0,\n    \"USD\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /shifts/{{id}}/report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{id}/report",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Z-report: sales, payments by type, expected vs counted cash"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "stock",
+      "item": [
+        {
+          "name": "GET /stock-documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents"
+            },
+            "description": "Receipts, issues, adjustments and transfers (?type, branchId, status, supplierId, from, to, q)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /stock-documents",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents"
+            },
+            "description": "Save a draft (serials/lots per line); stock changes on post",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"RECEIVE\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": -9007199254740991\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stock-documents/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /stock-documents/{{id}}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Replace a draft",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"RECEIVE\",\n  \"items\": [\n    {\n      \"productId\": \"{{id}}\",\n      \"quantity\": -9007199254740991\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /stock-documents/{{id}}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents/{id}/cancel",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Cancel a draft, or reverse a posted document if still possible",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /stock-documents/{{id}}/post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock-documents/{id}/post",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Apply the draft to stock"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stock/lots/expiring",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock/lots/expiring"
+            },
+            "description": "Lots with stock expiring within ?withinDays (default 30)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stock/movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock/movements"
+            },
+            "description": "Stock card (?productId, type, from, to)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stock/serials",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock/serials"
+            },
+            "description": "Serial numbers (?productId, status, condition, q)"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /stock/serials/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stock/serials/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Mark a unit as demo with its own price, or set supplier warranty",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"condition\": \"NEW\",\n  \"priceLak\": 0,\n  \"supplierWarrantyEndsAt\": \"2026-01-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stock/serials/{{serial}}/history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stock/serials/{serial}/history",
+              "variable": [
+                {
+                  "key": "serial",
+                  "value": "{{serial}}"
+                }
+              ]
+            },
+            "description": "Warranty lookup: supplier, sale, customer, warranty left, repairs"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /suppliers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/suppliers"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /suppliers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/suppliers"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /suppliers/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/suppliers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /suppliers/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/suppliers/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"value\",\n  \"email\": \"value\",\n  \"isActive\": true,\n  \"name\": \"value\",\n  \"phone\": \"value\",\n  \"taxId\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "subscription",
+      "item": [
+        {
+          "name": "GET /subscription",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subscription"
+            },
+            "description": "The company's plan, status, features, limits and current usage (for every user)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "item": [
+        {
+          "name": "GET /user-groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user-groups"
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "POST /user-groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-groups"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"permissions\": [\n    \"*\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /user-groups/permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user-groups/permissions"
+            },
+            "description": "All permission codes that can be granted (\"*\" = everything)"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /user-groups/{{id}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user-groups/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /user-groups/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-groups/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"value\",\n  \"permissions\": [\n    \"*\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users"
+            },
+            "description": "List users (?q, groupId, isActive, page, pageSize)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users"
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"value\",\n  \"fullName\": \"value\",\n  \"password\": \"value\",\n  \"groupId\": \"{{id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users/{{id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /users/{{id}}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Update name, group or active flag (deactivating signs the user out)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchIds\": [\n    \"{{id}}\"\n  ],\n  \"email\": \"value\",\n  \"fullName\": \"value\",\n  \"groupId\": \"{{id}}\",\n  \"isActive\": false,\n  \"language\": \"lo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /users/{{id}}/pin",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}/pin",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /users/{{id}}/pin",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}/pin",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /users/{{id}}/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}/reset-password",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /users/{{id}}/unlock",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}/unlock",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Clear a login lock after too many failed attempts"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

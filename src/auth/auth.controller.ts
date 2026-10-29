@@ -52,6 +52,7 @@ import { Public } from './decorators/public.decorator.js';
 const CREDENTIAL_ERRORS = errors(VALIDATION, THROTTLED, {
   401: ['INVALID_CREDENTIALS'],
   403: ['TENANT_SUSPENDED'],
+  409: ['TENANT_REQUIRED'],
   423: ['ACCOUNT_LOCKED'],
 });
 
@@ -75,14 +76,19 @@ export class AuthController {
   @AuthThrottle()
   @Post('login')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Sign in with username and password' })
+  @ApiOperation({ summary: 'Sign in with e-mail and password' })
   @ApiBody({ schema: openApiSchema(loginSchema) })
   @ApiZodResponse(authTokensSchema)
   @ApiErrors(CREDENTIAL_ERRORS)
   login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
   ): Promise<AuthTokens> {
-    return this.auth.login(body.tenantCode, body.username, body.password);
+    return this.auth.login(
+      body.tenantCode,
+      body.email,
+      body.username,
+      body.password,
+    );
   }
 
   @Public()

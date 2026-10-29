@@ -35,5 +35,6 @@ export type AuthTokens = {
   refreshToken: string;
   /** Access token lifetime in seconds. */
   expiresIn: number;
+  tenantCode: string;
   user: AuthUser;
 };
