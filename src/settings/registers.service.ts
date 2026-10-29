@@ -37,8 +37,11 @@ export class RegistersService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
-  async list() {
+  /** Registers in the branches the user may use (all branches when unrestricted). */
+  async list(user: AuthUser) {
+    const scope = this.branches.scope(user);
     const registers = await this.prisma.register.findMany({
+      where: scope && { branchId: { in: scope } },
       orderBy: { code: 'asc' },
       include: { ...withOpenShift, branch: { select: branchSelect } },
     });
@@ -48,12 +51,13 @@ export class RegistersService {
     }));
   }
 
-  async get(id: string) {
+  async get(id: string, user: AuthUser) {
     const { shifts, ...register } =
       await this.prisma.register.findUniqueOrThrow({
         where: { id },
         include: { ...withOpenShift, branch: { select: branchSelect } },
       });
+    this.branches.assertAccess(user, register.branchId);
     return { ...register, openShift: shifts[0] ?? null };
   }
 
@@ -74,8 +78,7 @@ export class RegistersService {
   }
 
   async update(id: string, input: UpdateRegisterInput, actor: AuthUser) {
-    const before = await this.get(id);
-    this.branches.assertAccess(actor, before.branchId);
+    const before = await this.get(id, actor);
     const moving = input.branchId && input.branchId !== before.branchId;
     if ((input.isActive === false || moving) && before.openShift) {
       throw new ConflictException(

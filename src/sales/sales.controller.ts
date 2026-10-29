@@ -51,7 +51,7 @@ import {
   type ListTaxInvoicesQuery,
   type QuoteSaleInput,
 } from './sales.schemas.js';
-import { SalesService } from './sales.service.js';
+import { SalesService, withoutCost } from './sales.service.js';
 import { TaxInvoicesService } from './tax-invoices.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 import { Idempotent } from '../common/idempotency.interceptor.js';
@@ -119,11 +119,11 @@ export class SalesController {
       ],
     }),
   )
-  create(
+  async create(
     @Body(zod(createSaleSchema)) body: CreateSaleInput,
     @CurrentUser() u: AuthUser,
   ) {
-    return this.sales.create(body, u);
+    return withoutCost(await this.sales.create(body, u), u);
   }
 
   @Get()
@@ -141,8 +141,8 @@ export class SalesController {
 
   @Get(':id')
   @RequirePermissions('sale.create')
-  get(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
-    return this.sales.getFor(saleId, u);
+  async get(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
+    return withoutCost(await this.sales.getFor(saleId, u), u);
   }
 
   @Get(':id/receipt')
@@ -152,10 +152,15 @@ export class SalesController {
   })
   @ApiZodResponse(saleReceiptSchema)
   @ApiErrors(
-    errors(SIGNED_IN, PERMISSION, { 400: ['BAD_REQUEST'], 404: ['NOT_FOUND'] }),
+    errors(SIGNED_IN, PERMISSION, {
+      400: ['BAD_REQUEST'],
+      403: ['BRANCH_FORBIDDEN'],
+      404: ['NOT_FOUND'],
+    }),
   )
-  receipt(@Param('id', id) saleId: string) {
-    return this.sales.receipt(saleId);
+  async receipt(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
+    const receipt = await this.sales.receipt(saleId, u);
+    return { ...receipt, sale: withoutCost(receipt.sale, u) };
   }
 
   @Post(':id/printed')
@@ -168,6 +173,7 @@ export class SalesController {
   @ApiErrors(
     errors(SIGNED_IN_WRITE, PERMISSION, {
       400: ['BAD_REQUEST'],
+      403: ['BRANCH_FORBIDDEN'],
       404: ['NOT_FOUND'],
     }),
   )
@@ -183,12 +189,15 @@ export class SalesController {
       'Void a sale of the open shift (sale.void or a manager approvalToken)',
   })
   @ApiZodBody(voidSaleSchema)
-  void(
+  async void(
     @Param('id', id) saleId: string,
     @Body(zod(voidSaleSchema)) body: { reason: string; approvalToken?: string },
     @CurrentUser() u: AuthUser,
   ) {
-    return this.sales.void(saleId, body.reason, body.approvalToken, u);
+    return withoutCost(
+      await this.sales.void(saleId, body.reason, body.approvalToken, u),
+      u,
+    );
   }
 
   @RequireFeature('taxInvoices')

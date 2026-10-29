@@ -2279,7 +2279,7 @@
             "type": "string"
           },
           "unitCostLak": {
-            "description": "Decimal number as a string",
+            "description": "Only with the product.viewCost permission",
             "pattern": "^-?\\d+(\\.\\d+)?$",
             "type": "string"
           },
@@ -2307,7 +2307,6 @@
           "promotionId",
           "discountLak",
           "lineTotalLak",
-          "unitCostLak",
           "warrantyMonths",
           "serialNumbers",
           "promotion"
@@ -9239,7 +9238,7 @@
             "bearer": []
           }
         ],
-        "summary": "Registers (tills) with their open shift, if any",
+        "summary": "Registers (tills) in the user's branches, with their open shift, if any",
         "tags": [
           "settings"
         ]
@@ -10382,7 +10381,7 @@
                 }
               }
             },
-            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION, BRANCH_FORBIDDEN"
           },
           "404": {
             "content": {
@@ -10468,7 +10467,7 @@
                 }
               }
             },
-            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION, BRANCH_FORBIDDEN"
           },
           "404": {
             "content": {

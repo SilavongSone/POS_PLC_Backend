@@ -202,16 +202,19 @@ export class RegistersController {
   constructor(private readonly registers: RegistersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Registers (tills) with their open shift, if any' })
+  @ApiOperation({
+    summary:
+      "Registers (tills) in the user's branches, with their open shift, if any",
+  })
   @ApiZodResponse(registersSchema)
   @ApiErrors(SIGNED_IN)
-  list() {
-    return this.registers.list();
+  list(@CurrentUser() u: AuthUser) {
+    return this.registers.list(u);
   }
 
   @Get(':id')
-  get(@Param('id', id) registerId: string) {
-    return this.registers.get(registerId);
+  get(@Param('id', id) registerId: string, @CurrentUser() u: AuthUser) {
+    return this.registers.get(registerId, u);
   }
 
   @Post()

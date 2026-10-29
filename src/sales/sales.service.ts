@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ApprovalService } from '../auth/approval.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
+import { hasPermission } from '../common/permissions.js';
 import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
@@ -23,6 +24,21 @@ import type {
 } from './sales.schemas.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import { addMonths } from '../common/time.js';
+
+/**
+ * Drops each line's cost snapshot unless the user may see costs (product.viewCost),
+ * like the product endpoints do.
+ */
+export function withoutCost<T extends { items: { unitCostLak: unknown }[] }>(
+  sale: T,
+  user: AuthUser,
+) {
+  if (hasPermission(user.permissions, 'product.viewCost')) return sale;
+  return {
+    ...sale,
+    items: sale.items.map(({ unitCostLak: _cost, ...item }) => item),
+  };
+}
 
 const saleInclude = {
   items: {
@@ -348,9 +364,9 @@ export class SalesService {
   }
 
   /** Everything a receipt needs (store details, lines, payments, warranties). */
-  async receipt(id: string) {
+  async receipt(id: string, user: AuthUser) {
     const [sale, store] = await Promise.all([
-      this.get(id),
+      this.getFor(id, user),
       this.settings.getAll(),
     ]);
     return {
@@ -373,6 +389,11 @@ export class SalesService {
 
   /** Records a print; any print after the first is a reprint and is audited. */
   async markPrinted(id: string, user: AuthUser) {
+    const { branchId } = await this.prisma.sale.findUniqueOrThrow({
+      where: { id },
+      select: { branchId: true },
+    });
+    this.branches.assertAccess(user, branchId);
     const sale = await this.prisma.sale.update({
       where: { id },
       data: { printCount: { increment: 1 } },

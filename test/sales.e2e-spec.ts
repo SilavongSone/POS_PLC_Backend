@@ -182,7 +182,12 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
     const serialLine = sale.items.find(
       (i: { productId: string }) => i.productId === serialized.id,
     );
-    expect(serialLine.unitCostLak).toBe('700000');
+    // Cashiers lack product.viewCost: the cost snapshot is stored but not returned.
+    expect(serialLine).not.toHaveProperty('unitCostLak');
+    const storedLine = await t.prisma.saleItem.findUniqueOrThrow({
+      where: { id: serialLine.id },
+    });
+    expect(storedLine.unitCostLak.toString()).toBe('700000');
     expect(serialLine.serialNumbers[0].serial).toBe(s[0]);
     expect(serialLine.serialNumbers[0].warrantyEndsAt).not.toBeNull();
 

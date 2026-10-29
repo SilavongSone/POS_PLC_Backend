@@ -129,7 +129,9 @@ export const saleItemSchema = apiSchema(
     discountLak: decimalString,
     lineTotalLak: decimalString,
     /** Cost snapshot (average cost at sale time). */
-    unitCostLak: decimalString,
+    unitCostLak: decimalString
+      .optional()
+      .meta({ description: 'Only with the product.viewCost permission' }),
     warrantyMonths: z.int(),
     serialNumbers: z.array(
       z.strictObject({
