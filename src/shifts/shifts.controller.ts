@@ -12,7 +12,17 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import {
+  ApiErrors,
+  ApiZodResponse,
+  errors,
+  PERMISSION,
+  SIGNED_IN,
+  SIGNED_IN_WRITE,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import { shiftSchema } from './shifts.responses.js';
 import {
   cashMovementSchema,
   closeShiftSchema,
@@ -39,6 +49,15 @@ export class ShiftsController {
     summary: 'Open a shift on a register with the counted opening cash',
   })
   @ApiZodBody(openShiftSchema)
+  @ApiZodResponse(shiftSchema)
+  @ApiErrors(
+    errors(VALIDATION, SIGNED_IN_WRITE, PERMISSION, {
+      400: ['BAD_REQUEST'],
+      403: ['BRANCH_FORBIDDEN'],
+      404: ['NOT_FOUND'],
+      409: ['CONFLICT'],
+    }),
+  )
   open(
     @Body(zod(openShiftSchema)) body: OpenShiftInput,
     @CurrentUser() u: AuthUser,
@@ -47,7 +66,14 @@ export class ShiftsController {
   }
 
   @Get('current')
-  @ApiOperation({ summary: "The signed-in user's open shift (null when none)" })
+  @ApiOperation({
+    summary: "The signed-in user's open shift (empty body when none)",
+  })
+  @ApiZodResponse(shiftSchema, {
+    description:
+      'The open shift. With no open shift the body is empty (200, no JSON), not `null`.',
+  })
+  @ApiErrors(errors(SIGNED_IN, PERMISSION))
   async current(@CurrentUser() u: AuthUser) {
     return (await this.shifts.current(u)) ?? null;
   }

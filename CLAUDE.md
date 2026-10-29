@@ -19,3 +19,4 @@ NestJS 12 + Prisma 7 + PostgreSQL REST API for the PLC POS (a shop selling POS e
 - Stock changes go through `StockLedgerService` with `ref.branchId`: it keeps `BranchStock` (per branch) and `Product.stockQty` (total) in step.
 - Gate plan features with `@RequireFeature()` / `EntitlementsService.assertFeature()`, and creations with `assertLimit()`.
 - Errors: throw with `{ message, code }`; add the code to `src/i18n/messages/{lo,th,en}.ts`. Update schemas use `patchOf()` (zod 4 applies defaults inside `.partial()`).
+- API contract: when a response changes, update its zod schema in `src/<module>/<module>.responses.ts` (checked by `test/contract.e2e-spec.ts`) and run `pnpm build && pnpm openapi:export` to regenerate `docs/openapi.json` (CI fails if it is stale).

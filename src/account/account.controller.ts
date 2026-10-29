@@ -12,7 +12,20 @@ import { AuthService } from '../auth/auth.service.js';
 import type { AuthTokens, AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
+import {
+  ApiEmptyResponse,
+  ApiErrors,
+  ApiZodResponse,
+  errors,
+  SIGNED_IN,
+  THROTTLED,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import {
+  authTokensSchema,
+  emailVerifiedSchema,
+} from '../auth/auth.responses.js';
 import { tenantCodeSchema } from '../tenancy/tenancy.schemas.js';
 import { AccountService } from './account.service.js';
 import { GoogleIdentityService } from './google-identity.service.js';
@@ -31,6 +44,17 @@ const reset = token.extend({
 const google = z.object({
   idToken: z.string().min(20).max(5000),
   tenantCode: tenantCodeSchema.optional(),
+});
+
+/** Sign in with Google: bad token, no/ambiguous account, disabled, suspended company. */
+const GOOGLE_LOGIN_ERRORS = errors(VALIDATION, THROTTLED, {
+  401: [
+    'GOOGLE_TOKEN_INVALID',
+    'GOOGLE_ACCOUNT_UNKNOWN',
+    'INVALID_CREDENTIALS',
+  ],
+  403: ['GOOGLE_DISABLED', 'TENANT_SUSPENDED'],
+  409: ['TENANT_REQUIRED', 'GOOGLE_ACCOUNT_AMBIGUOUS'],
 });
 
 /** Sending mail costs money and can be abused: a few per minute per IP. */
@@ -56,6 +80,8 @@ export class AccountController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Confirm an e-mail address with the link token' })
   @ApiZodBody(token)
+  @ApiZodResponse(emailVerifiedSchema)
+  @ApiErrors(errors(VALIDATION, THROTTLED, { 400: ['TOKEN_INVALID'] }))
   verifyEmail(@Body(zod(token)) body: z.infer<typeof token>) {
     return this.account.verifyEmail(body.token);
   }
@@ -65,6 +91,8 @@ export class AccountController {
   @MailThrottle()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Send the confirmation link for your e-mail again' })
+  @ApiEmptyResponse({ description: 'Link sent' })
+  @ApiErrors(errors(SIGNED_IN, { 400: ['EMAIL_NOT_PENDING'] }))
   async resend(@CurrentUser() user: AuthUser): Promise<void> {
     if (!user.email || user.emailVerified) {
       throw new BadRequestException({
@@ -88,6 +116,10 @@ export class AccountController {
       'E-mail a reset link (only to confirmed addresses; same answer either way)',
   })
   @ApiZodBody(forgot)
+  @ApiEmptyResponse({
+    description: 'Accepted (same answer whether or not the address exists)',
+  })
+  @ApiErrors(errors(VALIDATION, THROTTLED))
   async forgot(@Body(zod(forgot)) body: z.infer<typeof forgot>): Promise<void> {
     await this.account.forgotPassword(body.tenantCode, body.email);
   }
@@ -97,6 +129,10 @@ export class AccountController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Set a new password with the e-mailed token' })
   @ApiZodBody(reset)
+  @ApiEmptyResponse({
+    description: 'Password changed; every session is signed out',
+  })
+  @ApiErrors(errors(VALIDATION, THROTTLED, { 400: ['TOKEN_INVALID'] }))
   async reset(@Body(zod(reset)) body: z.infer<typeof reset>): Promise<void> {
     await this.account.resetPassword(body.token, body.newPassword);
   }
@@ -107,6 +143,8 @@ export class AccountController {
   @MailThrottle()
   @ApiOperation({ summary: 'Sign in with a Google ID token' })
   @ApiZodBody(google)
+  @ApiZodResponse(authTokensSchema)
+  @ApiErrors(GOOGLE_LOGIN_ERRORS)
   async googleLogin(
     @Body(zod(google)) body: z.infer<typeof google>,
   ): Promise<AuthTokens> {

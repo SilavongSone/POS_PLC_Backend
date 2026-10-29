@@ -9,11 +9,31 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import {
+  ApiErrors,
+  ApiZodResponse,
+  errors,
+  PERMISSION,
+  SIGNED_IN,
+  SIGNED_IN_WRITE,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import {
+  printCountSchema,
+  saleQuoteSchema,
+  saleReceiptSchema,
+  saleSchema,
+} from './sales.responses.js';
 import { HeldBillsService } from './held-bills.service.js';
 import {
   cancelTaxInvoiceSchema,
@@ -38,6 +58,13 @@ import { Idempotent } from '../common/idempotency.interceptor.js';
 
 const id = new ParseUUIDPipe();
 
+/** Pricing a cart: bad lines/payments, unknown register, serials not in stock. */
+const CART_ERRORS = errors(VALIDATION, SIGNED_IN_WRITE, PERMISSION, {
+  400: ['BAD_REQUEST'],
+  404: ['NOT_FOUND'],
+  409: ['CONFLICT'],
+});
+
 @ApiTags('sales')
 @ApiBearerAuth()
 @Controller('sales')
@@ -54,6 +81,8 @@ export class SalesController {
     summary: 'Price a cart (tier, promotions, VAT, payments) without saving',
   })
   @ApiZodBody(quoteSaleSchema)
+  @ApiZodResponse(saleQuoteSchema)
+  @ApiErrors(CART_ERRORS)
   quote(@Body(zod(quoteSaleSchema)) body: QuoteSaleInput) {
     return this.sales.quote(body);
   }
@@ -66,6 +95,30 @@ export class SalesController {
       'Complete a sale in the open shift: stock/serials out, payments in any currency, credit within limit',
   })
   @ApiZodBody(createSaleSchema)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      '8–100 letters, digits, "-" or "_". A retry with the same key and body returns the first response (header Idempotent-Replayed: true).',
+  })
+  @ApiZodResponse(saleSchema)
+  @ApiErrors(
+    errors(CART_ERRORS, {
+      403: [
+        'FEATURE_NOT_IN_PLAN',
+        'PLAN_LIMIT_REACHED',
+        'APPROVAL_REQUIRED',
+        'FORBIDDEN',
+      ],
+      404: ['NO_OPEN_SHIFT'],
+      409: [
+        'INSUFFICIENT_STOCK',
+        'CREDIT_LIMIT',
+        'IDEMPOTENCY_CONFLICT',
+        'IDEMPOTENCY_IN_PROGRESS',
+      ],
+    }),
+  )
   create(
     @Body(zod(createSaleSchema)) body: CreateSaleInput,
     @CurrentUser() u: AuthUser,
@@ -97,6 +150,10 @@ export class SalesController {
   @ApiOperation({
     summary: 'Receipt data: store, lines, payments, total in Lao words',
   })
+  @ApiZodResponse(saleReceiptSchema)
+  @ApiErrors(
+    errors(SIGNED_IN, PERMISSION, { 400: ['BAD_REQUEST'], 404: ['NOT_FOUND'] }),
+  )
   receipt(@Param('id', id) saleId: string) {
     return this.sales.receipt(saleId);
   }
@@ -107,6 +164,13 @@ export class SalesController {
   @ApiOperation({
     summary: 'Record a print (prints after the first are audited reprints)',
   })
+  @ApiZodResponse(printCountSchema)
+  @ApiErrors(
+    errors(SIGNED_IN_WRITE, PERMISSION, {
+      400: ['BAD_REQUEST'],
+      404: ['NOT_FOUND'],
+    }),
+  )
   printed(@Param('id', id) saleId: string, @CurrentUser() u: AuthUser) {
     return this.sales.markPrinted(saleId, u);
   }

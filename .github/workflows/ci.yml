@@ -48,3 +48,7 @@ jobs:
       - run: pnpm test
       - run: pnpm test:e2e
       - run: pnpm build
+      - name: OpenAPI contract (docs/openapi.json) is up to date
+        run: |
+          pnpm openapi:export
+          git diff --exit-code docs/openapi.json

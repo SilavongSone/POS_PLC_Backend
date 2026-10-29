@@ -15,7 +15,20 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import { queryBoolean } from '../common/pagination.js';
+import {
+  ApiErrors,
+  ApiZodQuery,
+  ApiZodResponse,
+  errors,
+  SIGNED_IN,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import {
+  currentRatesSchema,
+  paymentTypesSchema,
+  registersSchema,
+} from './settings.responses.js';
 import { ExchangeRatesService } from './exchange-rates.service.js';
 import { PaymentTypesService } from './payment-types.service.js';
 import { RegistersService } from './registers.service.js';
@@ -117,6 +130,8 @@ export class ExchangeRatesController {
 
   @Get('current')
   @ApiOperation({ summary: 'Latest LAK rate per currency' })
+  @ApiZodResponse(currentRatesSchema)
+  @ApiErrors(errors(SIGNED_IN, { 404: ['NOT_FOUND'] }))
   current() {
     return this.rates.current();
   }
@@ -150,6 +165,9 @@ export class PaymentTypesController {
 
   @Get()
   @ApiOperation({ summary: 'Payment types (?active=true for the till)' })
+  @ApiZodQuery(listPaymentTypesSchema)
+  @ApiZodResponse(paymentTypesSchema)
+  @ApiErrors(errors(VALIDATION, SIGNED_IN))
   list(@Query(zod(listPaymentTypesSchema)) query: { active?: boolean }) {
     return this.types.list(query.active ?? false);
   }
@@ -185,6 +203,8 @@ export class RegistersController {
 
   @Get()
   @ApiOperation({ summary: 'Registers (tills) with their open shift, if any' })
+  @ApiZodResponse(registersSchema)
+  @ApiErrors(SIGNED_IN)
   list() {
     return this.registers.list();
   }

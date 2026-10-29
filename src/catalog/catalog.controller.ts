@@ -27,7 +27,22 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import { hasPermission } from '../common/permissions.js';
+import {
+  ApiErrors,
+  ApiZodQuery,
+  ApiZodResponse,
+  errors,
+  PERMISSION,
+  SIGNED_IN,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import {
+  categoriesSchema,
+  productDetailSchema,
+  productLookupSchema,
+  productPageSchema,
+} from './catalog.responses.js';
 import { BrandsService } from './brands.service.js';
 import {
   bulkPriceSchema,
@@ -62,6 +77,8 @@ import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
 const branchQuery = z.object({ branchId: z.uuid().optional() });
+/** catalog.view reads: validation, sign-in, permission. */
+const READ_ERRORS = errors(VALIDATION, SIGNED_IN, PERMISSION);
 const canViewCost = (user: AuthUser) =>
   hasPermission(user.permissions, 'product.viewCost');
 
@@ -74,6 +91,12 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'Categories (flat, or nested with ?tree=true)' })
+  @ApiZodQuery(listCategoriesSchema)
+  @ApiZodResponse(categoriesSchema, {
+    description:
+      'Flat list, or root categories with nested children (?tree=true)',
+  })
+  @ApiErrors(READ_ERRORS)
   list(@Query(zod(listCategoriesSchema)) query: { tree?: boolean }) {
     return query.tree ? this.categories.tree() : this.categories.list();
   }
@@ -166,6 +189,9 @@ export class ProductsController {
     summary:
       'Search products (?q, categoryId incl. subcategories, brandId, type, isActive, lowStock, inStock, sort, page)',
   })
+  @ApiZodQuery(listProductsSchema)
+  @ApiZodResponse(productPageSchema)
+  @ApiErrors(READ_ERRORS)
   list(
     @Query(zod(listProductsSchema)) query: ListProductsQuery,
     @CurrentUser() user: AuthUser,
@@ -175,6 +201,9 @@ export class ProductsController {
 
   @Get('lookup')
   @ApiOperation({ summary: 'Scan lookup: exact barcode, SKU or serial number' })
+  @ApiZodQuery(lookupSchema)
+  @ApiZodResponse(productLookupSchema)
+  @ApiErrors(errors(READ_ERRORS, { 404: ['NOT_FOUND'] }))
   lookup(
     @Query(zod(lookupSchema)) query: { code: string; branchId?: string },
     @CurrentUser() user: AuthUser,
@@ -184,6 +213,9 @@ export class ProductsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'A product (?branchId: priced as at that branch)' })
+  @ApiZodQuery(branchQuery)
+  @ApiZodResponse(productDetailSchema)
+  @ApiErrors(errors(READ_ERRORS, { 400: ['BAD_REQUEST'], 404: ['NOT_FOUND'] }))
   get(
     @Param('id', id) productId: string,
     @Query(zod(branchQuery)) query: { branchId?: string },

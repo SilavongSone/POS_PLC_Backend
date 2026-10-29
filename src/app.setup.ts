@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  DocumentBuilder,
+  SwaggerModule,
+  type OpenAPIObject,
+} from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
+import { componentSchemas } from './common/openapi.js';
 import { RequestContext } from './common/request-context.js';
 import { fromAcceptLanguage, isLang } from './i18n/i18n.js';
 import type { Env } from './config/env.js';
@@ -86,13 +92,24 @@ export function configureApp(app: NestExpressApplication) {
   const swagger = config.get('SWAGGER_ENABLED', { infer: true });
   const isProduction = config.get('NODE_ENV', { infer: true }) === 'production';
   if (swagger === 'true' || (swagger === undefined && !isProduction)) {
-    const doc = new DocumentBuilder()
-      .setTitle('PLC POS API')
-      .setVersion('1.0.0')
-      .addBearerAuth()
-      .build();
-    SwaggerModule.setup('api/docs', app, () =>
-      SwaggerModule.createDocument(app, doc),
-    );
+    SwaggerModule.setup('api/docs', app, () => createOpenApiDocument(app));
   }
+}
+
+/**
+ * The OpenAPI document (Swagger UI and docs/openapi.json via scripts/export-openapi.ts),
+ * with the zod response schemas from common/openapi.ts as shared components.
+ */
+export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
+  const config = new DocumentBuilder()
+    .setTitle('PLC POS API')
+    .setVersion('1.0.0')
+    .addBearerAuth()
+    .build();
+  const doc = SwaggerModule.createDocument(app, config);
+  doc.components = {
+    ...doc.components,
+    schemas: { ...doc.components?.schemas, ...componentSchemas() },
+  };
+  return doc;
 }

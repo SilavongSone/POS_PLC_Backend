@@ -17,7 +17,19 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator.js';
+import {
+  ApiErrors,
+  ApiZodResponse,
+  errors,
+  THROTTLED,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
+import {
+  publicPlansSchema,
+  signupCompletedSchema,
+  signupPendingSchema,
+} from './platform.responses.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
@@ -241,6 +253,11 @@ export class PlatformController {
   }
 }
 
+/** Every sign-up step: validation, sign-up switched off, rate limit. */
+const SIGNUP_ERRORS = errors(VALIDATION, THROTTLED, {
+  403: ['SIGNUP_DISABLED'],
+});
+
 /** Website-facing: price list and self-service sign-up. */
 @ApiTags('public')
 @Public()
@@ -255,6 +272,8 @@ export class PublicController {
 
   @Get('plans')
   @ApiOperation({ summary: 'Plans offered on the website' })
+  @ApiZodResponse(publicPlansSchema)
+  @ApiErrors(THROTTLED)
   plans() {
     return this.prisma.plan.findMany({
       where: { isPublic: true, isActive: true },
@@ -290,6 +309,14 @@ export class PublicController {
       'Start a trial: e-mails a 6-digit code; the company is created by /public/signup/verify',
   })
   @ApiZodBody(signupSchema)
+  @ApiZodResponse(signupPendingSchema)
+  @ApiErrors(
+    errors(SIGNUP_ERRORS, {
+      400: ['BAD_REQUEST'],
+      409: ['TENANT_CODE_TAKEN'],
+      429: ['TOO_MANY_REQUESTS'],
+    }),
+  )
   signup(@Body(zod(signupSchema)) body: SignupInput) {
     this.assertOpen();
     return this.signups.request(body);
@@ -303,6 +330,13 @@ export class PublicController {
       'Check the e-mailed code: creates the company and signs the owner in',
   })
   @ApiZodBody(verifySignupSchema)
+  @ApiZodResponse(signupCompletedSchema)
+  @ApiErrors(
+    errors(SIGNUP_ERRORS, {
+      400: ['SIGNUP_CODE_INVALID', 'BAD_REQUEST'],
+      409: ['TENANT_CODE_TAKEN'],
+    }),
+  )
   verifySignup(
     @Body(zod(verifySignupSchema)) body: z.infer<typeof verifySignupSchema>,
   ) {
@@ -315,6 +349,8 @@ export class PublicController {
   @SignupThrottle()
   @ApiOperation({ summary: 'Send a new code (at most 3 times)' })
   @ApiZodBody(resendSignupSchema)
+  @ApiZodResponse(signupPendingSchema)
+  @ApiErrors(errors(SIGNUP_ERRORS, { 400: ['SIGNUP_CODE_INVALID'] }))
   resendSignup(
     @Body(zod(resendSignupSchema)) body: z.infer<typeof resendSignupSchema>,
   ) {
@@ -329,6 +365,15 @@ export class PublicController {
       'Start a trial with a Google account (e-mail already confirmed by Google)',
   })
   @ApiZodBody(googleSignupSchema)
+  @ApiZodResponse(signupCompletedSchema)
+  @ApiErrors(
+    errors(SIGNUP_ERRORS, {
+      400: ['GOOGLE_EMAIL_UNVERIFIED', 'BAD_REQUEST'],
+      401: ['GOOGLE_TOKEN_INVALID'],
+      403: ['GOOGLE_DISABLED'],
+      409: ['TENANT_CODE_TAKEN'],
+    }),
+  )
   async signupWithGoogle(
     @Body(zod(googleSignupSchema)) body: GoogleSignupInput,
   ) {

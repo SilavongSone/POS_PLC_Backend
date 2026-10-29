@@ -182,6 +182,43 @@ erDiagram
   ServiceTicket |o--o| Sale : "paid by"
 ```
 
+### 5.1 ER Diagram: หลายบริษัท (SaaS), สาขา และตารางระบบ
+
+ตารางที่ไม่อยู่ในภาพบน · ทุกตารางของบริษัทมี `tenantId` (ภาพนี้แสดงเส้นไป `Tenant` เฉพาะตารางหลัก เพื่อไม่ให้รก) · `Plan`, `PlatformAdmin`, `SignupRequest` เป็นของ platform ไม่ผูกกับบริษัท
+
+```mermaid
+erDiagram
+  Tenant ||--o| Subscription : has
+  Plan ||--o{ Subscription : "subscribed as"
+  Tenant ||--o{ BillingInvoice : billed
+  Plan ||--o{ BillingInvoice : for
+  Tenant ||--o{ Branch : has
+  Tenant ||--o{ User : employs
+  Tenant ||--o{ Product : owns
+  Tenant ||--o{ Setting : "key/value"
+  Tenant ||--o{ DocSequence : "doc numbers"
+  Tenant ||--o{ ExchangeRate : rates
+  Tenant ||--o{ IdempotencyKey : "replay guard"
+  Tenant |o--o{ AuditLog : logs
+  Branch ||--o{ Register : has
+  Branch ||--o{ BranchStock : "stock per branch"
+  Product ||--o{ BranchStock : "qty at"
+  Branch ||--o{ BranchPrice : "price override"
+  Product ||--o{ BranchPrice : "priced at"
+  User ||--o{ UserBranch : "may use"
+  Branch ||--o{ UserBranch : "used by"
+  User ||--o{ RefreshToken : sessions
+  User ||--o{ UserToken : "e-mail / reset links"
+  User |o--o{ AuditLog : did
+  User |o--o{ ExchangeRate : set
+  PlatformAdmin {
+    string id PK
+  }
+  SignupRequest {
+    string id PK
+  }
+```
+
 ## 6. กฎทางธุรกิจหลัก
 
 **เงินและราคา**
@@ -257,14 +294,41 @@ service             บริการ (ติดตั้ง, ซ่อม)
 
 ## 10. สถาปัตยกรรมการติดตั้งและการพิมพ์
 
-```
- ┌──────────── ร้าน (หลายเครื่องขาย) ────────────┐              ┌──────── Cloud VPS ────────┐
- │ เครื่องขาย R1: Chrome (Next.js)                 │   HTTPS      │ Next.js frontend           │
- │   └─ print bridge (localhost:9180) ─USB/LAN─▶ 🖨 │ ───────────▶ │ NestJS API  ─▶ PostgreSQL  │
- │                      └─ RJ11 ─▶ ลิ้นชักเงิน      │              │ backup รายวัน → object storage │
- │ เครื่องขาย R2: ... (แบบเดียวกัน)                 │              └────────────────────────────┘
- │ มือถือ/แท็บเล็ต: แคตตาล็อก, สแกนด้วยกล้อง          │
- └──────────────────────────────────────────────┘
+เส้นทึบ = มีในโค้ดแล้ว · เส้นประ = วางแผนไว้ ยังไม่ได้ทำ (print bridge, backup อัตโนมัติ, frontend ใน `docker-compose.prod.yml`)
+
+```mermaid
+flowchart LR
+  subgraph Shop["Shop LAN"]
+    Till["Till R1, R2 …<br/>Chrome"]
+    Mobile["Phone / tablet<br/>catalog + camera scan"]
+    Bridge["Print bridge<br/>localhost:9180"]
+    Printer["Receipt printer<br/>+ cash drawer"]
+  end
+
+  subgraph Cloud["Cloud VPS · Docker Compose"]
+    Web["Next.js frontend"]
+    API["NestJS API<br/>/api · Swagger /api/docs"]
+    DB[("PostgreSQL")]
+    Uploads[("Uploads volume<br/>product images")]
+  end
+
+  subgraph External["External services"]
+    SMTP["SMTP<br/>verify / reset e-mails"]
+    Google["Google Identity<br/>ID token check"]
+    Gateway["Payment gateway<br/>plan billing"]
+    Backup[("Off-site backup")]
+  end
+
+  Till -- HTTPS --> Web
+  Mobile -- HTTPS --> Web
+  Web -- "REST + JWT" --> API
+  API -- "Prisma (tenantId-scoped)" --> DB
+  API --> Uploads
+  API --> SMTP
+  API --> Google
+  Gateway -- "signed webhook<br/>/api/public/billing/webhook" --> API
+  Till -.-> Bridge -.-> Printer
+  DB -.-> Backup
 ```
 
 - **Cloud:** backend, frontend และ PostgreSQL อยู่บน VPS เดียวกัน (Docker Compose) ใช้ HTTPS · backup `pg_dump` ทุกวันเก็บ 30 วันไว้นอกเครื่อง · ทุกเครื่องขายใช้เบราว์เซอร์ ไม่ต้องติดตั้งโปรแกรม POS

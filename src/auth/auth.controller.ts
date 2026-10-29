@@ -13,7 +13,16 @@ import {
   ZodValidationPipe,
 } from '../common/zod-validation.pipe.js';
 import { Throttle } from '@nestjs/throttler';
+import {
+  ApiEmptyResponse,
+  ApiErrors,
+  ApiZodResponse,
+  errors,
+  THROTTLED,
+  VALIDATION,
+} from '../common/openapi.js';
 import { ApprovalService } from './approval.service.js';
+import { authTokensSchema } from './auth.responses.js';
 import { AuthService } from './auth.service.js';
 import {
   approveSchema,
@@ -39,6 +48,13 @@ import { Public } from './decorators/public.decorator.js';
  * Credential endpoints get a tight per-IP limit (THROTTLE_AUTH_LIMIT per minute) on top of
  * the per-account lockout, so guessing passwords or PINs across accounts is slow too.
  */
+/** Password/PIN sign-in errors (unknown company, wrong credentials, lockout, suspended). */
+const CREDENTIAL_ERRORS = errors(VALIDATION, THROTTLED, {
+  401: ['INVALID_CREDENTIALS'],
+  403: ['TENANT_SUSPENDED'],
+  423: ['ACCOUNT_LOCKED'],
+});
+
 const AuthThrottle = () =>
   Throttle({
     default: {
@@ -61,6 +77,8 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Sign in with username and password' })
   @ApiBody({ schema: openApiSchema(loginSchema) })
+  @ApiZodResponse(authTokensSchema)
+  @ApiErrors(CREDENTIAL_ERRORS)
   login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
   ): Promise<AuthTokens> {
@@ -73,6 +91,8 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Quick sign-in at a till with username and PIN' })
   @ApiBody({ schema: openApiSchema(pinLoginSchema) })
+  @ApiZodResponse(authTokensSchema)
+  @ApiErrors(CREDENTIAL_ERRORS)
   pinLogin(
     @Body(new ZodValidationPipe(pinLoginSchema)) body: PinLoginInput,
   ): Promise<AuthTokens> {
@@ -87,6 +107,8 @@ export class AuthController {
     summary: 'Exchange a refresh token for new tokens (rotation)',
   })
   @ApiBody({ schema: openApiSchema(refreshSchema) })
+  @ApiZodResponse(authTokensSchema)
+  @ApiErrors(errors(VALIDATION, THROTTLED, { 401: ['UNAUTHORIZED'] }))
   refresh(
     @Body(new ZodValidationPipe(refreshSchema)) body: RefreshInput,
   ): Promise<AuthTokens> {
@@ -98,6 +120,10 @@ export class AuthController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Revoke a refresh token' })
   @ApiBody({ schema: openApiSchema(refreshSchema) })
+  @ApiEmptyResponse({
+    description: 'Signed out (also when the token was unknown)',
+  })
+  @ApiErrors(errors(VALIDATION, THROTTLED))
   async logout(
     @Body(new ZodValidationPipe(refreshSchema)) body: RefreshInput,
   ): Promise<void> {

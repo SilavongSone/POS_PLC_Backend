@@ -2,6 +2,7 @@
 
 > อัปเดตล่าสุด: 2026-10-27 (หลายบริษัท · หลายสาขา · แพ็กเกจ · 3 ภาษา — ดู [`saas-design.md`](./saas-design.md)) · Swagger ตัวเต็มอยู่ที่ `GET /api/docs` (JSON: `/api/docs-json`)
 > ตารางและกฎธุรกิจดูได้ที่ [`database-design.md`](./database-design.md) · ขอบเขตงานดูได้ที่ [`product-plan.md`](./product-plan.md)
+> ภาพรวมระบบ (diagram): [`database-design.md` §10](./database-design.md#10-สถาปัตยกรรมการติดตั้งและการพิมพ์) · สัญญา API แบบไฟล์: [`openapi.json`](./openapi.json) (import เข้า Postman ได้)
 
 ## ข้อตกลงทั่วไป
 
@@ -52,6 +53,34 @@
 2. แคชเชียร์ล็อกอินด้วย `POST /auth/pin-login` → เก็บ `accessToken` (15 นาที) + `refreshToken` · เมื่อได้ 401 ให้เรียก `POST /auth/refresh` แล้วยิงซ้ำ
 3. `GET /shifts/current` → ถ้าได้ `null` ให้เปิดกะด้วย `POST /shifts/open { registerId, openingCash: { LAK, THB, USD } }`
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor C as Cashier
+  participant W as Frontend (till)
+  participant A as API
+  participant D as PostgreSQL
+
+  Note over W: registerId saved on this device<br/>(first time: Admin picks from GET /registers)
+  C->>W: username + PIN
+  W->>A: POST /auth/pin-login { tenantCode, username, pin }
+  A->>D: find user in tenant, check PIN (argon2), lockout
+  alt wrong PIN / locked
+    A-->>W: 401 INVALID_CREDENTIALS / 423 locked
+  else ok
+    A->>D: store refresh token (hash)
+    A-->>W: { accessToken (15 min), refreshToken (PIN_SESSION_TTL_HOURS), user }
+  end
+  W->>A: GET /shifts/current
+  A-->>W: shift or null
+  opt no open shift
+    C->>W: count opening cash
+    W->>A: POST /shifts/open { registerId, openingCash: { LAK, THB, USD } }
+    A->>D: create shift (1 open shift per register and per user)
+    A-->>W: shift
+  end
+```
+
 ### 1.1 ล็อกอินและบริษัท
 - หน้า login มีช่อง **รหัสบริษัท** (จำไว้ในเครื่องได้) → `POST /auth/login { tenantCode, username, password }` · หรือปุ่ม **Google** → `POST /auth/google { idToken }` (ถ้าได้ `409 TENANT_REQUIRED` ให้เลือกบริษัทจาก `companies` แล้วส่ง `tenantCode` ซ้ำ)
 - ลืมรหัสผ่าน → `POST /auth/forgot-password { email }` → ผู้ใช้กดลิงก์ในอีเมล (`APP_URL/reset-password?token=`) → `POST /auth/reset-password { token, newPassword }` · ลิงก์ยืนยันอีเมลชี้ไป `APP_URL/verify-email?token=` → `POST /auth/verify-email { token }`
@@ -59,12 +88,83 @@
 - หลังล็อกอิน `GET /subscription` เพื่อซ่อนเมนูที่แพ็กเกจไม่มี (`features`) และแสดงคำเตือนใกล้หมดอายุ (`trialEndsAt`, `currentPeriodEnd`, `graceEndsAt`) · ถ้าได้ `402 SUBSCRIPTION_INACTIVE` ให้แสดงว่าอ่านได้อย่างเดียว
 - `GET /auth/me` มี `branchIds` (null = ทุกสาขา) และ `language`
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant W as Frontend
+  participant A as API
+  participant D as PostgreSQL
+
+  W->>A: POST /auth/login { tenantCode, username, password }
+  A->>D: enter tenant, verify password (argon2), lockout check
+  A-->>W: { accessToken, refreshToken, expiresIn, user }
+  W->>A: GET /subscription (hide menus not in plan)
+  Note over W,A: every request: Authorization: Bearer accessToken + Accept-Language
+
+  W->>A: GET /products ...
+  A-->>W: 401 (access token expired)
+  W->>A: POST /auth/refresh { refreshToken }
+  A->>D: mark old refresh token revoked (only if not revoked yet)
+  alt token already revoked (reuse)
+    A->>D: revoke all sessions of the user
+    A-->>W: 401 → back to login
+  else ok
+    A-->>W: new { accessToken, refreshToken }
+    W->>A: retry GET /products ... (once)
+  end
+
+  W->>A: POST /auth/logout { refreshToken }
+  A->>D: revoke that refresh token
+```
+
+Google: `POST /auth/google { idToken }` → ถ้าบัญชีอยู่หลายบริษัทจะได้ `409 TENANT_REQUIRED` พร้อม `companies` → ให้ผู้ใช้เลือกแล้วส่งซ้ำพร้อม `tenantCode`
+
 ### 2. ขาย
 1. สแกน → `GET /products/lookup?code=` (รองรับบาร์โค้ด, SKU และ serial) → ถ้าได้ `serial` ให้ใส่ลงบรรทัดนั้นเลย
 2. ทุกครั้งที่ตะกร้าเปลี่ยน → `POST /sales/quote` ได้ราคาจริง, โปรโมชั่น, VAT, ยอดรวม และ `needsApproval`
 3. ถ้ามีการแก้ราคาหรือให้ส่วนลด และผู้ใช้ไม่มีสิทธิ์ → เปิดหน้าต่างให้ผู้จัดการใส่ username + PIN → `POST /auth/approve { permission }` → ได้ `approvalToken` (อายุ 2 นาที) → ส่งใน `approvals: { 'price.override': token }`
 4. `POST /sales` พร้อม header `Idempotency-Key` (สร้างใหม่ต่อบิล, ใช้ key เดิมเมื่อส่งซ้ำ) `{ registerId, customerId?, items[{productId, quantity, serials?, componentSerials?, unitPriceLak?, discountLak?}], discountLak, payments[{paymentTypeId, currency, amount, reference?}], heldBillId? }`
 5. `GET /sales/:id/receipt` → ส่งให้ print bridge (ESC/POS) → `POST /sales/:id/printed`
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor C as Cashier
+  participant W as Frontend (till)
+  participant A as API
+  participant D as PostgreSQL
+
+  C->>W: scan barcode / SKU / serial
+  W->>A: GET /products/lookup?code=
+  A-->>W: { product, serial? }
+  loop every cart change
+    W->>A: POST /sales/quote { items, discountLak }
+    A-->>W: prices, promotions, VAT, totals, needsApproval
+  end
+  opt price override / discount without permission
+    C->>W: manager username + PIN
+    W->>A: POST /auth/approve { permission }
+    A-->>W: approvalToken (2 min)
+  end
+  C->>W: take payments (LAK / THB / USD, split)
+  W->>A: POST /sales + Idempotency-Key { registerId, items, payments, approvals? }
+  alt same key already finished
+    A-->>W: saved response (Idempotent-Replayed: true)
+  else new key
+    A->>D: BEGIN
+    A->>D: require open shift on register (else 404 NO_OPEN_SHIFT)
+    A->>D: price cart, check approvals, plan payments + change (rate snapshot per payment)
+    A->>D: next number S-{register}-{date}-####
+    A->>D: insert sale, items, payments
+    A->>D: stock out per branch + movement rows, serials → SOLD (else 409 INSUFFICIENT_STOCK, rollback)
+    A->>D: COMMIT
+    A-->>W: 201 sale
+  end
+  W->>A: GET /sales/:id/receipt
+  A-->>W: receipt data (lo / th / en)
+  W->>W: print (browser today · print bridge planned)
+  W->>A: POST /sales/:id/printed
+```
 
 ### 3. ยกเลิกบิล, คืนสินค้า, ใบกำกับภาษี
 - ยกเลิกบิลได้เฉพาะบิลของกะที่ยังเปิดอยู่: `POST /sales/:id/void { reason, approvalToken? }`
@@ -92,7 +192,21 @@
 | Cashier | `catalog.view`, `sale.create`, `sale.hold`, `sale.reprint`, `taxInvoice.issue`, `customer.manage`, `debt.receive`, `shift.operate`, `cash.move`, `repair.receive` |
 | Viewer | `catalog.view` |
 
+## Postman
+
+1. **Import** → ไฟล์ [`openapi.json`](./openapi.json) (สร้างจากโค้ดด้วย `pnpm openapi:export` ห้ามแก้เอง) → Postman สร้าง collection ให้ · ตั้ง collection variable `baseUrl` = `{{baseUrl}}`
+2. **Import** → [`postman/plc-pos.local.postman_environment.json`](./postman/plc-pos.local.postman_environment.json) แล้วใส่ `password` เองในเครื่อง (ไฟล์ใน repo ไม่มีรหัสผ่านหรือ token — ห้าม commit ค่าจริง)
+3. ที่ request `POST /auth/login` ใส่ body `{ "tenantCode": "{{tenantCode}}", "username": "{{username}}", "password": "{{password}}" }` และใน **Scripts → Post-response**:
+   ```js
+   const body = pm.response.json();
+   pm.environment.set('accessToken', body.accessToken);
+   pm.environment.set('refreshToken', body.refreshToken);
+   ```
+4. ที่ระดับ collection ตั้ง **Authorization → Bearer Token** = `{{accessToken}}` · token หมดอายุใน 15 นาที → ยิง login ใหม่ (หรือ `POST /auth/refresh`)
+5. API เปลี่ยน → `pnpm openapi:export` แล้ว import `openapi.json` ใหม่ (ไม่ต้องดูแล collection ด้วยมือ)
+
 ## การทดสอบ
 
 - `pnpm test`: unit test (เงิน, VAT, คำนวณราคา, จำนวนเงินเป็นตัวอักษร 3 ภาษา, สิทธิ์, เวลา, แพ็กเกจ/สิทธิ์ใช้งาน, cache แยกบริษัท)
+- Windows ที่เปิด Smart App Control: migrate ฐานข้อมูล test ด้วย `$env:PRISMA_DATABASE_URL="…/plc_pos_test"; .\scripts\prisma.ps1 migrate deploy` แล้วรัน `E2E_SKIP_MIGRATE=1 pnpm test:e2e`
 - `pnpm test:e2e`: 126 test ที่ยิง API จริงกับฐานข้อมูล `<db>_test` (migrate + seed ให้อัตโนมัติ และไม่ลบข้อมูล) รวมชุดหลายบริษัท/สาขา/แพ็กเกจ/ราคาตามสาขา (`saas`), อีเมล/Google (`account`), ค่าแพ็กเกจ (`billing`), ภาษา (`i18n`) และกันส่งซ้ำ (`ops`)

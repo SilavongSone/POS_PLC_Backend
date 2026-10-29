@@ -13,6 +13,8 @@ export default function setup() {
     PLATFORM_ADMIN_PASSWORD: 'platform-password-1',
   };
   const run = (cmd: string) => execSync(cmd, { env, stdio: 'pipe' });
-  run('npx prisma migrate deploy');
+  // On Windows dev machines with Smart App Control the native schema engine is blocked;
+  // migrate the test database with scripts/prisma.ps1 first and set E2E_SKIP_MIGRATE=1.
+  if (process.env.E2E_SKIP_MIGRATE !== '1') run('npx prisma migrate deploy');
   run('npx prisma db seed');
 }
