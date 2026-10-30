@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CategoriesService } from '../catalog/categories.service.js';
 import { pageArgs, toPage, type PageQuery } from '../common/pagination.js';
 import { RequestContext } from '../common/request-context.js';
+import { currentLang, localized } from '../i18n/i18n.js';
 import { APP_TIMEZONE, localToday, startOfLocalDay } from '../common/time.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -113,16 +114,24 @@ export class ReportsService {
 
     let groups: unknown[];
     if (q.groupBy === 'paymentType') {
-      groups = await this.prisma.$queryRaw`
-        SELECT t."id" AS key, t."name" AS label, t."kind", p."currency",
+      const rows = await this.prisma.$queryRaw<
+        { label: string; nameI18n: unknown; [k: string]: unknown }[]
+      >`
+        SELECT t."id" AS key, t."name" AS label, t."nameI18n", t."kind", p."currency",
                count(*)::int AS count, SUM(p."amount") AS amount, SUM(p."amountLak") AS "amountLak"
         FROM "Payment" p
         JOIN "Sale" s ON s."id" = p."saleId"
         JOIN "PaymentType" t ON t."id" = p."paymentTypeId"
         WHERE s."status" = 'COMPLETED' AND s."createdAt" >= ${r.start} AND s."createdAt" < ${r.end}
           AND ${scope}
-        GROUP BY t."id", t."name", t."kind", p."currency"
+        GROUP BY t."id", t."name", t."nameI18n", t."kind", p."currency"
         ORDER BY "amountLak" DESC`;
+      // Raw SQL skips the response translator: put the request language's name in `label`.
+      const lang = currentLang();
+      groups = rows.map(({ nameI18n, ...row }) => ({
+        ...row,
+        label: localized(nameI18n, row.label, lang),
+      }));
     } else {
       const key = {
         day: Prisma.sql`to_char(${local('s."createdAt"')}, 'YYYY-MM-DD')`,
@@ -244,7 +253,7 @@ export class ReportsService {
           stockQty: true,
           lowStockAlert: true,
           avgCostLak: true,
-          category: { select: { name: true } },
+          category: { select: { name: true, nameI18n: true } },
         },
         ...pageArgs(q),
       }),
@@ -345,14 +354,18 @@ export class ReportsService {
       _sum: { amount: true, amountLak: true },
     });
     const types = new Map(
-      (await this.prisma.paymentType.findMany()).map((t) => [t.id, t.name]),
+      (await this.prisma.paymentType.findMany()).map((t) => [
+        t.id,
+        { name: t.name, nameI18n: t.nameI18n },
+      ]),
     );
     return {
       from: r.fromDate,
       to: r.toDate,
       byPaymentType: groups.map((g) => ({
         paymentTypeId: g.paymentTypeId,
-        name: types.get(g.paymentTypeId),
+        name: types.get(g.paymentTypeId)?.name,
+        nameI18n: types.get(g.paymentTypeId)?.nameI18n ?? null,
         currency: g.currency,
         count: g._count,
         amount: g._sum.amount,
@@ -410,8 +423,12 @@ export class ReportsService {
       _count: true,
       _sum: { amountLak: true },
     });
-    const names = new Map(
-      (await this.prisma.expenseCategory.findMany()).map((c) => [c.id, c.name]),
+    // nameI18n goes out too so the response is translated like other names.
+    const categories = new Map(
+      (await this.prisma.expenseCategory.findMany()).map((c) => [
+        c.id,
+        { name: c.name, nameI18n: c.nameI18n },
+      ]),
     );
     return {
       from: r.fromDate,
@@ -419,7 +436,8 @@ export class ReportsService {
       byCategory: groups
         .map((g) => ({
           categoryId: g.categoryId,
-          name: names.get(g.categoryId),
+          name: categories.get(g.categoryId)?.name,
+          nameI18n: categories.get(g.categoryId)?.nameI18n ?? null,
           count: g._count,
           amountLak: g._sum.amountLak ?? zero(),
         }))
