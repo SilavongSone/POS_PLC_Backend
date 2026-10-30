@@ -32,7 +32,7 @@ const returnInclude = {
       },
     },
   },
-  paymentType: { select: { id: true, name: true, kind: true } },
+  paymentType: { select: { id: true, name: true, nameI18n: true, kind: true } },
   createdBy: { select: { id: true, fullName: true } },
   sale: { select: { id: true, receiptNo: true, customerId: true } },
 } satisfies Prisma.SaleReturnInclude;

@@ -3619,11 +3619,28 @@
               },
               "name": {
                 "type": "string"
+              },
+              "nameI18n": {
+                "additionalProperties": false,
+                "nullable": true,
+                "properties": {
+                  "en": {
+                    "type": "string"
+                  },
+                  "lo": {
+                    "type": "string"
+                  },
+                  "th": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
               }
             },
             "required": [
               "id",
               "name",
+              "nameI18n",
               "kind"
             ],
             "type": "object"
@@ -6842,10 +6859,27 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "nameI18n": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "en": {
+                              "type": "string"
+                            },
+                            "lo": {
+                              "type": "string"
+                            },
+                            "th": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         }
                       },
                       "required": [
                         "name",
+                        "nameI18n",
                         "kind"
                       ],
                       "type": "object"

@@ -193,6 +193,8 @@ sequenceDiagram
 | Cashier | `catalog.view`, `sale.create`, `sale.hold`, `sale.reprint`, `taxInvoice.issue`, `customer.manage`, `debt.receive`, `shift.operate`, `cash.move`, `repair.receive` |
 | Viewer | `catalog.view` |
 
+> **2026-10-30:** ชื่อ `paymentType` ในบิล/ใบเสร็จ/ใบกำกับภาษี/คืนสินค้า/รับชำระหนี้ และ `category`/`paymentType` ใน `GET /expenses` แปลตามภาษาของคำขอแล้ว (ส่ง `nameI18n` มาด้วย) — ก่อนนี้ส่งชื่อฐาน (อังกฤษ) เสมอ
+
 > **2026-10-29:** `GET /sales/:id/receipt` มี `branch` (ชื่อ, ที่อยู่, โทร, `receiptHeader`) ของสาขาที่ขาย · `from`/`to` ของ `GET /sales` และ `GET /tax-invoices` เป็นวันตามเวลาร้าน (Asia/Vientiane) · `GET /tax-invoices/:id` ไม่ส่ง `unitCostLak` · `from`/`to` ของ `GET /stock-documents` และ `/stock/movements` เป็นวันตามเวลาร้านเช่นกัน · `/stock/movements` และ `/stock/serials` รับ `branchId` และจำกัดตามสาขาที่ผู้ใช้เข้าถึงได้
 
 ## Postman

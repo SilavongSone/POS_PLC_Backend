@@ -5,6 +5,7 @@ import {
   currencySchema,
   dateTimeString,
   decimalString,
+  i18nMap,
 } from '../common/openapi.js';
 
 const priceTier = z.enum(['RETAIL', 'WHOLESALE']);
@@ -162,7 +163,9 @@ export const salePaymentSchema = apiSchema(
     createdAt: dateTimeString,
     paymentType: z.strictObject({
       id: z.uuid(),
+      /** In the request language (nameI18n keeps every translation). */
       name: z.string(),
+      nameI18n: i18nMap,
       kind: paymentKind,
     }),
   }),
@@ -349,7 +352,11 @@ export const taxInvoiceSchema = apiSchema(
       ),
       payments: z.array(
         salePaymentSchema.omit({ paymentType: true }).extend({
-          paymentType: z.strictObject({ name: z.string(), kind: paymentKind }),
+          paymentType: z.strictObject({
+            name: z.string(),
+            nameI18n: i18nMap,
+            kind: paymentKind,
+          }),
         }),
       ),
     }),

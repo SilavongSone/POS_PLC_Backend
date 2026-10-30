@@ -55,7 +55,11 @@ const saleInclude = {
     },
   },
   payments: {
-    include: { paymentType: { select: { id: true, name: true, kind: true } } },
+    include: {
+      paymentType: {
+        select: { id: true, name: true, nameI18n: true, kind: true },
+      },
+    },
   },
   customer: {
     select: {

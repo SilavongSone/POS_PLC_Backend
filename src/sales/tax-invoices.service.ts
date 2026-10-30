@@ -88,7 +88,9 @@ export class TaxInvoicesService {
               },
               payments: {
                 include: {
-                  paymentType: { select: { name: true, kind: true } },
+                  paymentType: {
+                    select: { name: true, nameI18n: true, kind: true },
+                  },
                 },
               },
             },

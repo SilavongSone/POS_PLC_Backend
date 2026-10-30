@@ -109,8 +109,8 @@ export class ExpensesService {
         where,
         orderBy: { spentAt: 'desc' },
         include: {
-          category: { select: { id: true, name: true } },
-          paymentType: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true, nameI18n: true } },
+          paymentType: { select: { id: true, name: true, nameI18n: true } },
           createdBy: { select: { id: true, fullName: true } },
         },
         ...pageArgs(query),

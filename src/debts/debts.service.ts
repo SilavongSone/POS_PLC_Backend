@@ -201,7 +201,9 @@ export class DebtsService {
         include: {
           customer: { select: { id: true, code: true, name: true } },
           sale: { select: { id: true, receiptNo: true } },
-          paymentType: { select: { id: true, name: true, kind: true } },
+          paymentType: {
+            select: { id: true, name: true, nameI18n: true, kind: true },
+          },
           receivedBy: { select: { id: true, fullName: true } },
         },
         ...pageArgs(query),
