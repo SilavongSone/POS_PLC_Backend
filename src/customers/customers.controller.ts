@@ -12,6 +12,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import { ApiZodResponse } from '../common/openapi.js';
+import {
+  customerDetailSchema,
+  customerPageSchema,
+} from './customers.responses.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import {
   createCustomerSchema,
@@ -32,6 +37,7 @@ const id = new ParseUUIDPipe();
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
+  @ApiZodResponse(customerPageSchema)
   @Get()
   @ApiOperation({
     summary: 'Search customers (?q name/company/code/phone, type, withDebt)',
@@ -40,6 +46,7 @@ export class CustomersController {
     return this.customers.list(query);
   }
 
+  @ApiZodResponse(customerDetailSchema)
   @Get(':id')
   @ApiOperation({ summary: 'Customer with unpaid credit and purchase totals' })
   get(@Param('id', id) customerId: string) {

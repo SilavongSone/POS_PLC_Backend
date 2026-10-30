@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import {
   ApiErrors,
+  ApiZodQuery,
   ApiZodResponse,
   errors,
   PERMISSION,
@@ -22,7 +23,12 @@ import {
   VALIDATION,
 } from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
-import { shiftSchema } from './shifts.responses.js';
+import {
+  shiftClosedSchema,
+  shiftPageSchema,
+  shiftReportSchema,
+  shiftSchema,
+} from './shifts.responses.js';
 import {
   cashMovementSchema,
   closeShiftSchema,
@@ -80,14 +86,20 @@ export class ShiftsController {
 
   @Get()
   @RequirePermissions('report.view')
-  list(@Query(zod(listShiftsSchema)) query: ListShiftsQuery) {
-    return this.shifts.list(query);
+  @ApiZodQuery(listShiftsSchema)
+  @ApiZodResponse(shiftPageSchema)
+  list(
+    @Query(zod(listShiftsSchema)) query: ListShiftsQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.shifts.list(query, u);
   }
 
   @Get(':id/report')
   @ApiOperation({
     summary: 'Z-report: sales, payments by type, expected vs counted cash',
   })
+  @ApiZodResponse(shiftReportSchema)
   report(@Param('id', id) shiftId: string, @CurrentUser() u: AuthUser) {
     return this.shifts.report(shiftId, u);
   }
@@ -97,6 +109,7 @@ export class ShiftsController {
   @ApiOperation({
     summary: 'Close with the counted cash; returns the Z-report',
   })
+  @ApiZodResponse(shiftClosedSchema)
   @ApiZodBody(closeShiftSchema)
   close(
     @Param('id', id) shiftId: string,

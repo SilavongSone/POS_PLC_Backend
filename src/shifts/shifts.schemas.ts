@@ -33,6 +33,7 @@ export const cashMovementSchema = z
 
 export const listShiftsSchema = pageQuerySchema.extend({
   registerId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
   userId: z.uuid().optional(),
   status: z.enum(['OPEN', 'CLOSED']).optional(),
 });

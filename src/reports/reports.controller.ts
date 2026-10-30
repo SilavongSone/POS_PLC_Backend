@@ -22,7 +22,11 @@ import {
 import { ReportsService } from './reports.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 import { ApiZodQuery, ApiZodResponse } from '../common/openapi.js';
-import { dashboardSchema } from './reports.responses.js';
+import {
+  bestSellersReportSchema,
+  dashboardSchema,
+  salesSummarySchema as salesSummaryResponse,
+} from './reports.responses.js';
 
 const canViewCost = (u: AuthUser) =>
   hasPermission(u.permissions, 'product.viewCost');
@@ -58,6 +62,7 @@ export class ReportsController {
     return this.reports.dashboard(canViewCost(u), this.scoped(q, u));
   }
 
+  @ApiZodResponse(salesSummaryResponse)
   @Get('sales-summary')
   @ApiOperation({
     summary:
@@ -71,6 +76,7 @@ export class ReportsController {
   }
 
   @RequireFeature('advancedReports')
+  @ApiZodResponse(bestSellersReportSchema)
   @Get('best-sellers')
   bestSellers(
     @Query(zod(bestSellersSchema)) q: BestSellersQuery,

@@ -72,3 +72,46 @@ export const dashboardSchema = apiSchema(
     ),
   }),
 );
+
+/** groupBy=paymentType rows: money received per type and currency. */
+export const paymentGroupSchema = apiSchema(
+  'PaymentGroup',
+  z.strictObject({
+    key: z.uuid(),
+    label: z.string(),
+    kind: z.enum(['CASH', 'BANK_TRANSFER', 'QR', 'CARD', 'CREDIT']),
+    currency: z.enum(['LAK', 'THB', 'USD']),
+    count: z.int(),
+    amount: decimalString,
+    amountLak: decimalString,
+  }),
+);
+
+export const salesSummarySchema = apiSchema(
+  'SalesSummary',
+  z.strictObject({
+    from: z.string(),
+    to: z.string(),
+    groupBy: z.enum([
+      'day',
+      'month',
+      'cashier',
+      'register',
+      'branch',
+      'paymentType',
+    ]),
+    totals: salesTotalsSchema,
+    /** Refunds in the period (any sale date); not deducted from totals. */
+    returns: z.strictObject({ count: z.int(), refundLak: decimalString }),
+    groups: z.array(z.union([salesGroupSchema, paymentGroupSchema])),
+  }),
+);
+
+export const bestSellersReportSchema = apiSchema(
+  'BestSellers',
+  z.strictObject({
+    from: z.string(),
+    to: z.string(),
+    items: z.array(bestSellerSchema),
+  }),
+);

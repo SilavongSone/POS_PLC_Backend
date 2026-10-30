@@ -20,6 +20,8 @@ import {
 } from './debts.schemas.js';
 import { DebtsService } from './debts.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
+import { ApiZodResponse } from '../common/openapi.js';
+import { openDebtsSchema } from '../customers/customers.responses.js';
 import { Idempotent } from '../common/idempotency.interceptor.js';
 
 @ApiTags('debts')
@@ -30,6 +32,7 @@ import { Idempotent } from '../common/idempotency.interceptor.js';
 export class DebtsController {
   constructor(private readonly debts: DebtsService) {}
 
+  @ApiZodResponse(openDebtsSchema)
   @Get('customers/:id/debts')
   @ApiOperation({ summary: "A customer's unpaid credit sales, oldest first" })
   openDebts(@Param('id', new ParseUUIDPipe()) customerId: string) {

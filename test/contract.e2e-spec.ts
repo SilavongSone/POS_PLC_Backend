@@ -40,8 +40,21 @@ import {
   paymentTypesSchema,
   registersSchema,
 } from '../src/settings/settings.responses.js';
-import { dashboardSchema } from '../src/reports/reports.responses.js';
-import { shiftSchema } from '../src/shifts/shifts.responses.js';
+import {
+  customerDetailSchema,
+  customerPageSchema,
+  openDebtsSchema,
+} from '../src/customers/customers.responses.js';
+import {
+  bestSellersReportSchema,
+  dashboardSchema,
+  salesSummarySchema,
+} from '../src/reports/reports.responses.js';
+import {
+  shiftPageSchema,
+  shiftReportSchema,
+  shiftSchema,
+} from '../src/shifts/shifts.responses.js';
 import {
   brandsSchema,
   serialPageSchema,
@@ -759,6 +772,85 @@ describe('API contract (e2e)', () => {
             .expect(200),
         );
         expect(voided.status).toBe('VOIDED');
+      });
+
+      it('customers, debts, shifts and reports', async () => {
+        const created = (
+          await t
+            .http()
+            .post('/customers')
+            .set(cashier.auth)
+            .send({
+              name: `Customer ${uniq()}`,
+              phone: `020 ${uniq()}`,
+              creditLimitLak: 1_000_000,
+            })
+            .expect(201)
+        ).body as { id: string };
+        conforms(
+          customerPageSchema,
+          await t.http().get('/customers').set(cashier.auth).expect(200),
+        );
+        conforms(
+          customerDetailSchema,
+          await t
+            .http()
+            .get(`/customers/${created.id}`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+        conforms(
+          openDebtsSchema,
+          await t
+            .http()
+            .get(`/customers/${created.id}/debts`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+
+        const current = conforms(
+          shiftSchema,
+          await t.http().get('/shifts/current').set(cashier.auth).expect(200),
+        );
+        const shifts = conforms(
+          shiftPageSchema,
+          await t
+            .http()
+            .get('/shifts?status=OPEN')
+            .set(manager.auth)
+            .expect(200),
+        );
+        expect(shifts.items.some((x) => x.id === current.id)).toBe(true);
+        const report = conforms(
+          shiftReportSchema,
+          await t
+            .http()
+            .get(`/shifts/${current.id}/report`)
+            .set(cashier.auth)
+            .expect(200),
+        );
+        // The earlier test voided this shift's sale.
+        expect(report.voided.count).toBeGreaterThan(0);
+        expect(report.cash.counted).toBeNull();
+
+        for (const groupBy of ['day', 'paymentType', 'cashier']) {
+          conforms(
+            salesSummarySchema,
+            await t
+              .http()
+              .get(`/reports/sales-summary?groupBy=${groupBy}`)
+              .set(manager.auth)
+              .expect(200),
+          );
+        }
+        conforms(
+          bestSellersReportSchema,
+          await t
+            .http()
+            .get('/reports/best-sellers')
+            .set(manager.auth)
+            .expect(200),
+        );
       });
 
       it('held bills', async () => {

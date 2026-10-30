@@ -93,11 +93,13 @@ export class ShiftsService {
     });
   }
 
-  async list(query: ListShiftsQuery) {
+  async list(query: ListShiftsQuery, user: AuthUser) {
+    const scope = this.branches.scope(user, query.branchId);
     const where: Prisma.ShiftWhereInput = {
       registerId: query.registerId,
       userId: query.userId,
       status: query.status,
+      ...(scope && { register: { branchId: { in: scope } } }),
     };
     const [items, total] = await Promise.all([
       this.prisma.shift.findMany({
@@ -118,17 +120,20 @@ export class ShiftsService {
     const shift = await this.prisma.shift.findUniqueOrThrow({
       where: { id },
       include: {
-        register: { select: { id: true, code: true, name: true } },
+        register: {
+          select: { id: true, code: true, name: true, branchId: true },
+        },
         user: { select: { id: true, fullName: true } },
       },
     });
-    if (
-      shift.userId !== user.id &&
-      !hasPermission(user.permissions, 'report.view')
-    ) {
-      throw new ForbiddenException(
-        'Only the shift owner or a manager can see this shift',
-      );
+    if (shift.userId !== user.id) {
+      if (!hasPermission(user.permissions, 'report.view')) {
+        throw new ForbiddenException(
+          'Only the shift owner or a manager can see this shift',
+        );
+      }
+      // Managers see shifts of their own branches only.
+      this.branches.assertAccess(user, shift.register.branchId);
     }
     return shift;
   }
