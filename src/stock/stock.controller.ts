@@ -40,6 +40,16 @@ import {
 } from './stock.schemas.js';
 import { SuppliersService } from './suppliers.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
+import { ApiZodQuery, ApiZodResponse } from '../common/openapi.js';
+import {
+  serialPageSchema,
+  stockDocDetailSchema,
+  stockDocPageSchema,
+  stockMovementPageSchema,
+  supplierPageSchema,
+  supplierSchema,
+} from './stock.responses.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 
 const id = new ParseUUIDPipe();
 const canViewCost = (u: AuthUser) =>
@@ -53,11 +63,13 @@ export class SuppliersController {
   constructor(private readonly suppliers: SuppliersService) {}
 
   @Get()
+  @ApiZodResponse(supplierPageSchema)
   list(@Query(zod(listSuppliersSchema)) query: PageQuery) {
     return this.suppliers.list(query);
   }
 
   @Get(':id')
+  @ApiZodResponse(supplierSchema)
   get(@Param('id', id) supplierId: string) {
     return this.suppliers.get(supplierId);
   }
@@ -98,6 +110,8 @@ export class StockDocumentsController {
     summary:
       'Receipts, issues, adjustments and transfers (?type, branchId, status, supplierId, from, to, q)',
   })
+  @ApiZodQuery(listStockDocsSchema)
+  @ApiZodResponse(stockDocPageSchema)
   list(
     @Query(zod(listStockDocsSchema)) query: ListStockDocsQuery,
     @CurrentUser() user: AuthUser,
@@ -106,6 +120,7 @@ export class StockDocumentsController {
   }
 
   @Get(':id')
+  @ApiZodResponse(stockDocDetailSchema)
   get(@Param('id', id) docId: string, @CurrentUser() user: AuthUser) {
     return this.docs.get(docId, user);
   }
@@ -160,26 +175,41 @@ export class StockDocumentsController {
 @RequirePermissions('catalog.view')
 @Controller('stock')
 export class StockController {
-  constructor(private readonly queries: StockQueriesService) {}
+  constructor(
+    private readonly queries: StockQueriesService,
+    private readonly branches: BranchAccessService,
+  ) {}
 
   @Get('movements')
   @ApiOperation({ summary: 'Stock card (?productId, type, from, to)' })
+  @ApiZodQuery(listMovementsSchema)
+  @ApiZodResponse(stockMovementPageSchema)
   movements(
     @Query(zod(listMovementsSchema)) query: ListMovementsQuery,
     @CurrentUser() u: AuthUser,
   ) {
-    return this.queries.movements(query, canViewCost(u));
+    return this.queries.movements(
+      query,
+      canViewCost(u),
+      this.branches.scope(u, query.branchId),
+    );
   }
 
   @Get('serials')
   @ApiOperation({
     summary: 'Serial numbers (?productId, status, condition, q)',
   })
+  @ApiZodQuery(listSerialsSchema)
+  @ApiZodResponse(serialPageSchema)
   serials(
     @Query(zod(listSerialsSchema)) query: ListSerialsQuery,
     @CurrentUser() u: AuthUser,
   ) {
-    return this.queries.serials(query, canViewCost(u));
+    return this.queries.serials(
+      query,
+      canViewCost(u),
+      this.branches.scope(u, query.branchId),
+    );
   }
 
   @Get('serials/:serial/history')

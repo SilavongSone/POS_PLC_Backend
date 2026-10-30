@@ -9,6 +9,7 @@ import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
+import { startOfLocalDay } from '../common/time.js';
 import { hasPermission, type Permission } from '../common/permissions.js';
 import { costToLak } from '../catalog/pricing.js';
 import { Prisma, type StockDocType } from '../generated/prisma/client.js';
@@ -102,8 +103,10 @@ export class StockDocumentsService {
       status: query.status,
       supplierId: query.supplierId,
       createdAt: {
-        gte: query.from,
-        lt: query.to && new Date(query.to.getTime() + 86_400_000),
+        gte: query.from && startOfLocalDay(query.from),
+        lt:
+          query.to &&
+          new Date(startOfLocalDay(query.to).getTime() + 86_400_000),
       },
       ...(query.q && {
         OR: [

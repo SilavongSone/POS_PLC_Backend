@@ -44,6 +44,7 @@ import {
   productPageSchema,
 } from './catalog.responses.js';
 import { BrandsService } from './brands.service.js';
+import { brandsSchema } from '../stock/stock.responses.js';
 import {
   bulkPriceSchema,
   bundleItemsSchema,
@@ -140,6 +141,7 @@ export class CategoriesController {
 export class BrandsController {
   constructor(private readonly brands: BrandsService) {}
 
+  @ApiZodResponse(brandsSchema)
   @Get()
   list() {
     return this.brands.list();

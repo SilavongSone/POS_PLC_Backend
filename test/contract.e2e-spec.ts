@@ -42,6 +42,15 @@ import {
 } from '../src/settings/settings.responses.js';
 import { dashboardSchema } from '../src/reports/reports.responses.js';
 import { shiftSchema } from '../src/shifts/shifts.responses.js';
+import {
+  brandsSchema,
+  serialPageSchema,
+  stockDocDetailSchema,
+  stockDocPageSchema,
+  stockMovementPageSchema,
+  supplierPageSchema,
+  supplierSchema,
+} from '../src/stock/stock.responses.js';
 import { subscriptionSchema } from '../src/tenancy/subscription.responses.js';
 import { createTestApp, TEST_PASSWORD, type TestApp } from './helpers.js';
 
@@ -341,6 +350,110 @@ describe('API contract (e2e)', () => {
         .post(`/stock-documents/${doc.id}/post`)
         .set(manager.auth)
         .expect(200);
+    });
+
+    it('stock: suppliers, brands, documents, movements, serials', async () => {
+      const supplier = conforms(
+        supplierSchema,
+        await t
+          .http()
+          .post('/suppliers')
+          .set(manager.auth)
+          .send({ name: `Supplier ${uniq()}`, phone: '020 1234' })
+          .expect(201),
+      );
+      conforms(
+        supplierPageSchema,
+        await t.http().get('/suppliers').set(manager.auth).expect(200),
+      );
+      conforms(
+        brandsSchema,
+        await t.http().get('/brands').set(manager.auth).expect(200),
+      );
+
+      const product = (
+        await t
+          .http()
+          .post('/products')
+          .set(manager.auth)
+          .send({
+            sku: `STK-${uniq()}`,
+            name: 'Stock test',
+            retailPrice: 50_000,
+          })
+          .expect(201)
+      ).body as { id: string };
+      const draft = conforms(
+        stockDocDetailSchema,
+        await t
+          .http()
+          .post('/stock-documents')
+          .set(manager.auth)
+          .send({
+            type: 'RECEIVE',
+            branchId: t.branchId,
+            supplierId: supplier.id,
+            reference: 'INV-1',
+            items: [{ productId: product.id, quantity: 5, unitCost: 30_000 }],
+          })
+          .expect(201),
+      );
+      expect(draft.status).toBe('DRAFT');
+      const posted = conforms(
+        stockDocDetailSchema,
+        await t
+          .http()
+          .post(`/stock-documents/${draft.id}/post`)
+          .set(manager.auth)
+          .expect(200),
+      );
+      expect(posted.status).toBe('POSTED');
+      conforms(
+        stockDocDetailSchema,
+        await t
+          .http()
+          .get(`/stock-documents/${draft.id}`)
+          .set(manager.auth)
+          .expect(200),
+      );
+      const today = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Vientiane',
+      });
+      const docs = conforms(
+        stockDocPageSchema,
+        await t
+          .http()
+          .get(`/stock-documents?from=${today}&to=${today}`)
+          .set(manager.auth)
+          .expect(200),
+      );
+      expect(docs.items.some((d) => d.id === draft.id)).toBe(true);
+      const moves = conforms(
+        stockMovementPageSchema,
+        await t
+          .http()
+          .get(`/stock/movements?productId=${product.id}&from=${today}`)
+          .set(manager.auth)
+          .expect(200),
+      );
+      expect(moves.items[0]).toMatchObject({
+        type: 'RECEIVE_IN',
+        balanceAfter: 5,
+      });
+      conforms(
+        serialPageSchema,
+        await t.http().get('/stock/serials').set(manager.auth).expect(200),
+      );
+      // Cashiers see the stock card without cost.
+      const plain = conforms(
+        stockMovementPageSchema,
+        await t
+          .http()
+          .get(`/stock/movements?productId=${product.id}`)
+          .set(cashier.auth)
+          .expect(200),
+      );
+      expect(plain.items[0]).not.toHaveProperty('unitCostLak');
     });
 
     it('categories, flat and as a tree', async () => {

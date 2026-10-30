@@ -3,6 +3,8 @@ import { pageQuerySchema } from '../common/pagination.js';
 
 const text = (max: number) => z.string().trim().max(max);
 const isoDate = z.iso.date().transform((d) => new Date(`${d}T00:00:00Z`));
+/** List filters: a calendar day in the shop's time zone (see common/time.ts). */
+const localDay = z.iso.date();
 
 export const createSupplierSchema = z.object({
   name: text(150).min(1),
@@ -90,14 +92,15 @@ export const listStockDocsSchema = pageQuerySchema.extend({
   branchId: z.uuid().optional(),
   status: z.enum(['DRAFT', 'POSTED', 'CANCELLED']).optional(),
   supplierId: z.uuid().optional(),
-  from: isoDate.optional(),
-  to: isoDate.optional(),
+  from: localDay.optional(),
+  to: localDay.optional(),
 });
 
 export const cancelDocSchema = z.object({ reason: text(300).min(1) });
 
 export const listMovementsSchema = pageQuerySchema.extend({
   productId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
   type: z
     .enum([
       'RECEIVE_IN',
@@ -107,14 +110,17 @@ export const listMovementsSchema = pageQuerySchema.extend({
       'SALE_OUT',
       'RETURN_IN',
       'VOID_IN',
+      'TRANSFER_OUT',
+      'TRANSFER_IN',
     ])
     .optional(),
-  from: isoDate.optional(),
-  to: isoDate.optional(),
+  from: localDay.optional(),
+  to: localDay.optional(),
 });
 
 export const listSerialsSchema = pageQuerySchema.extend({
   productId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
   status: z
     .enum(['IN_STOCK', 'SOLD', 'RETURNED', 'IN_SERVICE', 'DEFECTIVE', 'ISSUED'])
     .optional(),

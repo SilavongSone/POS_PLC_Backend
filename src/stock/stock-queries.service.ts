@@ -3,13 +3,18 @@ import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage, type PageQuery } from '../common/pagination.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { startOfLocalDay } from '../common/time.js';
 import type {
   ListMovementsQuery,
   ListSerialsQuery,
   UpdateSerialInput,
 } from './stock.schemas.js';
 
-const dayAfter = (d?: Date) => d && new Date(d.getTime() + 86_400_000);
+/** Shop-local [from, to] days as a createdAt range. */
+const dayRange = (from?: string, to?: string) => ({
+  gte: from && startOfLocalDay(from),
+  lt: to && new Date(startOfLocalDay(to).getTime() + 86_400_000),
+});
 
 @Injectable()
 export class StockQueriesService {
@@ -19,11 +24,16 @@ export class StockQueriesService {
   ) {}
 
   /** Stock card: every movement, newest first. */
-  async movements(query: ListMovementsQuery, canViewCost: boolean) {
+  async movements(
+    query: ListMovementsQuery,
+    canViewCost: boolean,
+    branchIds?: string[],
+  ) {
     const where: Prisma.StockMovementWhereInput = {
       productId: query.productId,
       type: query.type,
-      createdAt: { gte: query.from, lt: dayAfter(query.to) },
+      createdAt: dayRange(query.from, query.to),
+      ...(branchIds && { branchId: { in: branchIds } }),
     };
     const [rows, total] = await Promise.all([
       this.prisma.stockMovement.findMany({
@@ -45,9 +55,14 @@ export class StockQueriesService {
     return toPage(items, total, query);
   }
 
-  async serials(query: ListSerialsQuery, canViewCost: boolean) {
+  async serials(
+    query: ListSerialsQuery,
+    canViewCost: boolean,
+    branchIds?: string[],
+  ) {
     const where: Prisma.SerialNumberWhereInput = {
       productId: query.productId,
+      ...(branchIds && { branchId: { in: branchIds } }),
       status: query.status,
       condition: query.condition,
       ...(query.q && { serial: { contains: query.q, mode: 'insensitive' } }),
