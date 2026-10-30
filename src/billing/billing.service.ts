@@ -35,6 +35,14 @@ export const webhookBodySchema = z.object({
 });
 
 /** Plan invoices: the company checks out, then a gateway or a platform admin confirms payment. */
+/**
+ * What a company writes in its bank-transfer note. Invoice numbers restart per company,
+ * so the company code makes it unique on the bank statement (PLC-LAO-BILL-2026-000001).
+ */
+export function transferReference(tenantCode: string, invoiceNumber: string) {
+  return `${tenantCode.toUpperCase()}-${invoiceNumber}`;
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -47,11 +55,14 @@ export class BillingService {
   ) {}
 
   /** How to pay an invoice: bank details and, if configured, an online payment link. */
-  private payment(inv: {
-    id: string;
-    number: string;
-    amountLak: Prisma.Decimal;
-  }) {
+  private payment(
+    inv: {
+      id: string;
+      number: string;
+      amountLak: Prisma.Decimal;
+    },
+    tenantCode: string,
+  ) {
     const url = this.config.get('BILLING_PAY_URL', { infer: true });
     return {
       bankInfo: this.config.get('BILLING_BANK_INFO', { infer: true }) ?? null,
@@ -62,7 +73,7 @@ export class BillingService {
             .replaceAll('{amount}', inv.amountLak.toString())
         : null,
       /** Put this in the transfer note so the payment can be matched. */
-      reference: inv.number,
+      reference: transferReference(tenantCode, inv.number),
     };
   }
 
@@ -103,12 +114,27 @@ export class BillingService {
       entityId: invoice.id,
       after: { plan: plan.code, months, amountLak },
     });
-    return { ...invoice, payment: this.payment(invoice) };
+    return {
+      ...invoice,
+      payment: this.payment(invoice, await this.tenantCode()),
+    };
+  }
+
+  /** Code of the current company (invoice numbers repeat across companies; codes don't). */
+  private async tenantCode() {
+    const id = RequestContext.tenantId();
+    const tenant = await RequestContext.asPlatform(() =>
+      this.prisma.tenant.findUniqueOrThrow({
+        where: { id },
+        select: { code: true },
+      }),
+    );
+    return tenant.code;
   }
 
   async list(q: PageQuery & { status?: InvoiceStatus }) {
     const where = { status: q.status };
-    const [items, total] = await Promise.all([
+    const [items, total, code] = await Promise.all([
       this.prisma.billingInvoice.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -116,11 +142,12 @@ export class BillingService {
         ...pageArgs(q),
       }),
       this.prisma.billingInvoice.count({ where }),
+      this.tenantCode(),
     ]);
     return toPage(
       items.map((i) => ({
         ...i,
-        payment: i.status === 'PENDING' ? this.payment(i) : null,
+        payment: i.status === 'PENDING' ? this.payment(i, code) : null,
       })),
       total,
       q,
@@ -161,7 +188,14 @@ export class BillingService {
         }),
         this.prisma.billingInvoice.count({ where }),
       ]);
-      return toPage(items, total, q);
+      return toPage(
+        items.map((i) => ({
+          ...i,
+          transferReference: transferReference(i.tenant.code, i.number),
+        })),
+        total,
+        q,
+      );
     });
   }
 

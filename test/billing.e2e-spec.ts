@@ -54,6 +54,7 @@ describe('Plan billing (e2e)', () => {
       .expect(200);
     return {
       id: created.tenant.id as string,
+      code,
       email: `${code}@example.com`,
       auth: { Authorization: `Bearer ${login.body.accessToken as string}` },
     };
@@ -88,7 +89,10 @@ describe('Plan billing (e2e)', () => {
       payment: { bankInfo: 'BCEL 010-12-00-123456 PLC POS' },
     });
     expect(invoice.number).toMatch(/^BILL-\d{4}-\d{6}$/);
-    expect(invoice.payment.reference).toBe(invoice.number);
+    // Invoice numbers restart per company; the company code keeps the transfer note unique.
+    expect(invoice.payment.reference).toBe(
+      `${c.code.toUpperCase()}-${invoice.number}`,
+    );
 
     const pay = {
       invoiceId: invoice.id,
