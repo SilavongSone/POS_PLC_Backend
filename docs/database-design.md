@@ -140,6 +140,8 @@
 
 ## 5. ER Diagram (ภาพรวม)
 
+> ER diagram ฉบับเต็ม (ทุกตาราง ทุกคอลัมน์ ทุกความสัมพันธ์) สร้างจาก schema อัตโนมัติ: [er-diagram.md](./er-diagram.md) — รัน `pnpm docs:er` หลังแก้ `schema.prisma`
+
 ```mermaid
 erDiagram
   UserGroup ||--o{ User : has

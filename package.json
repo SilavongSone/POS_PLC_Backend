@@ -23,7 +23,8 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "openapi:export": "node --import tsx/esm scripts/export-openapi.ts"
+    "openapi:export": "node --import tsx/esm scripts/export-openapi.ts",
+    "docs:er": "node --import tsx/esm scripts/er-diagram.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
