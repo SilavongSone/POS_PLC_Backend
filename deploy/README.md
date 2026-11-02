@@ -71,6 +71,18 @@ cd backend/deploy && docker compose up -d --build
 - `docker compose ps` · `docker compose logs -f api`
 - ຕັ້ງ uptime monitor (ເຊັ່ນ UptimeRobot ຟຣີ) ຍິງ `https://DOMAIN/api/health`
 
+## ລິ້ງທົດລອງຟຣີ (ບໍ່ຕ້ອງມີ server ຫຼື domain)
+
+ລັນທັງລະບົບຢູ່ເຄື່ອງຕົວເອງ ແລ້ວ Cloudflare Quick Tunnel ອອກລິ້ງ HTTPS ສາທາລະນະໃຫ້ (`https://xxxx.trycloudflare.com`) — ເປີດຈາກມືຖືໄດ້ ແລະ ກ້ອງສະແກນໃຊ້ໄດ້:
+
+```bash
+cp .env.example .env     # ໃສ່ secret · SEED_DEMO=true ຖ້າຢາກມີສິນຄ້າຕົວຢ່າງ · MAIL_TRANSPORT=log
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml logs cloudflared | grep trycloudflare
+```
+
+ສະເພາະທົດສອບ: ໃຊ້ໄດ້ຕອນເຄື່ອງເປີດຢູ່ເທົ່ານັ້ນ, ລິ້ງປ່ຽນທຸກຄັ້ງທີ່ start ໃໝ່, Cloudflare ບໍ່ຮັບປະກັນ uptime. ປິດດ້ວຍ `docker compose -f docker-compose.yml -f docker-compose.tunnel.yml down` (ເພີ່ມ `-v` ເພື່ອລຶບຂໍ້ມູນ).
+
 ## ທົດສອບໃນເຄື່ອງ (ກ່ອນຂຶ້ນ server)
 
 ຕັ້ງ `DOMAIN=localhost` ແລະ `MAIL_TRANSPORT=log` ໃນ `.env` ແລ້ວ `docker compose up -d --build`. Caddy ຈະໃຊ້ certificate ຂອງຕົນເອງສຳລັບ localhost (browser ຈະເຕືອນ — ກົດຜ່ານໄດ້). ລຶບຖິ້ມດ້ວຍ `docker compose down -v` (ລຶບຂໍ້ມູນທັງໝົດ).

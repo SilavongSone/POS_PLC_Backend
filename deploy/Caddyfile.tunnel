@@ -1,0 +1,16 @@
+# Tunnel mode: Cloudflare terminates HTTPS and forwards plain HTTP here.
+{
+	auto_https off
+}
+
+:80 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

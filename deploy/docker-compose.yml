@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-plc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-plc_pos}?schema=public
       SEED_TENANT_CODE: ${SEED_TENANT_CODE:-plc}
+      # true = also add sample products (for a demo or trial install).
+      SEED_DEMO: ${SEED_DEMO:-false}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD}
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?set PLATFORM_ADMIN_EMAIL}
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}

@@ -1,0 +1,25 @@
+# Free public test link without a server or domain: the stack runs on this machine and a
+# Cloudflare Quick Tunnel gives it a random https://*.trycloudflare.com address.
+# For testing only (no uptime guarantee; the address changes on every start).
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml logs cloudflared | grep trycloudflare
+services:
+  web:
+    build:
+      args:
+        # Same-origin API: the address is only known once the tunnel starts.
+        NEXT_PUBLIC_API_URL: /api
+
+  # Plain HTTP inside Docker; the tunnel provides HTTPS. No host ports needed.
+  caddy:
+    ports: !reset []
+    volumes: !override
+      - ./Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  cloudflared:
+    image: cloudflare/cloudflared:2024.12.2
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://caddy:80
+    depends_on: [caddy]
