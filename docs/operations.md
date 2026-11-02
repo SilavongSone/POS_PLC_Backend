@@ -17,7 +17,7 @@
 | `BODY_LIMIT` | `1mb` | ขนาด JSON สูงสุดต่อ request |
 | `UPLOAD_DIR` | volume ถาวร เช่น `/data/uploads` | เก็บรูปสินค้า (แยกโฟลเดอร์ตามบริษัท) |
 | `DEFAULT_TENANT_CODE` | ว่าง (SaaS) หรือ `plc` (ร้านเดียว) | ล็อกอินโดยไม่ต้องส่งรหัสบริษัท |
-| `SIGNUP_ENABLED` | `false` จนพร้อมเปิดขาย | เปิด `POST /api/public/signup` |
+| `SIGNUP_ENABLED` | `false` จนพร้อมเปิดขาย | ค่าเริ่มต้นของการเปิด `POST /api/public/signup` · Super Admin เปิด/ปิดทับได้ที่หน้า ตั้งค่า ของ console (เก็บใน DB ไม่ต้อง restart) |
 | `THROTTLE_SIGNUP_LIMIT` | `3` | จำนวนการสมัครต่อชั่วโมงต่อ IP |
 | `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD` | อีเมลจริง + รหัสยาว | seed สร้าง platform admin คนแรก (ครั้งเดียว) |
 | `SEED_TENANT_CODE` / `SEED_ADMIN_PASSWORD` | `plc` / รหัสยาว | บริษัทและ admin ที่ seed สร้าง |

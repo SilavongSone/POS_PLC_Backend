@@ -54,3 +54,20 @@ export const signupCompletedSchema = apiSchema(
     ...authTokensShape,
   }),
 );
+
+/** GET/PATCH /platform/settings: platform-wide switches. */
+export const platformSettingsSchema = apiSchema(
+  'PlatformSettings',
+  z.strictObject({
+    signupEnabled: z.boolean(),
+    /** "setting" = chosen in the console; "env" = still the SIGNUP_ENABLED default. */
+    signupEnabledSource: z.enum(['setting', 'env']),
+    signupUpdatedAt: dateTimeString.nullable(),
+  }),
+);
+
+/** GET /public/signup/status: whether the sign-up page should show its form. */
+export const signupStatusSchema = apiSchema(
+  'SignupStatus',
+  z.strictObject({ open: z.boolean() }),
+);

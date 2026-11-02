@@ -89,3 +89,10 @@ export const updateSubscriptionSchema = z
   })
   .partial();
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>;
+
+export const updatePlatformSettingsSchema = z.object({
+  signupEnabled: z.boolean(),
+});
+export type UpdatePlatformSettingsInput = z.infer<
+  typeof updatePlatformSettingsSchema
+>;

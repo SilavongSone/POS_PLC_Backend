@@ -193,6 +193,8 @@ sequenceDiagram
 | Cashier | `catalog.view`, `sale.create`, `sale.hold`, `sale.reprint`, `taxInvoice.issue`, `customer.manage`, `debt.receive`, `shift.operate`, `cash.move`, `repair.receive` |
 | Viewer | `catalog.view` |
 
+> **2026-11-02:** การสมัครร้านเอง (`/public/signup*`) เปิด/ปิดได้จาก Super Admin: `GET`/`PATCH /platform/settings` (`signupEnabled`) เก็บในตาราง `PlatformSetting` · ถ้ายังไม่เคยตั้ง ใช้ `SIGNUP_ENABLED` ใน env · หน้าสมัครถาม `GET /public/signup/status` → `{ open }` ก่อนแสดงฟอร์ม
+
 > **2026-10-30 (reports):** ชื่อวิธีชำระใน `GET /reports/sales-summary?groupBy=paymentType` (`label`) และ `/reports/debt-payments`, ชื่อหมวดใน `/reports/expenses` และ `/reports/stock-value` แปลตามภาษาของคำขอแล้ว
 
 > **2026-10-30 (billing):** `payment.reference` (ข้อความในหมายเหตุการโอน) เป็น `<COMPANY-CODE>-<invoice number>` เช่น `PLC-LAO-BILL-2026-000001` เพราะเลขใบแจ้งหนี้เริ่มใหม่ในแต่ละบริษัท · `GET /platform/invoices` ส่ง `transferReference` เดียวกันเพื่อจับคู่กับรายการธนาคาร

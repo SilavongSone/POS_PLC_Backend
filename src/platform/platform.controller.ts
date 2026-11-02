@@ -12,7 +12,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -26,11 +25,12 @@ import {
 } from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import {
+  platformSettingsSchema,
   publicPlansSchema,
   signupCompletedSchema,
   signupPendingSchema,
+  signupStatusSchema,
 } from './platform.responses.js';
-import type { Env } from '../config/env.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
 import { SignupService } from '../tenancy/signup.service.js';
@@ -61,15 +61,18 @@ import {
   platformLoginSchema,
   updatePlanSchema,
   updateSubscriptionSchema,
+  updatePlatformSettingsSchema,
   updateTenantSchema,
   type CreatePlanInput,
   type ListTenantsQuery,
   type PlatformLoginInput,
   type UpdatePlanInput,
+  type UpdatePlatformSettingsInput,
   type UpdateSubscriptionInput,
   type UpdateTenantInput,
 } from './platform.schemas.js';
 import { PlatformService } from './platform.service.js';
+import { PlatformSettingsService } from './platform-settings.service.js';
 
 const id = new ParseUUIDPipe();
 const platformInvoicesSchema = pageQuerySchema.extend({
@@ -130,7 +133,31 @@ export class PlatformController {
     private readonly provisioning: ProvisioningService,
     private readonly account: AccountService,
     private readonly billing: BillingService,
+    private readonly settings: PlatformSettingsService,
   ) {}
+
+  @Get('settings')
+  @ApiOperation({ summary: 'Platform-wide switches (self-service sign-up)' })
+  @ApiZodResponse(platformSettingsSchema)
+  getSettings() {
+    return this.settings.get();
+  }
+
+  @Patch('settings')
+  @ApiOperation({
+    summary: 'Open or close self-service sign-up (takes effect immediately)',
+  })
+  @ApiZodBody(updatePlatformSettingsSchema)
+  @ApiZodResponse(platformSettingsSchema)
+  updateSettings(
+    @Body(zod(updatePlatformSettingsSchema)) body: UpdatePlatformSettingsInput,
+    @Req() req: PlatformRequest,
+  ) {
+    return this.settings.setSignupEnabled(
+      body.signupEnabled,
+      req.platformAdmin.id,
+    );
+  }
 
   @Get('plans')
   listPlans() {
@@ -267,8 +294,15 @@ export class PublicController {
     private readonly prisma: PrismaService,
     private readonly signups: SignupService,
     private readonly google: GoogleIdentityService,
-    private readonly config: ConfigService<Env, true>,
+    private readonly settings: PlatformSettingsService,
   ) {}
+
+  @Get('signup/status')
+  @ApiOperation({ summary: 'Whether self-service sign-up is open' })
+  @ApiZodResponse(signupStatusSchema)
+  async signupStatus() {
+    return { open: await this.settings.signupEnabled() };
+  }
 
   @Get('plans')
   @ApiOperation({ summary: 'Plans offered on the website' })
@@ -293,8 +327,8 @@ export class PublicController {
     });
   }
 
-  private assertOpen() {
-    if (!this.config.get('SIGNUP_ENABLED', { infer: true })) {
+  private async assertOpen() {
+    if (!(await this.settings.signupEnabled())) {
       throw new ForbiddenException({
         message: 'Sign-up is closed',
         code: 'SIGNUP_DISABLED',
@@ -317,8 +351,8 @@ export class PublicController {
       429: ['TOO_MANY_REQUESTS'],
     }),
   )
-  signup(@Body(zod(signupSchema)) body: SignupInput) {
-    this.assertOpen();
+  async signup(@Body(zod(signupSchema)) body: SignupInput) {
+    await this.assertOpen();
     return this.signups.request(body);
   }
 
@@ -337,10 +371,10 @@ export class PublicController {
       409: ['TENANT_CODE_TAKEN'],
     }),
   )
-  verifySignup(
+  async verifySignup(
     @Body(zod(verifySignupSchema)) body: z.infer<typeof verifySignupSchema>,
   ) {
-    this.assertOpen();
+    await this.assertOpen();
     return this.signups.verify(body.requestId, body.code);
   }
 
@@ -351,10 +385,10 @@ export class PublicController {
   @ApiZodBody(resendSignupSchema)
   @ApiZodResponse(signupPendingSchema)
   @ApiErrors(errors(SIGNUP_ERRORS, { 400: ['SIGNUP_CODE_INVALID'] }))
-  resendSignup(
+  async resendSignup(
     @Body(zod(resendSignupSchema)) body: z.infer<typeof resendSignupSchema>,
   ) {
-    this.assertOpen();
+    await this.assertOpen();
     return this.signups.resend(body.requestId);
   }
 
@@ -377,7 +411,7 @@ export class PublicController {
   async signupWithGoogle(
     @Body(zod(googleSignupSchema)) body: GoogleSignupInput,
   ) {
-    this.assertOpen();
+    await this.assertOpen();
     const identity = await this.google.verify(body.idToken);
     return this.signups.withGoogle(body, identity);
   }

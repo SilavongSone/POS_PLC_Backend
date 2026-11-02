@@ -1374,6 +1374,15 @@ model PlatformAdmin {
   updatedAt        DateTime  @updatedAt
 }
 
+/// Platform-wide switches changed from the Super Admin console (no tenantId: one value for the
+/// whole system). A missing key falls back to the environment default, e.g. SIGNUP_ENABLED.
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
 /// Replays the stored response when a client retries a request with the same Idempotency-Key.
 model IdempotencyKey {
   tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))

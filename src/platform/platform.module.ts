@@ -7,11 +7,17 @@ import {
   PlatformController,
   PublicController,
 } from './platform.controller.js';
+import { PlatformSettingsService } from './platform-settings.service.js';
 import { PlatformService } from './platform.service.js';
 
 @Module({
   imports: [AuthModule, BillingModule],
   controllers: [PlatformAuthController, PlatformController, PublicController],
-  providers: [PlatformAuthService, PlatformGuard, PlatformService],
+  providers: [
+    PlatformAuthService,
+    PlatformGuard,
+    PlatformService,
+    PlatformSettingsService,
+  ],
 })
 export class PlatformModule {}
