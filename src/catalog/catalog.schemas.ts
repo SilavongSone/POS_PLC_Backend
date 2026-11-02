@@ -24,11 +24,30 @@ export const createCategorySchema = z.object({
 export const updateCategorySchema = patchOf(createCategorySchema);
 export const listCategoriesSchema = z.object({ tree: queryBoolean.optional() });
 
+const categoryIds = z
+  .array(z.uuid())
+  .max(200)
+  .transform((ids) => [...new Set(ids)]);
+
 export const createBrandSchema = z.object({
   name: text(100).min(1),
   logoUrl: text(500).nullable().optional(),
+  /** Categories the brand is sold in; replaces the whole list on update. */
+  categoryIds: categoryIds.optional(),
 });
 export const updateBrandSchema = patchOf(createBrandSchema);
+/** ?categoryId: brands of that category or of any category above it. */
+export const listBrandsSchema = z.object({ categoryId: z.uuid().optional() });
+
+// ── Units ──
+export const createUnitSchema = z.object({
+  /** Stored on products (max 20, like Product.unit). */
+  name: text(20).min(1),
+  nameI18n: i18nText(20).optional(),
+  sortOrder: z.number().int().min(0).max(9999).default(0),
+  isActive: z.boolean().default(true),
+});
+export const updateUnitSchema = patchOf(createUnitSchema);
 
 // ── Products ──
 const productFields = {
@@ -175,6 +194,9 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type CreateBrandInput = z.infer<typeof createBrandSchema>;
 export type UpdateBrandInput = z.infer<typeof updateBrandSchema>;
+export type ListBrandsQuery = z.infer<typeof listBrandsSchema>;
+export type CreateUnitInput = z.infer<typeof createUnitSchema>;
+export type UpdateUnitInput = z.infer<typeof updateUnitSchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsSchema>;

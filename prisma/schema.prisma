@@ -346,6 +346,7 @@ model Category {
   parent     Category?       @relation("CategoryTree", fields: [parentId], references: [id])
   children   Category[]      @relation("CategoryTree")
   products   Product[]
+  brands     BrandCategory[]
   promotions PromotionItem[]
   tenant     Tenant          @relation(fields: [tenantId], references: [id])
 
@@ -354,12 +355,42 @@ model Category {
 }
 
 model Brand {
-  id       String    @id @default(uuid())
-  tenantId String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  name     String
-  logoUrl  String?
-  products Product[]
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  id         String          @id @default(uuid())
+  tenantId   String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name       String
+  logoUrl    String?
+  products   Product[]
+  /// Categories this brand is sold in (product forms list brands by category).
+  categories BrandCategory[]
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
+/// Which brands belong to which categories (many-to-many: Epson sells printers and scanners).
+/// No tenantId: reached only through a brand or category loaded with a scoped query.
+model BrandCategory {
+  brandId    String
+  categoryId String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([brandId, categoryId])
+  @@index([categoryId])
+}
+
+/// Units of sale (pcs, set, box, roll …). Product.unit stores the unit's `name`.
+model Unit {
+  id        String   @id @default(uuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  /// Stored on products; renaming a unit renames it on its products.
+  name      String
+  /// Translations, e.g. {"lo": "ອັນ", "th": "ชิ้น", "en": "pcs"}.
+  nameI18n  Json?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, name])
 }
@@ -1229,6 +1260,7 @@ model Tenant {
   exchangeRates     ExchangeRate[]
   categories        Category[]
   brands            Brand[]
+  units             Unit[]
   products          Product[]
   promotions        Promotion[]
   serialNumbers     SerialNumber[]

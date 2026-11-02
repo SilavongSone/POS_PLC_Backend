@@ -75,6 +75,36 @@ export const BRANDS = [
   'Generic',
 ];
 
+/** Categories (by slug, incl. their subcategories) each seeded brand is sold in. */
+export const BRAND_CATEGORIES: Record<(typeof BRANDS)[number], string[]> = {
+  Sunmi: ['pos-terminal', 'printer-receipt', 'display-customer', 'scanner'],
+  iMin: ['pos-terminal', 'printer-receipt', 'display-customer'],
+  Epson: ['printer'],
+  Xprinter: ['printer-receipt', 'printer-label'],
+  Zebra: ['printer-label', 'scanner'],
+  Honeywell: ['scanner', 'printer-label'],
+  MSI: ['display', 'computer'],
+  Samsung: ['display'],
+  LG: ['display'],
+  Dell: ['computer', 'display-monitor'],
+  HP: ['computer', 'printer-office'],
+  Canon: ['printer-office'],
+  Brother: ['printer-label', 'printer-office'],
+  Generic: ['cash-drawer', 'accessory', 'consumable'],
+};
+
+/** Units of sale; `name` is stored on products. */
+export const UNITS = [
+  { name: 'pcs', nameI18n: { lo: 'ອັນ', th: 'ชิ้น', en: 'pcs' } },
+  { name: 'unit', nameI18n: { lo: 'ເຄື່ອງ', th: 'เครื่อง', en: 'unit' } },
+  { name: 'set', nameI18n: { lo: 'ຊຸດ', th: 'ชุด', en: 'set' } },
+  { name: 'box', nameI18n: { lo: 'ກ່ອງ', th: 'กล่อง', en: 'box' } },
+  { name: 'pack', nameI18n: { lo: 'ແພັກ', th: 'แพ็ก', en: 'pack' } },
+  { name: 'roll', nameI18n: { lo: 'ມ້ວນ', th: 'ม้วน', en: 'roll' } },
+  { name: 'm', nameI18n: { lo: 'ແມັດ', th: 'เมตร', en: 'm' } },
+  { name: 'hour', nameI18n: { lo: 'ຊົ່ວໂມງ', th: 'ชั่วโมง', en: 'hour' } },
+];
+
 const PAYMENT_TYPES = [
   {
     name: 'Cash',
@@ -272,8 +302,27 @@ export async function seedReferenceData(
 
   for (const name of BRANDS) {
     if (!(await db.brand.findFirst({ where: { name } }))) {
-      await db.brand.create({ data: { name } });
+      // Default categories only for a brand created now, so later edits are never undone.
+      const categories = await db.category.findMany({
+        where: { slug: { in: BRAND_CATEGORIES[name] } },
+        select: { id: true },
+      });
+      await db.brand.create({
+        data: {
+          name,
+          categories: {
+            create: categories.map((c) => ({ categoryId: c.id })),
+          },
+        },
+      });
     }
+  }
+
+  // First run only: a company that deleted units keeps its own list.
+  if ((await db.unit.count()) === 0) {
+    await db.unit.createMany({
+      data: UNITS.map((u, i) => ({ ...u, sortOrder: i + 1 })),
+    });
   }
 }
 

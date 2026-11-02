@@ -57,6 +57,8 @@ export const brandSchema = apiSchema(
     name: z.string(),
     logoUrl: z.string().nullable(),
     productCount: z.int(),
+    /** Categories the brand is sold in. */
+    categoryIds: z.array(z.uuid()),
   }),
 );
 export const brandsSchema = z.array(brandSchema);

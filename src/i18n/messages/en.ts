@@ -30,6 +30,9 @@ export const en: Record<string, string> = {
   TENANT_SUSPENDED: 'This company account is suspended',
   TENANT_CODE_TAKEN: 'This company code is already taken',
   SIGNUP_DISABLED: 'Sign-up is closed',
+  UNIT_EXISTS: 'This unit already exists',
+  UNIT_IN_USE:
+    'Products still use this unit; change them first or switch it off',
   IDEMPOTENCY_CONFLICT: 'This Idempotency-Key was used for a different request',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed',
 

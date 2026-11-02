@@ -13,6 +13,7 @@ import {
 } from '../src/branches/branches.responses.js';
 import {
   categoriesSchema,
+  unitsSchema,
   productDetailSchema,
   productLookupSchema,
   productPageSchema,
@@ -382,6 +383,10 @@ describe('API contract (e2e)', () => {
       conforms(
         brandsSchema,
         await t.http().get('/brands').set(manager.auth).expect(200),
+      );
+      conforms(
+        unitsSchema,
+        await t.http().get('/units').set(manager.auth).expect(200),
       );
 
       const product = (

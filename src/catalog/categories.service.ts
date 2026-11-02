@@ -69,6 +69,21 @@ export class CategoriesService {
     return result;
   }
 
+  /** The category and every category above it (closest first). */
+  async withAncestors(id: string): Promise<string[]> {
+    const all = await this.prisma.category.findMany({
+      select: { id: true, parentId: true },
+    });
+    const parent = new Map(all.map((c) => [c.id, c.parentId]));
+    const result: string[] = [];
+    let current: string | null | undefined = id;
+    while (current && !result.includes(current)) {
+      result.push(current);
+      current = parent.get(current);
+    }
+    return result;
+  }
+
   async create(input: CreateCategoryInput, actorId: string) {
     if (input.parentId) {
       await this.prisma.category.findUniqueOrThrow({

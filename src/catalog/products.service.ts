@@ -26,7 +26,9 @@ import type {
   SetPricesInput,
   UpdateProductInput,
 } from './catalog.schemas.js';
+import { BrandsService } from './brands.service.js';
 import { CategoriesService } from './categories.service.js';
+import { UnitsService } from './units.service.js';
 import { costToLak, priceToLak, roundUpLak } from './pricing.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import { RequestContext } from '../common/request-context.js';
@@ -110,7 +112,21 @@ export class ProductsService {
     private readonly settings: SettingsService,
     private readonly config: ConfigService<Env, true>,
     private readonly entitlements: EntitlementsService,
+    private readonly brands: BrandsService,
+    private readonly units: UnitsService,
   ) {}
+
+  /** After a save: the brand belongs to the product's category; the unit is in the list. */
+  private async syncCatalog(product: {
+    brandId: string | null;
+    categoryId: string | null;
+    unit: string;
+  }) {
+    if (product.brandId && product.categoryId) {
+      await this.brands.linkToCategory(product.brandId, product.categoryId);
+    }
+    await this.units.ensure(product.unit);
+  }
 
   async pricingContext(tx?: Prisma.TransactionClient): Promise<PricingContext> {
     const [rates, lakRounding] = await Promise.all([
@@ -393,6 +409,7 @@ export class ProductsService {
       entityId: product.id,
       after: product,
     });
+    await this.syncCatalog(product);
     return this.get(product.id, canViewCost);
   }
 
@@ -450,6 +467,7 @@ export class ProductsService {
       );
     }
     const product = await this.prisma.product.update({ where: { id }, data });
+    await this.syncCatalog(product);
 
     const priceChanged =
       !before.retailPrice.equals(product.retailPrice) ||

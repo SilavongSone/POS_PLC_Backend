@@ -72,7 +72,7 @@
 | ใส่ราคาต้นทุนเป็น บาท/ดอลลาร์/กีบ แล้วแปลงเป็นกีบ | `Product.costCurrency` + `costPrice` → `avgCostLak` |
 | อัปเดตราคาได้ทุกเวลา, ปรับราคาหลายสินค้าพร้อมกัน | อัปเดต `Product` + `AuditLog` (PRODUCT_PRICE_BULK_UPDATE) |
 | ราคาขายส่งและขายปลีก | `retailPrice`, `wholesalePrice`, `wholesaleMinQty` |
-| จัดประเภทสินค้า | `Category` (แบบต้นไม้) + `Brand` |
+| จัดประเภทสินค้า | `Category` (แบบต้นไม้) + `Brand` (ผูกหลายหมวดผ่าน `BrandCategory`) + `Unit` (หน่วยขาย) |
 | ใส่บาร์โค้ดหรือรหัสสินค้า | `Product.barcode`, `Product.sku` |
 | แจ้งเตือนเมื่อสินค้าใกล้หมด | `Product.lowStockAlert` |
 | รับสินค้าเข้าสต็อก | `StockDocument` (RECEIVE) + `StockDocumentItem` + `Supplier` |
@@ -130,7 +130,7 @@
 | โมดูล | ตาราง |
 |---|---|
 | ผู้ใช้และระบบ (8) | 🆕 `UserGroup`, ✅ `User` (เปลี่ยน enum `role` เป็น `groupId`), 🆕 `RefreshToken`, 🆕 `Setting`, 🆕 `AuditLog`, 🆕 `PaymentType` (แทน enum `PaymentMethod`), 🆕 `TaxRate`, ✅ `ExchangeRate` |
-| แคตตาล็อก (7) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
+| แคตตาล็อก (9) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, 🆕 `BrandCategory` (ยี่ห้อ↔หมวด แบบ many-to-many), 🆕 `Unit` (หน่วยขาย; `Product.unit` เก็บ `Unit.name`), ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
 | สต็อก (6) | ✅ `SerialNumber`, 🆕 `StockLot`, 🆕 `Supplier`, 🆕 `StockDocument`, 🆕 `StockDocumentItem`, 🆕 `StockMovement` |
 | การขาย (11) | ✅ `Customer`, 🆕 `HeldBill`, 🆕 `Quotation`, 🆕 `QuotationItem`, ✅ `Sale`, ✅ `SaleItem`, ✅ `Payment`, 🆕 `TaxInvoice`, 🆕 `DebtPayment`, 🆕 `SaleReturn`, 🆕 `SaleReturnItem` |
 | เครื่องขาย กะ เงินสด รายจ่าย (5) | 🆕 `Register`, ✅ `Shift`, 🆕 `CashMovement`, 🆕 `ExpenseCategory`, 🆕 `Expense` |
@@ -148,6 +148,8 @@ erDiagram
   Category ||--o{ Category : parent
   Category ||--o{ Product : has
   Brand ||--o{ Product : has
+  Brand ||--o{ BrandCategory : "sold in"
+  Category ||--o{ BrandCategory : brands
   TaxRate ||--o{ Product : default_vat
   Product ||--o{ ProductImage : has
   Product ||--o{ ProductBundleItem : "bundle of"

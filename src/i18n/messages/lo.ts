@@ -29,6 +29,8 @@ export const lo: Record<string, string> = {
   TENANT_SUSPENDED: 'ບັນຊີບໍລິສັດນີ້ຖືກລະງັບ',
   TENANT_CODE_TAKEN: 'ລະຫັດບໍລິສັດນີ້ມີຜູ້ໃຊ້ແລ້ວ',
   SIGNUP_DISABLED: 'ປິດຮັບສະໝັກຊົ່ວຄາວ',
+  UNIT_EXISTS: 'ມີຫົວໜ່ວຍນີ້ແລ້ວ',
+  UNIT_IN_USE: 'ຍັງມີສິນຄ້າໃຊ້ຫົວໜ່ວຍນີ້ຢູ່ — ປ່ຽນສິນຄ້າກ່ອນ ຫຼື ປິດໃຊ້ແທນ',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key ນີ້ຖືກໃຊ້ກັບຄຳຮ້ອງຂໍອື່ນແລ້ວ',
   IDEMPOTENCY_IN_PROGRESS: 'ຄຳຮ້ອງຂໍດຽວກັນກຳລັງດຳເນີນການຢູ່',
 

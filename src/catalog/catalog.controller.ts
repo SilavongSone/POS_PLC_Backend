@@ -40,6 +40,7 @@ import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import {
   categoriesSchema,
   productDetailSchema,
+  unitsSchema,
   productLookupSchema,
   productPageSchema,
 } from './catalog.responses.js';
@@ -51,6 +52,8 @@ import {
   createBrandSchema,
   createCategorySchema,
   createProductSchema,
+  createUnitSchema,
+  listBrandsSchema,
   listCategoriesSchema,
   listProductsSchema,
   lookupSchema,
@@ -61,17 +64,22 @@ import {
   updateBrandSchema,
   updateCategorySchema,
   updateProductSchema,
+  updateUnitSchema,
   type BulkPriceInput,
   type BundleItemsInput,
   type CreateBrandInput,
   type CreateCategoryInput,
   type CreateProductInput,
+  type CreateUnitInput,
+  type ListBrandsQuery,
   type ListProductsQuery,
   type SetPricesInput,
   type UpdateBrandInput,
   type UpdateCategoryInput,
   type UpdateProductInput,
+  type UpdateUnitInput,
 } from './catalog.schemas.js';
+import { UnitsService } from './units.service.js';
 import { CategoriesService } from './categories.service.js';
 import { MAX_IMAGE_BYTES, ProductsService } from './products.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
@@ -141,10 +149,16 @@ export class CategoriesController {
 export class BrandsController {
   constructor(private readonly brands: BrandsService) {}
 
-  @ApiZodResponse(brandsSchema)
   @Get()
-  list() {
-    return this.brands.list();
+  @ApiOperation({
+    summary:
+      'Brands (?categoryId: those sold in that category or one above it)',
+  })
+  @ApiZodQuery(listBrandsSchema)
+  @ApiZodResponse(brandsSchema)
+  @ApiErrors(READ_ERRORS)
+  list(@Query(zod(listBrandsSchema)) query: ListBrandsQuery) {
+    return this.brands.list(query);
   }
 
   @Post()
@@ -176,6 +190,56 @@ export class BrandsController {
     @CurrentUser() actor: AuthUser,
   ) {
     await this.brands.remove(brandId, actor.id);
+  }
+}
+
+@ApiTags('catalog')
+@ApiBearerAuth()
+@RequirePermissions('catalog.view')
+@Controller('units')
+export class UnitsController {
+  constructor(private readonly units: UnitsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Units of sale, with how many products use each' })
+  @ApiZodResponse(unitsSchema)
+  @ApiErrors(READ_ERRORS)
+  list() {
+    return this.units.list();
+  }
+
+  @Post()
+  @RequirePermissions('product.manage')
+  @ApiZodBody(createUnitSchema)
+  create(
+    @Body(zod(createUnitSchema)) body: CreateUnitInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.units.create(body, actor.id);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary: 'Rename (also on its products), translate, order, switch off',
+  })
+  @ApiZodBody(updateUnitSchema)
+  update(
+    @Param('id', id) unitId: string,
+    @Body(zod(updateUnitSchema)) body: UpdateUnitInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.units.update(unitId, body, actor.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @RequirePermissions('product.manage')
+  async remove(
+    @Param('id', id) unitId: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.units.remove(unitId, actor.id);
   }
 }
 

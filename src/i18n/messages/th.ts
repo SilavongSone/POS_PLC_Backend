@@ -28,6 +28,8 @@ export const th: Record<string, string> = {
   TENANT_SUSPENDED: 'บัญชีบริษัทนี้ถูกระงับ',
   TENANT_CODE_TAKEN: 'รหัสบริษัทนี้มีผู้ใช้แล้ว',
   SIGNUP_DISABLED: 'ปิดรับสมัครชั่วคราว',
+  UNIT_EXISTS: 'มีหน่วยนี้แล้ว',
+  UNIT_IN_USE: 'ยังมีสินค้าใช้หน่วยนี้อยู่ — เปลี่ยนสินค้าก่อน หรือปิดใช้แทน',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key นี้ถูกใช้กับคำขออื่นแล้ว',
   IDEMPOTENCY_IN_PROGRESS: 'คำขอเดียวกันกำลังดำเนินการอยู่',
 

@@ -312,6 +312,13 @@
       "Brand": {
         "additionalProperties": false,
         "properties": {
+          "categoryIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -338,7 +345,8 @@
           "tenantId",
           "name",
           "logoUrl",
-          "productCount"
+          "productCount",
+          "categoryIds"
         ],
         "type": "object"
       },
@@ -1481,6 +1489,32 @@
           "lakPerUnit",
           "amountLak",
           "reference"
+        ],
+        "type": "object"
+      },
+      "PlatformSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "signupEnabled": {
+            "type": "boolean"
+          },
+          "signupEnabledSource": {
+            "enum": [
+              "setting",
+              "env"
+            ],
+            "type": "string"
+          },
+          "signupUpdatedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "signupEnabled",
+          "signupEnabledSource",
+          "signupUpdatedAt"
         ],
         "type": "object"
       },
@@ -5484,6 +5518,18 @@
         ],
         "type": "object"
       },
+      "SignupStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "open"
+        ],
+        "type": "object"
+      },
       "StockDocument": {
         "additionalProperties": false,
         "properties": {
@@ -7087,6 +7133,70 @@
           "amounts"
         ],
         "type": "object"
+      },
+      "Unit": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameI18n": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "en": {
+                "type": "string"
+              },
+              "lo": {
+                "type": "string"
+              },
+              "th": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "productCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sortOrder": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "nameI18n",
+          "sortOrder",
+          "isActive",
+          "createdAt",
+          "productCount"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -8444,7 +8554,17 @@
     "/api/brands": {
       "get": {
         "operationId": "BrandsController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "categoryId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8458,6 +8578,46 @@
               }
             },
             "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
           }
         },
         "security": [
@@ -8465,6 +8625,7 @@
             "bearer": []
           }
         ],
+        "summary": "Brands (?categoryId: those sold in that category or one above it)",
         "tags": [
           "catalog"
         ]
@@ -8477,6 +8638,15 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "categoryIds": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 200,
+                    "type": "array"
+                  },
                   "logoUrl": {
                     "maxLength": 500,
                     "nullable": true,
@@ -8556,6 +8726,15 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "categoryIds": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 200,
+                    "type": "array"
+                  },
                   "logoUrl": {
                     "maxLength": 500,
                     "nullable": true,
@@ -10659,6 +10838,76 @@
           }
         ],
         "summary": "Change price, limits, features or visibility",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/platform/settings": {
+      "get": {
+        "operationId": "PlatformController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformSettings"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Platform-wide switches (self-service sign-up)",
+        "tags": [
+          "platform"
+        ]
+      },
+      "patch": {
+        "operationId": "PlatformController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "signupEnabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "signupEnabled"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformSettings"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Open or close self-service sign-up (takes effect immediately)",
         "tags": [
           "platform"
         ]
@@ -13036,6 +13285,28 @@
           }
         },
         "summary": "Send a new code (at most 3 times)",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/api/public/signup/status": {
+      "get": {
+        "operationId": "PublicController_signupStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupStatus"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "summary": "Whether self-service sign-up is open",
         "tags": [
           "public"
         ]
@@ -17653,6 +17924,239 @@
         "summary": "Make this the VAT rate for new sales",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/api/units": {
+      "get": {
+        "operationId": "UnitsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Unit"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Units of sale, with how many products use each",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "UnitsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "isActive": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "maxLength": 20,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 20,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 20,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 20,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "sortOrder": {
+                    "default": 0,
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/units/{id}": {
+      "delete": {
+        "operationId": "UnitsController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "UnitsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "maxLength": 20,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 20,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 20,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 20,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "sortOrder": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rename (also on its products), translate, order, switch off",
+        "tags": [
+          "catalog"
         ]
       }
     },

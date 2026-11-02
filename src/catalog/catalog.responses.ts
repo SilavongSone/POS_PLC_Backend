@@ -31,6 +31,25 @@ export const categorySchema = apiSchema(
 );
 export const categoriesSchema = z.array(categorySchema);
 
+/** GET /units item. Products store `name`; the UI shows the translated name. */
+export const unitSchema = apiSchema(
+  'Unit',
+  z.strictObject({
+    id: z.uuid(),
+    tenantId: z.uuid(),
+    /** The value products store (`Product.unit`). */
+    code: z.string(),
+    /** In the request language (nameI18n keeps every translation). */
+    name: z.string(),
+    nameI18n: i18nMap,
+    sortOrder: z.int(),
+    isActive: z.boolean(),
+    createdAt: dateTimeString,
+    productCount: z.int().min(0),
+  }),
+);
+export const unitsSchema = z.array(unitSchema);
+
 const productImage = z.strictObject({
   id: z.uuid(),
   productId: z.uuid(),
