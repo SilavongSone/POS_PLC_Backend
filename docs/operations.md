@@ -28,7 +28,9 @@
 | `BILLING_PAY_URL` | ลิงก์จ่ายของ gateway (`{invoiceId}`, `{number}`, `{amount}`) | ปุ่มจ่ายออนไลน์ (ไม่บังคับ) |
 | `BILLING_WEBHOOK_SECRET` | สุ่ม 32 ตัวขึ้นไป | ให้ gateway เซ็น `POST /api/public/billing/webhook` · ไม่ตั้ง = ปิด webhook |
 
-**ติดตั้งด้วย Docker:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (PostgreSQL + migrate/seed ครั้งเดียว + API, health check ในตัว) · CI ใน `.github/workflows/ci.yml` ตรวจ migration, format, lint, typecheck, unit, e2e และ build ทุก PR
+**ติดตั้งทั้งระบบ (แนะนำ):** `deploy/` — PostgreSQL + migrate + API + เว็บ + Caddy (HTTPS อัตโนมัติ, โดเมนเดียว) + backup ทุกคืน · คู่มือ: [`deploy/README.md`](../deploy/README.md)
+
+**ติดตั้งเฉพาะ API ด้วย Docker:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (PostgreSQL + migrate/seed ครั้งเดียว + API, health check ในตัว) · CI ใน `.github/workflows/ci.yml` ตรวจ migration, format, lint, typecheck, unit, e2e และ build ทุก PR
 
 **รายการตรวจก่อนเปิดใช้:** เปลี่ยนรหัสผ่าน `admin` · ตั้ง PIN ให้ผู้จัดการ · ใช้ HTTPS เท่านั้น · backup DB ทุกวัน (`pg_dump`) และเก็บนอกเครื่อง · ตั้ง uptime monitor ยิง `GET /api/health`
 

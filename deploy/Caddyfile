@@ -1,0 +1,22 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API (and product images under /api/uploads)
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	# Everything else is the web app
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

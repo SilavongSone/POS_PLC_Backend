@@ -1,0 +1,114 @@
+# Full PLC POS stack on one server: PostgreSQL, migrations, API, web app, Caddy (HTTPS)
+# and a daily database backup. Both repos are cloned side by side:
+#   /opt/plc-pos/backend   (this repo)    /opt/plc-pos/frontend
+# Then, from backend/deploy:
+#   cp .env.example .env    # fill in every value
+#   docker compose up -d --build
+# One domain serves everything: https://$DOMAIN/api/* → API, the rest → web app.
+name: plc-pos
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-plc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-plc_pos}
+      TZ: Asia/Vientiane
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-plc}']
+      interval: 5s
+      retries: 20
+
+  # One-shot: apply migrations and the idempotent seed, then exit.
+  migrate:
+    build: { context: .., target: migrate }
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-plc_pos}?schema=public
+      SEED_TENANT_CODE: ${SEED_TENANT_CODE:-plc}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?set PLATFORM_ADMIN_EMAIL}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build: { context: .., target: runtime }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-plc_pos}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGINS: https://${DOMAIN}
+      APP_URL: https://${DOMAIN}
+      TRUST_PROXY: '1'
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
+      DEFAULT_TENANT_CODE: ${DEFAULT_TENANT_CODE:-}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_ID:-}
+      BILLING_BANK_INFO: ${BILLING_BANK_INFO:-}
+      BILLING_PAY_URL: ${BILLING_PAY_URL:-}
+      BILLING_WEBHOOK_SECRET: ${BILLING_WEBHOOK_SECRET:-}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    build:
+      context: ../../frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN:?set DOMAIN}/api
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+
+  # TLS certificates from Let's Encrypt, renewed automatically. Needs ports 80 and 443
+  # open and the domain's DNS A record pointing at this server.
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api, web]
+
+  # pg_dump every night at 02:00 (Vientiane), keeping BACKUP_KEEP_DAYS days in ./backups.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-plc}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-plc_pos}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: Asia/Vientiane
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ['sh', '/backup.sh']
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
