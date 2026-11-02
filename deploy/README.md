@@ -81,6 +81,8 @@ docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.tunnel.yml logs cloudflared | grep trycloudflare
 ```
 
+ໃນເຄື່ອງດຽວກັນ ເປີດໄດ້ທີ່ `http://localhost:8080` ນຳ. ເຂົ້າລະບົບດ້ວຍລະຫັດຜ່ານໃນ **`deploy/.env`** (ບໍ່ແມ່ນ `backend/.env` ຂອງ dev — ຄົນລະຖານຂໍ້ມູນ).
+
 ສະເພາະທົດສອບ: ໃຊ້ໄດ້ຕອນເຄື່ອງເປີດຢູ່ເທົ່ານັ້ນ, ລິ້ງປ່ຽນທຸກຄັ້ງທີ່ start ໃໝ່, Cloudflare ບໍ່ຮັບປະກັນ uptime. ປິດດ້ວຍ `docker compose -f docker-compose.yml -f docker-compose.tunnel.yml down` (ເພີ່ມ `-v` ເພື່ອລຶບຂໍ້ມູນ).
 
 ## ທົດສອບໃນເຄື່ອງ (ກ່ອນຂຶ້ນ server)

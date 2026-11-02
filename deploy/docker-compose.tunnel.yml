@@ -10,9 +10,10 @@ services:
         # Same-origin API: the address is only known once the tunnel starts.
         NEXT_PUBLIC_API_URL: /api
 
-  # Plain HTTP inside Docker; the tunnel provides HTTPS. No host ports needed.
+  # Plain HTTP; the tunnel provides HTTPS. Also on http://localhost:8080 for this machine.
   caddy:
-    ports: !reset []
+    ports: !override
+      - '127.0.0.1:8080:80'
     volumes: !override
       - ./Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
