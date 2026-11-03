@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { labelElementSchema } from './label-templates.schemas.js';
 import {
   apiSchema,
   currencySchema,
@@ -223,3 +224,23 @@ export const productLookupSchema = apiSchema(
       .nullable(),
   }),
 );
+
+/** GET /label-templates item: sizes in mm, element boxes positioned in mm. */
+export const labelTemplateSchema = apiSchema(
+  'LabelTemplate',
+  z.strictObject({
+    id: z.uuid(),
+    tenantId: z.uuid(),
+    name: z.string(),
+    widthMm: z.number(),
+    heightMm: z.number(),
+    columns: z.int().min(1),
+    gapMm: z.number(),
+    marginMm: z.number(),
+    elements: z.array(labelElementSchema),
+    isDefault: z.boolean(),
+    createdAt: dateTimeString,
+    updatedAt: dateTimeString,
+  }),
+);
+export const labelTemplatesSchema = z.array(labelTemplateSchema);

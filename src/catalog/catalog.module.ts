@@ -6,6 +6,8 @@ import {
   ProductsController,
   UnitsController,
 } from './catalog.controller.js';
+import { LabelTemplatesController } from './label-templates.controller.js';
+import { LabelTemplatesService } from './label-templates.service.js';
 import { UnitsService } from './units.service.js';
 import { CategoriesService } from './categories.service.js';
 import { ProductsService } from './products.service.js';
@@ -15,9 +17,16 @@ import { ProductsService } from './products.service.js';
     CategoriesController,
     BrandsController,
     UnitsController,
+    LabelTemplatesController,
     ProductsController,
   ],
-  providers: [CategoriesService, BrandsService, UnitsService, ProductsService],
+  providers: [
+    CategoriesService,
+    BrandsService,
+    UnitsService,
+    LabelTemplatesService,
+    ProductsService,
+  ],
   exports: [ProductsService, CategoriesService],
 })
 export class CatalogModule {}

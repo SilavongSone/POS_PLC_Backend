@@ -130,7 +130,7 @@
 | โมดูล | ตาราง |
 |---|---|
 | ผู้ใช้และระบบ (8) | 🆕 `UserGroup`, ✅ `User` (เปลี่ยน enum `role` เป็น `groupId`), 🆕 `RefreshToken`, 🆕 `Setting`, 🆕 `AuditLog`, 🆕 `PaymentType` (แทน enum `PaymentMethod`), 🆕 `TaxRate`, ✅ `ExchangeRate` |
-| แคตตาล็อก (9) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, 🆕 `BrandCategory` (ยี่ห้อ↔หมวด แบบ many-to-many), 🆕 `Unit` (หน่วยขาย; `Product.unit` เก็บ `Unit.name`), ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
+| แคตตาล็อก (10) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, 🆕 `BrandCategory` (ยี่ห้อ↔หมวด แบบ many-to-many), 🆕 `Unit` (หน่วยขาย; `Product.unit` เก็บ `Unit.name`), 🆕 `LabelTemplate` (แม่แบบป้ายบาร์โค้ด: ขนาดดวง, ดวงต่อแถว, กล่องข้อมูลเป็น JSON), ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
 | สต็อก (6) | ✅ `SerialNumber`, 🆕 `StockLot`, 🆕 `Supplier`, 🆕 `StockDocument`, 🆕 `StockDocumentItem`, 🆕 `StockMovement` |
 | การขาย (11) | ✅ `Customer`, 🆕 `HeldBill`, 🆕 `Quotation`, 🆕 `QuotationItem`, ✅ `Sale`, ✅ `SaleItem`, ✅ `Payment`, 🆕 `TaxInvoice`, 🆕 `DebtPayment`, 🆕 `SaleReturn`, 🆕 `SaleReturnItem` |
 | เครื่องขาย กะ เงินสด รายจ่าย (5) | 🆕 `Register`, ✅ `Shift`, 🆕 `CashMovement`, 🆕 `ExpenseCategory`, 🆕 `Expense` |

@@ -1206,6 +1206,136 @@
         ],
         "type": "object"
       },
+      "LabelTemplate": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "elements": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "align": {
+                  "default": "left",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ],
+                  "type": "string"
+                },
+                "bold": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "default": 8,
+                  "maximum": 40,
+                  "minimum": 4,
+                  "type": "number"
+                },
+                "h": {},
+                "id": {
+                  "maxLength": 40,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "text": {
+                  "default": "",
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "shop",
+                    "name",
+                    "brand",
+                    "model",
+                    "sku",
+                    "code",
+                    "barcode",
+                    "qr",
+                    "price",
+                    "serial",
+                    "unit",
+                    "text"
+                  ],
+                  "type": "string"
+                },
+                "w": {},
+                "x": {},
+                "y": {}
+              },
+              "required": [
+                "id",
+                "type",
+                "x",
+                "y",
+                "w",
+                "h",
+                "fontSize",
+                "bold",
+                "align",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "gapMm": {
+            "type": "number"
+          },
+          "heightMm": {
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "marginMm": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "widthMm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "name",
+          "widthMm",
+          "heightMm",
+          "columns",
+          "gapMm",
+          "marginMm",
+          "elements",
+          "isDefault",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
       "OpenDebt": {
         "additionalProperties": false,
         "properties": {
@@ -10122,6 +10252,427 @@
         ],
         "tags": [
           "sales"
+        ]
+      }
+    },
+    "/api/label-templates": {
+      "get": {
+        "operationId": "LabelTemplatesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LabelTemplate"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Barcode label layouts (default first)",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "LabelTemplatesController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "columns": {
+                    "default": 1,
+                    "maximum": 4,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "elements": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "align": {
+                          "default": "left",
+                          "enum": [
+                            "left",
+                            "center",
+                            "right"
+                          ],
+                          "type": "string"
+                        },
+                        "bold": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "fontSize": {
+                          "default": 8,
+                          "maximum": 40,
+                          "minimum": 4,
+                          "type": "number"
+                        },
+                        "h": {
+                          "maximum": 150,
+                          "minimum": 1,
+                          "type": "number"
+                        },
+                        "id": {
+                          "maxLength": 40,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "text": {
+                          "default": "",
+                          "maxLength": 100,
+                          "type": "string"
+                        },
+                        "type": {
+                          "enum": [
+                            "shop",
+                            "name",
+                            "brand",
+                            "model",
+                            "sku",
+                            "code",
+                            "barcode",
+                            "qr",
+                            "price",
+                            "serial",
+                            "unit",
+                            "text"
+                          ],
+                          "type": "string"
+                        },
+                        "w": {
+                          "maximum": 150,
+                          "minimum": 1,
+                          "type": "number"
+                        },
+                        "x": {
+                          "maximum": 150,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "y": {
+                          "maximum": 150,
+                          "minimum": 0,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "x",
+                        "y",
+                        "w",
+                        "h"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 30,
+                    "type": "array"
+                  },
+                  "gapMm": {
+                    "maximum": 20,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "heightMm": {
+                    "maximum": 150,
+                    "minimum": 10,
+                    "type": "number"
+                  },
+                  "isDefault": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "marginMm": {
+                    "maximum": 20,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "name": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "widthMm": {
+                    "maximum": 150,
+                    "minimum": 10,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "name",
+                  "widthMm",
+                  "heightMm",
+                  "elements"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelTemplate"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/label-templates/{id}": {
+      "delete": {
+        "operationId": "LabelTemplatesController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "LabelTemplatesController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "columns": {
+                    "maximum": 4,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "elements": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "align": {
+                          "default": "left",
+                          "enum": [
+                            "left",
+                            "center",
+                            "right"
+                          ],
+                          "type": "string"
+                        },
+                        "bold": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "fontSize": {
+                          "default": 8,
+                          "maximum": 40,
+                          "minimum": 4,
+                          "type": "number"
+                        },
+                        "h": {
+                          "maximum": 150,
+                          "minimum": 1,
+                          "type": "number"
+                        },
+                        "id": {
+                          "maxLength": 40,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "text": {
+                          "default": "",
+                          "maxLength": 100,
+                          "type": "string"
+                        },
+                        "type": {
+                          "enum": [
+                            "shop",
+                            "name",
+                            "brand",
+                            "model",
+                            "sku",
+                            "code",
+                            "barcode",
+                            "qr",
+                            "price",
+                            "serial",
+                            "unit",
+                            "text"
+                          ],
+                          "type": "string"
+                        },
+                        "w": {
+                          "maximum": 150,
+                          "minimum": 1,
+                          "type": "number"
+                        },
+                        "x": {
+                          "maximum": 150,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "y": {
+                          "maximum": 150,
+                          "minimum": 0,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "x",
+                        "y",
+                        "w",
+                        "h"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 30,
+                    "type": "array"
+                  },
+                  "gapMm": {
+                    "maximum": 20,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "heightMm": {
+                    "maximum": 150,
+                    "minimum": 10,
+                    "type": "number"
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  },
+                  "marginMm": {
+                    "maximum": 20,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "name": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "widthMm": {
+                    "maximum": 150,
+                    "minimum": 10,
+                    "type": "number"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelTemplate"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "catalog"
         ]
       }
     },

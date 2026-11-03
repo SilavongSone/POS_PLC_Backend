@@ -30,6 +30,7 @@ export const th: Record<string, string> = {
   SIGNUP_DISABLED: 'ปิดรับสมัครชั่วคราว',
   UNIT_EXISTS: 'มีหน่วยนี้แล้ว',
   UNIT_IN_USE: 'ยังมีสินค้าใช้หน่วยนี้อยู่ — เปลี่ยนสินค้าก่อน หรือปิดใช้แทน',
+  LABEL_TEMPLATE_EXISTS: 'มีแม่แบบป้ายชื่อนี้แล้ว',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key นี้ถูกใช้กับคำขออื่นแล้ว',
   IDEMPOTENCY_IN_PROGRESS: 'คำขอเดียวกันกำลังดำเนินการอยู่',
 

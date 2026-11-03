@@ -14,6 +14,7 @@ import {
 import {
   categoriesSchema,
   unitsSchema,
+  labelTemplatesSchema,
   productDetailSchema,
   productLookupSchema,
   productPageSchema,
@@ -387,6 +388,21 @@ describe('API contract (e2e)', () => {
       conforms(
         unitsSchema,
         await t.http().get('/units').set(manager.auth).expect(200),
+      );
+      await t
+        .http()
+        .post('/label-templates')
+        .set(manager.auth)
+        .send({
+          name: `Contract ${Date.now()}`,
+          widthMm: 50,
+          heightMm: 30,
+          elements: [{ id: 'b', type: 'barcode', x: 1, y: 1, w: 48, h: 20 }],
+        })
+        .expect(201);
+      conforms(
+        labelTemplatesSchema,
+        await t.http().get('/label-templates').set(manager.auth).expect(200),
       );
 
       const product = (

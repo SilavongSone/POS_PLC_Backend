@@ -246,4 +246,90 @@ describe('Catalog master data (e2e)', () => {
       );
     });
   });
+
+  describe('label templates', () => {
+    const elements = [
+      { id: 'name', type: 'name', x: 1, y: 1, w: 38, h: 6, fontSize: 8 },
+      { id: 'bc', type: 'barcode', x: 1, y: 8, w: 38, h: 12 },
+      { id: 'price', type: 'price', x: 20, y: 22, w: 19, h: 6, bold: true },
+    ];
+
+    it('creates, keeps one default, rejects duplicate names and deletes', async () => {
+      const name = `Roll ${uniq()}`;
+      const first = (
+        await t
+          .http()
+          .post('/label-templates')
+          .set(manager.auth)
+          .send({ name, widthMm: 40, heightMm: 30, elements, isDefault: true })
+          .expect(201)
+      ).body as { id: string; columns: number; elements: { align: string }[] };
+      expect(first.columns).toBe(1);
+      expect(first.elements[0].align).toBe('left');
+
+      const dup = await t
+        .http()
+        .post('/label-templates')
+        .set(manager.auth)
+        .send({ name, widthMm: 40, heightMm: 30, elements: [] })
+        .expect(409);
+      expect(dup.body.code).toBe('LABEL_TEMPLATE_EXISTS');
+
+      const second = (
+        await t
+          .http()
+          .post('/label-templates')
+          .set(manager.auth)
+          .send({
+            name: `3-up ${uniq()}`,
+            widthMm: 32.04,
+            heightMm: 25,
+            columns: 3,
+            elements,
+            isDefault: true,
+          })
+          .expect(201)
+      ).body as { id: string; widthMm: number };
+      expect(second.widthMm).toBe(32);
+
+      const list = (
+        await t.http().get('/label-templates').set(cashier.auth).expect(200)
+      ).body as { id: string; isDefault: boolean }[];
+      expect(list.filter((x) => x.isDefault).map((x) => x.id)).toEqual([
+        second.id,
+      ]);
+
+      await t
+        .http()
+        .patch(`/label-templates/${first.id}`)
+        .set(manager.auth)
+        .send({ columns: 2, gapMm: 3 })
+        .expect(200);
+      await t
+        .http()
+        .delete(`/label-templates/${second.id}`)
+        .set(manager.auth)
+        .expect(204);
+    });
+
+    it('validates the layout and needs product.manage', async () => {
+      await t
+        .http()
+        .post('/label-templates')
+        .set(manager.auth)
+        .send({
+          name: `Bad ${uniq()}`,
+          widthMm: 40,
+          heightMm: 30,
+          elements: [elements[0], elements[0]],
+        })
+        .expect(400);
+      await t
+        .http()
+        .post('/label-templates')
+        .set(cashier.auth)
+        .send({ name: 'x', widthMm: 40, heightMm: 30, elements: [] })
+        .expect(403);
+    });
+  });
 });

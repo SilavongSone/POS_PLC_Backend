@@ -395,6 +395,28 @@ model Unit {
   @@unique([tenantId, name])
 }
 
+/// Barcode label layouts for die-cut label rolls (sizes in mm). `columns` labels sit side by
+/// side on one row of the roll; `elements` are positioned boxes (see label-templates.schemas.ts).
+model LabelTemplate {
+  id        String   @id @default(uuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name      String
+  widthMm   Float
+  heightMm  Float
+  columns   Int      @default(1)
+  /// Space between labels on one row.
+  gapMm     Float    @default(2)
+  /// Liner edge left and right of the row.
+  marginMm  Float    @default(0)
+  elements  Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
 model Product {
   id              String      @id @default(uuid())
   /// Translations, e.g. {"lo": "…", "th": "…", "en": "…"}.
@@ -1261,6 +1283,7 @@ model Tenant {
   categories        Category[]
   brands            Brand[]
   units             Unit[]
+  labelTemplates    LabelTemplate[]
   products          Product[]
   promotions        Promotion[]
   serialNumbers     SerialNumber[]

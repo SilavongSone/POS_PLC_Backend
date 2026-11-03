@@ -33,6 +33,7 @@ export const en: Record<string, string> = {
   UNIT_EXISTS: 'This unit already exists',
   UNIT_IN_USE:
     'Products still use this unit; change them first or switch it off',
+  LABEL_TEMPLATE_EXISTS: 'A label template with this name already exists',
   IDEMPOTENCY_CONFLICT: 'This Idempotency-Key was used for a different request',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed',
 
