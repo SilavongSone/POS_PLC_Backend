@@ -34,6 +34,10 @@ export const en: Record<string, string> = {
   UNIT_IN_USE:
     'Products still use this unit; change them first or switch it off',
   LABEL_TEMPLATE_EXISTS: 'A label template with this name already exists',
+  SERIAL_MATCHES_PRODUCT_CODE:
+    'A serial number equals the barcode or SKU of a product; the scanner could not find that unit',
+  PRODUCT_CODE_MATCHES_SERIAL:
+    'This code is already a serial number of a unit; the scanner could not tell them apart',
   IDEMPOTENCY_CONFLICT: 'This Idempotency-Key was used for a different request',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed',
 

@@ -1265,6 +1265,7 @@
                     "price",
                     "serial",
                     "unit",
+                    "condition",
                     "text"
                   ],
                   "type": "string"
@@ -10389,6 +10390,7 @@
                             "price",
                             "serial",
                             "unit",
+                            "condition",
                             "text"
                           ],
                           "type": "string"
@@ -10586,6 +10588,7 @@
                             "price",
                             "serial",
                             "unit",
+                            "condition",
                             "text"
                           ],
                           "type": "string"
@@ -17856,6 +17859,14 @@
             "required": false,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           },

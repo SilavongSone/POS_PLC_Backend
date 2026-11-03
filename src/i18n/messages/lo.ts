@@ -32,6 +32,10 @@ export const lo: Record<string, string> = {
   UNIT_EXISTS: 'ມີຫົວໜ່ວຍນີ້ແລ້ວ',
   UNIT_IN_USE: 'ຍັງມີສິນຄ້າໃຊ້ຫົວໜ່ວຍນີ້ຢູ່ — ປ່ຽນສິນຄ້າກ່ອນ ຫຼື ປິດໃຊ້ແທນ',
   LABEL_TEMPLATE_EXISTS: 'ມີແມ່ແບບປ້າຍຊື່ນີ້ແລ້ວ',
+  SERIAL_MATCHES_PRODUCT_CODE:
+    'ເລກ serial ຊ້ຳກັບບາໂຄດ ຫຼື SKU ຂອງສິນຄ້າ — ເຄື່ອງສະແກນຈະຫາເຄື່ອງນີ້ບໍ່ເຫັນ',
+  PRODUCT_CODE_MATCHES_SERIAL:
+    'ລະຫັດນີ້ຊ້ຳກັບເລກ serial ຂອງເຄື່ອງທີ່ມີຢູ່ — ເຄື່ອງສະແກນຈະແຍກບໍ່ອອກ',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key ນີ້ຖືກໃຊ້ກັບຄຳຮ້ອງຂໍອື່ນແລ້ວ',
   IDEMPOTENCY_IN_PROGRESS: 'ຄຳຮ້ອງຂໍດຽວກັນກຳລັງດຳເນີນການຢູ່',
 

@@ -389,6 +389,7 @@ export class ProductsService {
   ) {
     await this.assertReferences(input);
     await this.assertPlanAllows(input);
+    await this.assertCodesFree([input.sku, input.barcode]);
     if (input.isActive !== false)
       await this.entitlements.assertLimit('maxProducts');
     const ctx = await this.pricingContext();
@@ -424,6 +425,8 @@ export class ProductsService {
     });
     await this.assertReferences(input);
     await this.assertPlanAllows(input);
+    if (input.barcode && input.barcode !== before.barcode)
+      await this.assertCodesFree([input.barcode]);
 
     const hasStock = before.stockQty !== 0;
     if (
@@ -708,6 +711,24 @@ export class ProductsService {
       (input.costCurrency && input.costCurrency !== 'LAK')
     ) {
       await this.entitlements.assertFeature('multiCurrency');
+    }
+  }
+
+  /** A barcode/SKU equal to a serial number would hide that unit from the scanner. */
+  private async assertCodesFree(codes: (string | null | undefined)[]) {
+    const list = codes.filter((c): c is string => !!c);
+    if (!list.length) return;
+    const unit = await this.prisma.serialNumber.findFirst({
+      where: {
+        OR: list.map((c) => ({ serial: { equals: c, mode: 'insensitive' } })),
+      },
+      select: { serial: true },
+    });
+    if (unit) {
+      throw new ConflictException({
+        message: `This code is already the serial number ${unit.serial} of a unit`,
+        code: 'PRODUCT_CODE_MATCHES_SERIAL',
+      });
     }
   }
 

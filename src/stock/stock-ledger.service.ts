@@ -172,6 +172,22 @@ export class StockLedgerService {
           `Serial already exists: ${existing.map((s) => s.serial).join(', ')}`,
         );
       }
+      // The till looks up barcodes/SKUs before serials, so such a serial could never be scanned.
+      const clash = await tx.product.findFirst({
+        where: {
+          OR: [
+            { barcode: { in: serials } },
+            { sku: { in: serials.map((s) => s.toUpperCase()) } },
+          ],
+        },
+        select: { sku: true, barcode: true },
+      });
+      if (clash) {
+        throw new ConflictException({
+          message: `A serial number equals the barcode or SKU of product ${clash.sku}`,
+          code: 'SERIAL_MATCHES_PRODUCT_CODE',
+        });
+      }
       for (const serial of serials) {
         const row = await tx.serialNumber.create({
           data: {

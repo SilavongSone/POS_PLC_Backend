@@ -62,6 +62,7 @@ export class StockQueriesService {
   ) {
     const where: Prisma.SerialNumberWhereInput = {
       productId: query.productId,
+      ...(query.ids && { id: { in: query.ids } }),
       ...(branchIds && { branchId: { in: branchIds } }),
       status: query.status,
       condition: query.condition,

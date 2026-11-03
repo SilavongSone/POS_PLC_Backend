@@ -22,6 +22,7 @@ export const labelElementType = z.enum([
   'price',
   'serial',
   'unit',
+  'condition',
   'text',
 ]);
 

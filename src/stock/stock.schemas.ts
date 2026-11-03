@@ -120,6 +120,12 @@ export const listMovementsSchema = pageQuerySchema.extend({
 
 export const listSerialsSchema = pageQuerySchema.extend({
   productId: z.uuid().optional(),
+  /** Comma-separated unit ids (label printing), at most one page. */
+  ids: z
+    .string()
+    .transform((v) => v.split(',').filter(Boolean))
+    .pipe(z.array(z.uuid()).max(100))
+    .optional(),
   branchId: z.uuid().optional(),
   status: z
     .enum(['IN_STOCK', 'SOLD', 'RETURNED', 'IN_SERVICE', 'DEFECTIVE', 'ISSUED'])

@@ -163,6 +163,66 @@ describe('Stock (e2e)', () => {
     expect((await expectLedgerConsistent(p.id)).stockQty).toBe(0);
   });
 
+  it('keeps serial numbers and product codes apart so the scanner finds both', async () => {
+    const other = await product({ barcode: `BC-${uniq()}` });
+    const p = await product({ trackSerial: true });
+    const draft = (
+      await doc({
+        type: 'RECEIVE',
+        items: [
+          {
+            productId: p.id,
+            quantity: 2,
+            serials: [`SN-${uniq()}`, other.sku.toLowerCase()],
+          },
+        ],
+      })
+    ).body;
+    const clash = await post(draft.id).expect(409);
+    expect(clash.body.code).toBe('SERIAL_MATCHES_PRODUCT_CODE');
+
+    const serial = `SN-${uniq()}`;
+    const ok = (
+      await doc({
+        type: 'RECEIVE',
+        items: [{ productId: p.id, quantity: 1, serials: [serial] }],
+      })
+    ).body;
+    await post(ok.id).expect(200);
+    const taken = await t
+      .http()
+      .post('/products')
+      .set(manager.auth)
+      .send({
+        sku: `ST-${uniq()}`,
+        name: 'x',
+        retailPrice: 1000,
+        barcode: serial.toLowerCase(),
+      })
+      .expect(409);
+    expect(taken.body.code).toBe('PRODUCT_CODE_MATCHES_SERIAL');
+    await t
+      .http()
+      .patch(`/products/${other.id}`)
+      .set(manager.auth)
+      .send({ barcode: serial })
+      .expect(409);
+
+    // The label page loads chosen units by id.
+    const unit = await t.prisma.serialNumber.findFirstOrThrow({
+      where: { serial },
+    });
+    const page = await t
+      .http()
+      .get('/stock/serials')
+      .query({ ids: unit.id })
+      .set(manager.auth)
+      .expect(200);
+    expect(page.body.items.map((s: { serial: string }) => s.serial)).toEqual([
+      serial,
+    ]);
+  });
+
   it('converts foreign costs and keeps a moving-average cost', async () => {
     const p = await product();
     const first = (
