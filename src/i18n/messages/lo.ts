@@ -36,6 +36,8 @@ export const lo: Record<string, string> = {
     'ເລກ serial ຊ້ຳກັບບາໂຄດ ຫຼື SKU ຂອງສິນຄ້າ — ເຄື່ອງສະແກນຈະຫາເຄື່ອງນີ້ບໍ່ເຫັນ',
   PRODUCT_CODE_MATCHES_SERIAL:
     'ລະຫັດນີ້ຊ້ຳກັບເລກ serial ຂອງເຄື່ອງທີ່ມີຢູ່ — ເຄື່ອງສະແກນຈະແຍກບໍ່ອອກ',
+  PRODUCT_HAS_HISTORY:
+    'ສິນຄ້ານີ້ມີປະຫວັດແລ້ວ (ສະຕັອກ, ການຂາຍ ຫຼື ເອກະສານ) — ລຶບບໍ່ໄດ້, ໃຫ້ປິດໃຊ້ແທນ',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key ນີ້ຖືກໃຊ້ກັບຄຳຮ້ອງຂໍອື່ນແລ້ວ',
   IDEMPOTENCY_IN_PROGRESS: 'ຄຳຮ້ອງຂໍດຽວກັນກຳລັງດຳເນີນການຢູ່',
 

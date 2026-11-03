@@ -38,6 +38,8 @@ export const en: Record<string, string> = {
     'A serial number equals the barcode or SKU of a product; the scanner could not find that unit',
   PRODUCT_CODE_MATCHES_SERIAL:
     'This code is already a serial number of a unit; the scanner could not tell them apart',
+  PRODUCT_HAS_HISTORY:
+    'This product has history (stock, sales or documents); switch it off instead',
   IDEMPOTENCY_CONFLICT: 'This Idempotency-Key was used for a different request',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed',
 

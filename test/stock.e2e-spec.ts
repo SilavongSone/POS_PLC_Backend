@@ -223,6 +223,42 @@ describe('Stock (e2e)', () => {
     ]);
   });
 
+  it('deletes only products without history', async () => {
+    const unused = await product();
+    await t
+      .http()
+      .delete(`/products/${unused.id}`)
+      .set(cashier.auth)
+      .expect(403);
+    await t
+      .http()
+      .delete(`/products/${unused.id}`)
+      .set(manager.auth)
+      .expect(204);
+    await t.http().get(`/products/${unused.id}`).set(manager.auth).expect(404);
+
+    const stocked = await product();
+    const draft = (
+      await doc({
+        type: 'RECEIVE',
+        items: [{ productId: stocked.id, quantity: 1, unitCost: 1000 }],
+      })
+    ).body;
+    // A draft line already counts: the document would lose its product.
+    const blocked = await t
+      .http()
+      .delete(`/products/${stocked.id}`)
+      .set(manager.auth)
+      .expect(409);
+    expect(blocked.body.code).toBe('PRODUCT_HAS_HISTORY');
+    await post(draft.id).expect(200);
+    await t
+      .http()
+      .delete(`/products/${stocked.id}`)
+      .set(manager.auth)
+      .expect(409);
+  });
+
   it('converts foreign costs and keeps a moving-average cost', async () => {
     const p = await product();
     const first = (

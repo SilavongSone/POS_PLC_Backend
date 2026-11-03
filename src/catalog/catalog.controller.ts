@@ -413,6 +413,20 @@ export class ProductsController {
     return this.products.reorderImages(productId, body.imageIds);
   }
 
+  @Delete(':id')
+  @HttpCode(204)
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary:
+      'Delete a never-used product; one with history returns 409 PRODUCT_HAS_HISTORY (switch it off instead)',
+  })
+  async remove(
+    @Param('id', id) productId: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.products.remove(productId, actor.id);
+  }
+
   @Delete(':id/images/:imageId')
   @HttpCode(204)
   @RequirePermissions('product.manage')

@@ -653,6 +653,67 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Deletes a product that was never used: no stock, serials, lots, movements, documents,
+   * sales, quotations, repairs or bundles. Anything with history is switched off instead
+   * (isActive = false), so old bills and reports keep their product.
+   */
+  async remove(id: string, actorId: string) {
+    const product = await this.prisma.product.findUniqueOrThrow({
+      where: { id },
+      include: {
+        images: true,
+        _count: {
+          select: {
+            serialNumbers: true,
+            lots: true,
+            stockMovements: true,
+            stockDocItems: true,
+            saleItems: true,
+            quotationItems: true,
+            ticketLines: true,
+            partOfBundles: true,
+          },
+        },
+      },
+    });
+    const used = Object.entries(product._count)
+      .filter(([, n]) => n > 0)
+      .map(([k]) => k);
+    if (used.length || product.stockQty !== 0) {
+      throw new ConflictException({
+        message:
+          'This product has history (stock, sales or documents); switch it off instead',
+        code: 'PRODUCT_HAS_HISTORY',
+        usedBy: used,
+      });
+    }
+    // Child rows without tenantId go with their own (already scoped) product.
+    await this.prisma.$transaction([
+      this.prisma.productImage.deleteMany({ where: { productId: id } }),
+      this.prisma.productBundleItem.deleteMany({ where: { bundleId: id } }),
+      this.prisma.promotionItem.deleteMany({ where: { productId: id } }),
+      this.prisma.branchStock.deleteMany({ where: { productId: id } }),
+      this.prisma.branchPrice.deleteMany({ where: { productId: id } }),
+      this.prisma.product.delete({ where: { id } }),
+    ]);
+    for (const image of product.images) {
+      const prefix = '/api/uploads/';
+      if (!image.url.startsWith(prefix)) continue;
+      const file = path.join(this.uploadRoot(), image.url.slice(prefix.length));
+      if (file.startsWith(this.uploadRoot() + path.sep))
+        await unlink(file).catch(() => undefined);
+    }
+    const { images: _images, _count, ...before } = product;
+    await this.audit.log({
+      userId: actorId,
+      action: 'PRODUCT_DELETE',
+      entity: 'Product',
+      entityId: id,
+      before,
+    });
+  }
+
   async removeImage(productId: string, imageId: string) {
     // Images are not tenant-scoped rows: reach them only through an own product.
     await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });

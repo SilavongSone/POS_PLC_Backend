@@ -12537,6 +12537,33 @@
       }
     },
     "/api/products/{id}": {
+      "delete": {
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a never-used product; one with history returns 409 PRODUCT_HAS_HISTORY (switch it off instead)",
+        "tags": [
+          "catalog"
+        ]
+      },
       "get": {
         "operationId": "ProductsController_get",
         "parameters": [
