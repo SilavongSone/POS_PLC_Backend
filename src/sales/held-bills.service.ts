@@ -2,16 +2,22 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types.js';
 import { hasPermission } from '../common/permissions.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { HeldBillInput } from './sales.schemas.js';
 
 /** Parked carts. They do not reserve stock; the cart is re-priced when resumed. */
 @Injectable()
 export class HeldBillsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly branches: BranchAccessService,
+  ) {}
 
-  list() {
+  /** Bills parked at this branch (and older ones saved without a branch). */
+  list(user: AuthUser, branchId?: string) {
     return this.prisma.heldBill.findMany({
+      where: this.branches.optionalScope(user, branchId),
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -38,6 +44,7 @@ export class HeldBillsService {
         label: input.label,
         customerId: input.customerId,
         cashierId: user.id,
+        branchId: await this.branches.optional(user, input.branchId),
         cart: input.cart as Prisma.InputJsonValue,
       },
     });

@@ -77,6 +77,8 @@ export const voidSaleSchema = z.object({
 
 export const heldBillSchema = z.object({
   label: text(100).optional(),
+  /** Branch of the till that parks it (its held bills list shows it). */
+  branchId: z.uuid().optional(),
   customerId: z.uuid().nullable().optional(),
   /** Cart snapshot from the till (items, discounts, note). */
   cart: z

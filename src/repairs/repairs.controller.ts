@@ -47,8 +47,11 @@ export class RepairsController {
     summary:
       'Repair tickets (?status, open, customerId, q ticket/serial/device/phone)',
   })
-  list(@Query(zod(listTicketsSchema)) query: ListTicketsQuery) {
-    return this.repairs.list(query);
+  list(
+    @Query(zod(listTicketsSchema)) query: ListTicketsQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.repairs.list(query, u);
   }
 
   @Get(':id')

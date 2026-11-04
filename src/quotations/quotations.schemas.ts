@@ -58,6 +58,8 @@ export const convertQuotationSchema = z.object({
 
 export const listQuotationsSchema = pageQuerySchema.extend({
   customerId: z.uuid().optional(),
+  /** Quotations of this branch (default: every branch the user may see). */
+  branchId: z.uuid().optional(),
   status: z
     .enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED'])
     .optional(),

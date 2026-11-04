@@ -37,8 +37,11 @@ export class QuotationsController {
   constructor(private readonly quotations: QuotationsService) {}
 
   @Get()
-  list(@Query(zod(listQuotationsSchema)) query: ListQuotationsQuery) {
-    return this.quotations.list(query);
+  list(
+    @Query(zod(listQuotationsSchema)) query: ListQuotationsQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.quotations.list(query, u);
   }
 
   @Get(':id')

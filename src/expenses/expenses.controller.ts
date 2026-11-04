@@ -61,8 +61,11 @@ export class ExpensesController {
   @ApiOperation({
     summary: 'Expenses (?categoryId, from, to, q) with the LAK total',
   })
-  list(@Query(zod(listExpensesSchema)) query: ListExpensesQuery) {
-    return this.expenses.list(query);
+  list(
+    @Query(zod(listExpensesSchema)) query: ListExpensesQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.expenses.list(query, u);
   }
 
   @Post('expenses')

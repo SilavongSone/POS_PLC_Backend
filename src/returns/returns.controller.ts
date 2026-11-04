@@ -46,8 +46,11 @@ export class ReturnsController {
   }
 
   @Get('returns')
-  list(@Query(zod(listReturnsSchema)) query: ListReturnsQuery) {
-    return this.returns.list(query);
+  list(
+    @Query(zod(listReturnsSchema)) query: ListReturnsQuery,
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.returns.list(query, u);
   }
 
   @Get('returns/:id')

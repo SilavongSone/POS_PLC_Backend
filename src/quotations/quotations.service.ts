@@ -8,6 +8,7 @@ import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lakToWords, lakToWordsAll } from '../i18n/amount-words.js';
 import { SalePricingService } from '../sales/sale-pricing.service.js';
@@ -59,6 +60,7 @@ export class QuotationsService {
     private readonly docNumbers: DocNumberService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly branches: BranchAccessService,
   ) {}
 
   /** Prices the lines like a sale (manual prices allowed: quotation.manage covers them). */
@@ -90,6 +92,12 @@ export class QuotationsService {
   }
 
   async create(input: QuotationInput, user: AuthUser) {
+    // The quoting branch, or the user's only branch (its prices apply).
+    input = {
+      ...input,
+      branchId:
+        (await this.branches.optional(user, input.branchId)) ?? undefined,
+    };
     const id = await this.prisma.$transaction(async (tx) => {
       const { totals, items } = await this.priced(tx, input);
       const q = await tx.quotation.create({
@@ -179,8 +187,9 @@ export class QuotationsService {
     };
   }
 
-  async list(query: ListQuotationsQuery) {
+  async list(query: ListQuotationsQuery, user: AuthUser) {
     const where: Prisma.QuotationWhereInput = {
+      ...this.branches.optionalScope(user, query.branchId),
       customerId: query.customerId,
       status: query.status,
       ...(query.q && { quoteNo: { contains: query.q, mode: 'insensitive' } }),
@@ -191,6 +200,7 @@ export class QuotationsService {
         orderBy: { createdAt: 'desc' },
         include: {
           customer: { select: { id: true, name: true } },
+          branch: { select: { id: true, code: true, name: true } },
         },
         ...pageArgs(query),
       }),

@@ -82,6 +82,8 @@ export const deliverTicketSchema = z.object({
 });
 
 export const listTicketsSchema = pageQuerySchema.extend({
+  /** Tickets of this branch (default: every branch the user may see). */
+  branchId: z.uuid().optional(),
   status: ticketStatusSchema.shape.status
     .or(z.enum(['RECEIVED', 'DELIVERED']))
     .optional(),

@@ -350,6 +350,46 @@ describe('SaaS (e2e)', () => {
       ).body.id;
     });
 
+    it('lists held bills and expenses of the chosen branch', async () => {
+      const p = await product(c);
+      await api(c)
+        .post('/held-bills', {
+          branchId: second,
+          cart: { items: [{ productId: p.id, quantity: 1 }] },
+        })
+        .expect(201);
+      const held = async (branchId: string) =>
+        (
+          (await api(c).get(`/held-bills?branchId=${branchId}`).expect(200))
+            .body as { branchId: string | null }[]
+        ).filter((b) => b.branchId);
+      expect((await held(second)).length).toBe(1);
+      expect((await held(main)).length).toBe(0);
+
+      const category = (
+        await api(c)
+          .post('/expense-categories', { name: `Branch rent ${Date.now()}` })
+          .expect(201)
+      ).body;
+      const cash = (await api(c).get('/payment-types').expect(200)).body.find(
+        (x: { kind: string }) => x.kind === 'CASH',
+      ).id;
+      await api(c)
+        .post('/expenses', {
+          categoryId: category.id,
+          description: 'Branch 2 rent',
+          amount: 1_000_000,
+          paymentTypeId: cash,
+          branchId: second,
+        })
+        .expect(201);
+      const spent = async (branchId: string) =>
+        (await api(c).get(`/expenses?branchId=${branchId}`).expect(200)).body
+          .total as number;
+      expect(await spent(second)).toBe(1);
+      expect(await spent(main)).toBe(0);
+    });
+
     it('needs a branch when the company has several', async () => {
       const p = await product(c);
       const res = await api(c)

@@ -19,6 +19,8 @@ export const createExpenseSchema = z
     paymentTypeId: z.uuid(),
     /** Paid from the till: recorded in the user's open shift so the drawer balances. */
     fromDrawer: z.boolean().default(false),
+    /** Branch that spent it (default: the drawer's branch, else the user's only branch). */
+    branchId: z.uuid().optional(),
     spentAt: z.iso
       .datetime({ offset: true })
       .transform((d) => new Date(d))
@@ -33,6 +35,8 @@ export const createExpenseSchema = z
 
 export const listExpensesSchema = pageQuerySchema.extend({
   categoryId: z.uuid().optional(),
+  /** Expenses of this branch (default: every branch the user may see). */
+  branchId: z.uuid().optional(),
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
 });

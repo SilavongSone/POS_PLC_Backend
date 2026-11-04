@@ -60,6 +60,33 @@ export class BranchAccessService {
   }
 
   /**
+   * Branch for records where it is optional (quotation, expense, held bill): the one given
+   * (if allowed), else the only branch the user can use, else none.
+   */
+  async optional(
+    user: AuthUser,
+    branchId?: string | null,
+  ): Promise<string | null> {
+    try {
+      return await this.resolve(user, branchId);
+    } catch (error) {
+      if (!branchId && error instanceof BadRequestException) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * List filter for records whose branch is optional: rows of the scoped branches plus
+   * rows saved without one (older records), so nothing disappears.
+   */
+  optionalScope(user: AuthUser, branchId?: string) {
+    const scope = this.scope(user, branchId);
+    return scope
+      ? { OR: [{ branchId: { in: scope } }, { branchId: null }] }
+      : {};
+  }
+
+  /**
    * Branch filter for lists and reports: the requested branch (if allowed), else the
    * user's branches, else undefined = every branch.
    */

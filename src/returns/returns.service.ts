@@ -34,7 +34,14 @@ const returnInclude = {
   },
   paymentType: { select: { id: true, name: true, nameI18n: true, kind: true } },
   createdBy: { select: { id: true, fullName: true } },
-  sale: { select: { id: true, receiptNo: true, customerId: true } },
+  sale: {
+    select: {
+      id: true,
+      receiptNo: true,
+      customerId: true,
+      branch: { select: { id: true, code: true, name: true } },
+    },
+  },
 } satisfies Prisma.SaleReturnInclude;
 
 @Injectable()
@@ -260,8 +267,10 @@ export class ReturnsService {
     });
   }
 
-  async list(query: ListReturnsQuery) {
+  async list(query: ListReturnsQuery, user: AuthUser) {
+    const scope = this.branches.scope(user, query.branchId);
     const where: Prisma.SaleReturnWhereInput = {
+      ...(scope && { sale: { branchId: { in: scope } } }),
       saleId: query.saleId,
       createdAt: {
         gte: query.from && startOfLocalDay(query.from),

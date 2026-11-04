@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   Body,
   Controller,
@@ -63,6 +64,7 @@ import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 import { Idempotent } from '../common/idempotency.interceptor.js';
 
 const id = new ParseUUIDPipe();
+const branchQuery = z.object({ branchId: z.uuid().optional() });
 
 /** Pricing a cart: bad lines/payments, unknown register, serials not in stock. */
 const CART_ERRORS = errors(VALIDATION, SIGNED_IN_WRITE, PERMISSION, {
@@ -270,9 +272,14 @@ export class HeldBillsController {
   constructor(private readonly bills: HeldBillsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Parked carts (?branchId: of that branch)' })
+  @ApiZodQuery(branchQuery)
   @ApiZodResponse(heldBillsSchema)
-  list() {
-    return this.bills.list();
+  list(
+    @Query(zod(branchQuery)) query: { branchId?: string },
+    @CurrentUser() u: AuthUser,
+  ) {
+    return this.bills.list(u, query.branchId);
   }
 
   @Get(':id')

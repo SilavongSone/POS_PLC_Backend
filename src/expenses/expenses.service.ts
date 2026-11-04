@@ -9,6 +9,7 @@ import { pageArgs, toPage } from '../common/pagination.js';
 import { startOfLocalDay } from '../common/time.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ImageStoreService } from '../common/image-store.service.js';
+import { BranchAccessService } from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toLakAmount } from '../sales/sale-math.js';
 import { ExchangeRatesService } from '../settings/exchange-rates.service.js';
@@ -25,6 +26,7 @@ export class ExpensesService {
     private readonly rates: ExchangeRatesService,
     private readonly audit: AuditService,
     private readonly images: ImageStoreService,
+    private readonly branches: BranchAccessService,
   ) {}
 
   categories() {
@@ -55,6 +57,7 @@ export class ExpensesService {
       throw new BadRequestException('Expenses cannot be paid on credit');
 
     let shiftId: string | undefined;
+    let drawerBranch: string | undefined;
     if (input.fromDrawer) {
       if (type.kind !== 'CASH')
         throw new BadRequestException('Only cash is paid from the drawer');
@@ -67,7 +70,16 @@ export class ExpensesService {
           code: 'NO_OPEN_SHIFT',
         });
       shiftId = shift.id;
+      drawerBranch = (
+        await this.prisma.register.findUniqueOrThrow({
+          where: { id: shift.registerId },
+          select: { branchId: true },
+        })
+      ).branchId;
     }
+    // Paid from a drawer = that till's branch; otherwise the one chosen (or the only one).
+    const branchId =
+      drawerBranch ?? (await this.branches.optional(user, input.branchId));
     const lakPerUnit = (await this.rates.current())[input.currency].lakPerUnit;
     const expense = await this.prisma.expense.create({
       data: {
@@ -79,6 +91,7 @@ export class ExpensesService {
         amountLak: toLakAmount(input.amount, lakPerUnit),
         paymentTypeId: type.id,
         shiftId,
+        branchId,
         spentAt: input.spentAt,
         attachmentUrl: input.attachmentUrl,
         createdById: user.id,
@@ -94,8 +107,9 @@ export class ExpensesService {
     return expense;
   }
 
-  async list(query: ListExpensesQuery) {
+  async list(query: ListExpensesQuery, user: AuthUser) {
     const where: Prisma.ExpenseWhereInput = {
+      ...this.branches.optionalScope(user, query.branchId),
       categoryId: query.categoryId,
       spentAt: {
         gte: query.from && startOfLocalDay(query.from),
@@ -115,6 +129,7 @@ export class ExpensesService {
           category: { select: { id: true, name: true, nameI18n: true } },
           paymentType: { select: { id: true, name: true, nameI18n: true } },
           createdBy: { select: { id: true, fullName: true } },
+          branch: { select: { id: true, code: true, name: true } },
         },
         ...pageArgs(query),
       }),

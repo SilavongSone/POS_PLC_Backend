@@ -10651,6 +10651,11 @@
                     "maxLength": 500,
                     "type": "string"
                   },
+                  "branchId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
                   "categoryId": {
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -10759,7 +10764,17 @@
     "/api/held-bills": {
       "get": {
         "operationId": "HeldBillsController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branchId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -10780,6 +10795,7 @@
             "bearer": []
           }
         ],
+        "summary": "Parked carts (?branchId: of that branch)",
         "tags": [
           "sales"
         ]
@@ -10792,6 +10808,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "branchId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
                   "cart": {
                     "additionalProperties": {},
                     "properties": {

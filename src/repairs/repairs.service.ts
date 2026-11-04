@@ -150,8 +150,10 @@ export class RepairsService {
     };
   }
 
-  async list(query: ListTicketsQuery) {
+  async list(query: ListTicketsQuery, user: AuthUser) {
+    const scope = this.branches.scope(user, query.branchId);
     const where: Prisma.ServiceTicketWhereInput = {
+      ...(scope && { branchId: { in: scope } }),
       status:
         query.status ??
         (query.open === undefined
@@ -175,6 +177,7 @@ export class RepairsService {
         orderBy: { receivedAt: 'desc' },
         include: {
           customer: { select: { id: true, name: true, phone: true } },
+          branch: { select: { id: true, code: true, name: true } },
         },
         ...pageArgs(query),
       }),

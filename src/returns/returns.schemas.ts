@@ -21,6 +21,8 @@ export const createReturnSchema = z.object({
 
 export const listReturnsSchema = pageQuerySchema.extend({
   saleId: z.uuid().optional(),
+  /** Returns of sales made at this branch (default: every branch the user may see). */
+  branchId: z.uuid().optional(),
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
 });
