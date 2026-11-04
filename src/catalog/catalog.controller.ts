@@ -58,6 +58,8 @@ import {
   listProductsSchema,
   lookupSchema,
   reorderImagesSchema,
+  reorderSchema,
+  type ReorderInput,
   setPricesSchema,
   branchPricesSchema,
   type BranchPricesInput,
@@ -119,6 +121,21 @@ export class CategoriesController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.categories.create(body, actor.id);
+  }
+
+  @Put('order')
+  @HttpCode(204)
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary:
+      'Order of categories (ids first to last; the rest keep their order)',
+  })
+  @ApiZodBody(reorderSchema)
+  async reorder(
+    @Body(zod(reorderSchema)) body: ReorderInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.categories.reorder(body, actor.id);
   }
 
   @Patch(':id')
@@ -217,6 +234,20 @@ export class UnitsController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.units.create(body, actor.id);
+  }
+
+  @Put('order')
+  @HttpCode(204)
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary: 'Order of units (ids first to last; the rest keep their order)',
+  })
+  @ApiZodBody(reorderSchema)
+  async reorder(
+    @Body(zod(reorderSchema)) body: ReorderInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.units.reorder(body, actor.id);
   }
 
   @Patch(':id')

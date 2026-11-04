@@ -2,13 +2,16 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
 import type { Category } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type {
-  CreateCategoryInput,
-  UpdateCategoryInput,
+import {
+  ORDER_STEP,
+  type CreateCategoryInput,
+  type ReorderInput,
+  type UpdateCategoryInput,
 } from './catalog.schemas.js';
 
 export type CategoryNode = Category & {
@@ -90,8 +93,17 @@ export class CategoriesService {
         where: { id: input.parentId },
       });
     }
+    const last = await this.prisma.category.findFirst({
+      where: { parentId: input.parentId ?? null },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
     const category = await this.prisma.category.create({
-      data: { ...input, slug: input.slug ?? slugify(input.name) },
+      data: {
+        ...input,
+        slug: input.slug ?? slugify(input.name),
+        sortOrder: input.sortOrder ?? (last ? last.sortOrder + ORDER_STEP : 0),
+      },
     });
     await this.audit.log({
       userId: actorId,
@@ -101,6 +113,28 @@ export class CategoriesService {
       after: category,
     });
     return category;
+  }
+
+  /** Sets the order of the given categories (usually the children of one parent). */
+  async reorder({ ids }: ReorderInput, actorId: string) {
+    const found = await this.prisma.category.count({
+      where: { id: { in: ids } },
+    });
+    if (found !== ids.length) throw new NotFoundException();
+    await this.prisma.$transaction(
+      ids.map((id, i) =>
+        this.prisma.category.update({
+          where: { id },
+          data: { sortOrder: (i + 1) * ORDER_STEP },
+        }),
+      ),
+    );
+    await this.audit.log({
+      userId: actorId,
+      action: 'CATEGORY_REORDER',
+      entity: 'Category',
+      after: { ids },
+    });
   }
 
   async update(id: string, input: UpdateCategoryInput, actorId: string) {

@@ -9068,8 +9068,7 @@
                     "type": "string"
                   },
                   "sortOrder": {
-                    "default": 0,
-                    "maximum": 9999,
+                    "maximum": 99999,
                     "minimum": 0,
                     "type": "integer"
                   }
@@ -9093,6 +9092,51 @@
             "bearer": []
           }
         ],
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/categories/order": {
+      "put": {
+        "operationId": "CategoriesController_reorder",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "ids": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 500,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Order of categories (ids first to last; the rest keep their order)",
         "tags": [
           "catalog"
         ]
@@ -9179,7 +9223,7 @@
                     "type": "string"
                   },
                   "sortOrder": {
-                    "maximum": 9999,
+                    "maximum": 99999,
                     "minimum": 0,
                     "type": "integer"
                   }
@@ -18737,8 +18781,7 @@
                     "type": "object"
                   },
                   "sortOrder": {
-                    "default": 0,
-                    "maximum": 9999,
+                    "maximum": 99999,
                     "minimum": 0,
                     "type": "integer"
                   }
@@ -18762,6 +18805,51 @@
             "bearer": []
           }
         ],
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/units/order": {
+      "put": {
+        "operationId": "UnitsController_reorder",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "ids": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 500,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Order of units (ids first to last; the rest keep their order)",
         "tags": [
           "catalog"
         ]
@@ -18838,7 +18926,7 @@
                     "type": "object"
                   },
                   "sortOrder": {
-                    "maximum": 9999,
+                    "maximum": 99999,
                     "minimum": 0,
                     "type": "integer"
                   }

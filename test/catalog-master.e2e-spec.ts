@@ -50,6 +50,67 @@ describe('Catalog master data (e2e)', () => {
     return res.body as { id: string; categoryIds: string[] }[];
   }
 
+  describe('order', () => {
+    it('adds new categories at the end of their level and reorders them', async () => {
+      const parent = await newCategory();
+      const a = await newCategory(parent.id);
+      const b = await newCategory(parent.id);
+      const c = await newCategory(parent.id);
+      const children = async () =>
+        (
+          (await t.http().get('/categories').set(cashier.auth).expect(200))
+            .body as { id: string; parentId: string | null }[]
+        )
+          .filter((x) => x.parentId === parent.id)
+          .map((x) => x.id);
+      expect(await children()).toEqual([a.id, b.id, c.id]);
+
+      await t
+        .http()
+        .put('/categories/order')
+        .set(manager.auth)
+        .send({ ids: [c.id, a.id, b.id] })
+        .expect(204);
+      expect(await children()).toEqual([c.id, a.id, b.id]);
+
+      await t
+        .http()
+        .put('/categories/order')
+        .set(manager.auth)
+        .send({ ids: [a.id, '00000000-0000-4000-8000-000000000000'] })
+        .expect(404);
+      await t
+        .http()
+        .put('/categories/order')
+        .set(cashier.auth)
+        .send({ ids: [a.id] })
+        .expect(403);
+    });
+
+    it('reorders units', async () => {
+      const units = (await t.http().get('/units').set(cashier.auth).expect(200))
+        .body as { id: string }[];
+      const ids = units.map((u) => u.id);
+      const reversed = [...ids].reverse();
+      await t
+        .http()
+        .put('/units/order')
+        .set(manager.auth)
+        .send({ ids: reversed })
+        .expect(204);
+      const after = (await t.http().get('/units').set(cashier.auth).expect(200))
+        .body as { id: string }[];
+      expect(after.map((u) => u.id)).toEqual(reversed);
+      // Put the shared test company back in its usual order.
+      await t
+        .http()
+        .put('/units/order')
+        .set(manager.auth)
+        .send({ ids })
+        .expect(204);
+    });
+  });
+
   describe('units', () => {
     it('lists the standard units', async () => {
       const units = (await t.http().get('/units').set(cashier.auth).expect(200))

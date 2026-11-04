@@ -18,7 +18,8 @@ export const createCategorySchema = z.object({
   nameI18n: i18nText(100).optional(),
   slug: slug.optional(),
   parentId: z.uuid().nullable().optional(),
-  sortOrder: z.number().int().min(0).max(9999).default(0),
+  /** Leave out to add the category at the end of its level. */
+  sortOrder: z.number().int().min(0).max(99999).optional(),
   isActive: z.boolean().default(true),
 });
 export const updateCategorySchema = patchOf(createCategorySchema);
@@ -39,12 +40,26 @@ export const updateBrandSchema = patchOf(createBrandSchema);
 /** ?categoryId: brands of that category or of any category above it. */
 export const listBrandsSchema = z.object({ categoryId: z.uuid().optional() });
 
+/** New order of rows, first to last (PUT /categories/order, /units/order). */
+export const reorderSchema = z.object({
+  ids: z
+    .array(z.uuid())
+    .min(1)
+    .max(500)
+    .refine((ids) => new Set(ids).size === ids.length, 'Ids must be unique'),
+});
+export type ReorderInput = z.infer<typeof reorderSchema>;
+
+/** sortOrder values with room between them, so one row can later go between two. */
+export const ORDER_STEP = 10;
+
 // ── Units ──
 export const createUnitSchema = z.object({
   /** Stored on products (max 20, like Product.unit). */
   name: text(20).min(1),
   nameI18n: i18nText(20).optional(),
-  sortOrder: z.number().int().min(0).max(9999).default(0),
+  /** Leave out to add the unit at the end. */
+  sortOrder: z.number().int().min(0).max(99999).optional(),
   isActive: z.boolean().default(true),
 });
 export const updateUnitSchema = patchOf(createUnitSchema);

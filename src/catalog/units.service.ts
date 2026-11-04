@@ -1,7 +1,16 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { CreateUnitInput, UpdateUnitInput } from './catalog.schemas.js';
+import {
+  ORDER_STEP,
+  type CreateUnitInput,
+  type ReorderInput,
+  type UpdateUnitInput,
+} from './catalog.schemas.js';
 
 /** Units of sale. Products store the unit's name, so a rename is applied to them too. */
 @Injectable()
@@ -41,7 +50,16 @@ export class UnitsService {
 
   async create(input: CreateUnitInput, actorId: string) {
     await this.assertFree(input.name);
-    const unit = await this.prisma.unit.create({ data: input });
+    const last = await this.prisma.unit.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+    const unit = await this.prisma.unit.create({
+      data: {
+        ...input,
+        sortOrder: input.sortOrder ?? (last ? last.sortOrder + ORDER_STEP : 0),
+      },
+    });
     await this.audit.log({
       userId: actorId,
       action: 'UNIT_CREATE',
@@ -50,6 +68,25 @@ export class UnitsService {
       after: unit,
     });
     return unit;
+  }
+
+  async reorder({ ids }: ReorderInput, actorId: string) {
+    const found = await this.prisma.unit.count({ where: { id: { in: ids } } });
+    if (found !== ids.length) throw new NotFoundException();
+    await this.prisma.$transaction(
+      ids.map((id, i) =>
+        this.prisma.unit.update({
+          where: { id },
+          data: { sortOrder: (i + 1) * ORDER_STEP },
+        }),
+      ),
+    );
+    await this.audit.log({
+      userId: actorId,
+      action: 'UNIT_REORDER',
+      entity: 'Unit',
+      after: { ids },
+    });
   }
 
   async update(id: string, input: UpdateUnitInput, actorId: string) {
