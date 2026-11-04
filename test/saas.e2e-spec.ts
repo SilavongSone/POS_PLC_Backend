@@ -403,6 +403,17 @@ describe('SaaS (e2e)', () => {
         await api(c).get(`/products?branchId=${second}&q=${p.sku}`).expect(200)
       ).body.items[0];
       expect(atSecond).toMatchObject({ stockQty: 10, branchStockQty: 3 });
+      const count = async (q: string) =>
+        (await api(c).get(`/products?q=${p.sku}&${q}`).expect(200)).body.total;
+      expect(await count(`branchId=${second}&inStock=true`)).toBe(1);
+      expect(await count(`branchId=${second}&lowStock=true`)).toBe(0);
+      const empty = (
+        await api(c)
+          .post('/branches', { code: 'B3', name: 'Branch 3' })
+          .expect(201)
+      ).body.id;
+      expect(await count(`branchId=${empty}&inStock=true`)).toBe(0);
+      expect(await count(`branchId=${empty}&lowStock=true`)).toBe(1);
 
       const value = (
         await api(c)
@@ -497,7 +508,6 @@ describe('SaaS (e2e)', () => {
       const register = (
         await api(c)
           .post('/registers', {
-            code: 'R3',
             name: 'B2 till 2',
             branchId: second,
           })

@@ -8,6 +8,7 @@ import { AuditService } from '../common/audit.service.js';
 import { ImageStoreService } from '../common/image-store.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
 import { Prisma, type Currency } from '../generated/prisma/client.js';
+import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SHARED_VARIANT_FIELDS } from './product-groups.shared.js';
 import {
@@ -115,6 +116,17 @@ export class ProductsService {
     return { rates, lakRounding };
   }
 
+  /** Counted products at or below their alert level at one branch (no stock row = 0). */
+  private async lowAtBranch(branchId: string) {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT p.id FROM "Product" p
+      LEFT JOIN "BranchStock" bs ON bs."productId" = p.id AND bs."branchId" = ${branchId}
+      WHERE p."tenantId" = ${RequestContext.tenantId()}
+        AND p."trackStock" AND p.type = 'STANDARD'
+        AND COALESCE(bs.qty, 0) <= p."lowStockAlert"`;
+    return rows.map((r) => r.id);
+  }
+
   /** On hand at one branch for these products (empty without a branch). */
   private async branchQtyMap(productIds: string[], branchId?: string) {
     if (!branchId || !productIds.length) return new Map<string, number>();
@@ -200,14 +212,23 @@ export class ProductsService {
           in: await this.categories.withDescendants(query.categoryId),
         },
       }),
-      ...(query.lowStock && {
-        trackStock: true,
-        type: 'STANDARD',
-        stockQty: { lte: this.prisma.product.fields.lowStockAlert },
-      }),
-      ...(query.inStock !== undefined && {
-        stockQty: query.inStock ? { gt: 0 } : { lte: 0 },
-      }),
+      // With a branch, "low" and "in stock" mean that branch's own stock.
+      ...(query.lowStock &&
+        (query.branchId
+          ? { id: { in: await this.lowAtBranch(query.branchId) } }
+          : {
+              trackStock: true,
+              type: 'STANDARD',
+              stockQty: { lte: this.prisma.product.fields.lowStockAlert },
+            })),
+      ...(query.inStock !== undefined &&
+        (query.branchId
+          ? {
+              branchStock: query.inStock
+                ? { some: { branchId: query.branchId, qty: { gt: 0 } } }
+                : { none: { branchId: query.branchId, qty: { gt: 0 } } },
+            }
+          : { stockQty: query.inStock ? { gt: 0 } : { lte: 0 } })),
       ...(query.q && {
         OR: [
           { name: { contains: query.q, mode: 'insensitive' } },
