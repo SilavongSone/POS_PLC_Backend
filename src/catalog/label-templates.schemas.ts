@@ -40,6 +40,10 @@ export const labelElementSchema = z.strictObject({
   align: z.enum(['left', 'center', 'right']).default('left'),
   /** Fixed text for `text` boxes; a prefix such as "S/N " for the others. */
   text: z.string().trim().max(100).default(''),
+  /** Clockwise turn of the content inside the box (x/y/w/h stay the box on the label). */
+  rotation: z
+    .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])
+    .default(0),
 });
 
 export const createLabelTemplateSchema = z.object({

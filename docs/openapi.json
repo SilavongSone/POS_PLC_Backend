@@ -1247,6 +1247,35 @@
                   "minLength": 1,
                   "type": "string"
                 },
+                "rotation": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        0
+                      ],
+                      "type": "number"
+                    },
+                    {
+                      "enum": [
+                        90
+                      ],
+                      "type": "number"
+                    },
+                    {
+                      "enum": [
+                        180
+                      ],
+                      "type": "number"
+                    },
+                    {
+                      "enum": [
+                        270
+                      ],
+                      "type": "number"
+                    }
+                  ],
+                  "default": 0
+                },
                 "text": {
                   "default": "",
                   "maxLength": 100,
@@ -1284,7 +1313,8 @@
                 "fontSize",
                 "bold",
                 "align",
-                "text"
+                "text",
+                "rotation"
               ],
               "type": "object"
             },
@@ -10384,6 +10414,35 @@
                           "minLength": 1,
                           "type": "string"
                         },
+                        "rotation": {
+                          "anyOf": [
+                            {
+                              "enum": [
+                                0
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                90
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                180
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                270
+                              ],
+                              "type": "number"
+                            }
+                          ],
+                          "default": 0
+                        },
                         "text": {
                           "default": "",
                           "maxLength": 100,
@@ -10581,6 +10640,35 @@
                           "maxLength": 40,
                           "minLength": 1,
                           "type": "string"
+                        },
+                        "rotation": {
+                          "anyOf": [
+                            {
+                              "enum": [
+                                0
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                90
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                180
+                              ],
+                              "type": "number"
+                            },
+                            {
+                              "enum": [
+                                270
+                              ],
+                              "type": "number"
+                            }
+                          ],
+                          "default": 0
                         },
                         "text": {
                           "default": "",

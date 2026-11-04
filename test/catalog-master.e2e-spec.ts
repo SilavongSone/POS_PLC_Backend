@@ -251,6 +251,7 @@ describe('Catalog master data (e2e)', () => {
     const elements = [
       { id: 'name', type: 'name', x: 1, y: 1, w: 38, h: 6, fontSize: 8 },
       { id: 'bc', type: 'barcode', x: 1, y: 8, w: 38, h: 12 },
+      { id: 'side', type: 'barcode', x: 30, y: 8, w: 8, h: 20, rotation: 90 },
       { id: 'price', type: 'price', x: 20, y: 22, w: 19, h: 6, bold: true },
     ];
 
@@ -263,9 +264,14 @@ describe('Catalog master data (e2e)', () => {
           .set(manager.auth)
           .send({ name, widthMm: 40, heightMm: 30, elements, isDefault: true })
           .expect(201)
-      ).body as { id: string; columns: number; elements: { align: string }[] };
+      ).body as {
+        id: string;
+        columns: number;
+        elements: { align: string; rotation: number }[];
+      };
       expect(first.columns).toBe(1);
-      expect(first.elements[0].align).toBe('left');
+      expect(first.elements[0]).toMatchObject({ align: 'left', rotation: 0 });
+      expect(first.elements[2].rotation).toBe(90);
 
       const dup = await t
         .http()
@@ -322,6 +328,17 @@ describe('Catalog master data (e2e)', () => {
           widthMm: 40,
           heightMm: 30,
           elements: [elements[0], elements[0]],
+        })
+        .expect(400);
+      await t
+        .http()
+        .post('/label-templates')
+        .set(manager.auth)
+        .send({
+          name: `Tilted ${uniq()}`,
+          widthMm: 40,
+          heightMm: 30,
+          elements: [{ ...elements[1], rotation: 45 }],
         })
         .expect(400);
       await t
