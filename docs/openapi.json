@@ -2161,6 +2161,50 @@
             },
             "type": "object"
           },
+          "group": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nameI18n": {
+                "additionalProperties": false,
+                "nullable": true,
+                "properties": {
+                  "en": {
+                    "type": "string"
+                  },
+                  "lo": {
+                    "type": "string"
+                  },
+                  "th": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "optionName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nameI18n",
+              "optionName"
+            ],
+            "type": "object"
+          },
+          "groupId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -2424,6 +2468,15 @@
             "format": "date-time",
             "type": "string"
           },
+          "variantOrder": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "variantValue": {
+            "nullable": true,
+            "type": "string"
+          },
           "warrantyMonths": {
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
@@ -2482,6 +2535,10 @@
           "retailPriceLak",
           "wholesalePriceLak",
           "units",
+          "groupId",
+          "variantValue",
+          "variantOrder",
+          "group",
           "category",
           "brand",
           "taxRate",
@@ -2491,6 +2548,174 @@
           "branchStock",
           "serialsInStock",
           "demoUnits"
+        ],
+        "type": "object"
+      },
+      "ProductGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameI18n": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "en": {
+                "type": "string"
+              },
+              "lo": {
+                "type": "string"
+              },
+              "th": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "optionName": {
+            "type": "string"
+          },
+          "products": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "barcode": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "nameI18n": {
+                  "additionalProperties": false,
+                  "nullable": true,
+                  "properties": {
+                    "en": {
+                      "type": "string"
+                    },
+                    "lo": {
+                      "type": "string"
+                    },
+                    "th": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "priceCurrency": {
+                  "enum": [
+                    "LAK",
+                    "THB",
+                    "USD"
+                  ],
+                  "type": "string"
+                },
+                "retailPrice": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "retailPriceLak": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string"
+                },
+                "stockQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "trackSerial": {
+                  "type": "boolean"
+                },
+                "trackStock": {
+                  "type": "boolean"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "variantOrder": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "variantValue": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "wholesalePrice": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "wholesalePriceLak": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "sku",
+                "barcode",
+                "name",
+                "nameI18n",
+                "variantValue",
+                "variantOrder",
+                "priceCurrency",
+                "retailPrice",
+                "wholesalePrice",
+                "stockQty",
+                "trackStock",
+                "trackSerial",
+                "unit",
+                "isActive",
+                "retailPriceLak",
+                "wholesalePriceLak"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "name",
+          "nameI18n",
+          "optionName",
+          "createdAt",
+          "updatedAt",
+          "products"
         ],
         "type": "object"
       },
@@ -2596,6 +2821,50 @@
               }
             },
             "type": "object"
+          },
+          "group": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nameI18n": {
+                "additionalProperties": false,
+                "nullable": true,
+                "properties": {
+                  "en": {
+                    "type": "string"
+                  },
+                  "lo": {
+                    "type": "string"
+                  },
+                  "th": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "optionName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nameI18n",
+              "optionName"
+            ],
+            "type": "object"
+          },
+          "groupId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           },
           "id": {
             "format": "uuid",
@@ -2820,6 +3089,15 @@
             "format": "date-time",
             "type": "string"
           },
+          "variantOrder": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "variantValue": {
+            "nullable": true,
+            "type": "string"
+          },
           "warrantyMonths": {
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
@@ -2878,6 +3156,10 @@
           "retailPriceLak",
           "wholesalePriceLak",
           "units",
+          "groupId",
+          "variantValue",
+          "variantOrder",
+          "group",
           "category",
           "brand",
           "images"
@@ -12380,6 +12662,413 @@
         ]
       }
     },
+    "/api/product-groups": {
+      "post": {
+        "operationId": "ProductGroupsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "maxLength": 150,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 150,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "newVariants": {
+                    "default": [],
+                    "items": {
+                      "properties": {
+                        "barcode": {
+                          "nullable": true,
+                          "pattern": "^[0-9A-Za-z-]{4,50}$",
+                          "type": "string"
+                        },
+                        "copyFrom": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "retailPrice": {
+                          "maximum": 1000000000000000,
+                          "minimum": 0,
+                          "multipleOf": 0.01,
+                          "type": "number"
+                        },
+                        "sku": {
+                          "pattern": "^[A-Z0-9][A-Z0-9._-]{1,49}$",
+                          "type": "string"
+                        },
+                        "value": {
+                          "maxLength": 50,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "optionName": {
+                    "maxLength": 30,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "products": {
+                    "items": {
+                      "properties": {
+                        "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "value": {
+                          "maxLength": 50,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "name",
+                  "optionName",
+                  "products"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGroup"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Make products versions of one model (the first gives category, brand, description and warranty) and add new versions copied from it",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/product-groups/{id}": {
+      "delete": {
+        "operationId": "ProductGroupsController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ungroup: every version stays a normal product",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "get": {
+        "operationId": "ProductGroupsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGroup"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A model and its versions (USB+WiFi / USB+LAN …)",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductGroupsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "maxLength": 150,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 150,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "optionName": {
+                    "maxLength": 30,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "variants": {
+                    "items": {
+                      "properties": {
+                        "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "value": {
+                          "maxLength": 50,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGroup"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rename the model or its option, rename and order versions (names follow)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/product-groups/{id}/variants": {
+      "post": {
+        "operationId": "ProductGroupsController_addVariant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "barcode": {
+                    "nullable": true,
+                    "pattern": "^[0-9A-Za-z-]{4,50}$",
+                    "type": "string"
+                  },
+                  "copyFrom": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "retailPrice": {
+                    "maximum": 1000000000000000,
+                    "minimum": 0,
+                    "multipleOf": 0.01,
+                    "type": "number"
+                  },
+                  "sku": {
+                    "pattern": "^[A-Z0-9][A-Z0-9._-]{1,49}$",
+                    "type": "string"
+                  },
+                  "value": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGroup"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "New version copied from another one (own SKU, barcode and stock)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/product-groups/{id}/variants/{productId}": {
+      "delete": {
+        "operationId": "ProductGroupsController_removeVariant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Take a product out of the model (it stays a normal product)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/products": {
       "get": {
         "operationId": "ProductsController_list",
@@ -12418,6 +13107,15 @@
           {
             "in": "query",
             "name": "categoryId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "groupId",
             "required": false,
             "schema": {
               "format": "uuid",

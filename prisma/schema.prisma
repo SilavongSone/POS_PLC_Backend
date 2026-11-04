@@ -485,9 +485,17 @@ model Product {
   branchPrices   BranchPrice[]
   /// Packs it is also sold/bought in (pack of 10, carton of 50); stock stays in this base unit.
   units          ProductUnit[]
+  /// A version of a model (USB+WiFi / USB+LAN): its own SKU, price, stock and serials, sharing
+  /// the group's name, category, brand, description and warranty. `name` = group name + value.
+  groupId        String?
+  variantValue   String?
+  variantOrder   Int                 @default(0)
+  group          ProductGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, sku])
   @@unique([tenantId, barcode])
+  @@unique([groupId, variantValue])
+  @@index([groupId])
   @@index([categoryId])
   @@index([brandId])
   /// Trigram indexes (pg_trgm) make "contains" searches fast on large catalogs.
@@ -1286,6 +1294,7 @@ model Tenant {
   branchStock       BranchStock[]
   branchPrices      BranchPrice[]
   productUnits      ProductUnit[]
+  productGroups     ProductGroup[]
   userTokens        UserToken[]
   invoices          BillingInvoice[]
   idempotencyKeys   IdempotencyKey[]
@@ -1588,5 +1597,23 @@ model ProductUnit {
 
   @@unique([tenantId, barcode])
   @@unique([productId, unit])
+  @@index([tenantId])
+}
+
+/// Versions of one model, e.g. "Xprinter XP-T80Q" in USB+WiFi / USB+LAN / USB+Bluetooth.
+model ProductGroup {
+  id         String   @id @default(uuid())
+  tenantId   String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name       String
+  /// Translations, e.g. {"lo": "…", "th": "…", "en": "…"}.
+  nameI18n   Json?
+  /// What tells the versions apart, e.g. "ລຸ້ນ", "ຂະໜາດ", "ສີ".
+  optionName String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products Product[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+
   @@index([tenantId])
 }

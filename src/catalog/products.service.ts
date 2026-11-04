@@ -9,6 +9,7 @@ import { ImageStoreService } from '../common/image-store.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
 import { Prisma, type Currency } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SHARED_VARIANT_FIELDS } from './product-groups.shared.js';
 import {
   ExchangeRatesService,
   type CurrentRates,
@@ -55,6 +56,7 @@ const listInclude = {
   brand: { select: { id: true, name: true } },
   images: { orderBy: { sortOrder: 'asc' }, take: 1 },
   units: { where: { isActive: true }, orderBy: { factor: 'asc' } },
+  group: { select: { id: true, name: true, nameI18n: true, optionName: true } },
 } satisfies Prisma.ProductInclude;
 
 const detailInclude = {
@@ -63,6 +65,7 @@ const detailInclude = {
   taxRate: { select: { id: true, name: true, percent: true } },
   images: { orderBy: { sortOrder: 'asc' } },
   units: { orderBy: { factor: 'asc' } },
+  group: { select: { id: true, name: true, nameI18n: true, optionName: true } },
   bundleItems: {
     include: {
       component: {
@@ -179,6 +182,7 @@ export class ProductsService {
   ): Promise<Page<unknown>> {
     const where: Prisma.ProductWhereInput = {
       brandId: query.brandId,
+      groupId: query.groupId,
       type: query.type,
       isActive: query.isActive,
       ...(query.categoryId && {
@@ -558,6 +562,11 @@ export class ProductsService {
       ...input,
       specs: input.specs === null ? Prisma.DbNull : input.specs,
     };
+    // A version's name comes from its model (PATCH /product-groups/:id renames).
+    if (before.groupId) {
+      delete data.name;
+      delete data.nameI18n;
+    }
     // While there is no stock, the entered cost is also the average cost.
     if (!hasStock && (input.costPrice !== undefined || input.costCurrency)) {
       const ctx = await this.pricingContext();
@@ -568,6 +577,23 @@ export class ProductsService {
     }
     const product = await this.prisma.product.update({ where: { id }, data });
     await this.syncCatalog(product);
+    // Category, brand, description and warranty stay the same on every version of a model.
+    if (product.groupId) {
+      const shared = Object.fromEntries(
+        SHARED_VARIANT_FIELDS.filter((f) => input[f] !== undefined).map((f) => [
+          f,
+          f === 'descriptionI18n' && input[f] === null
+            ? Prisma.DbNull
+            : input[f],
+        ]),
+      ) as Prisma.ProductUncheckedUpdateManyInput;
+      if (Object.keys(shared).length) {
+        await this.prisma.product.updateMany({
+          where: { groupId: product.groupId, id: { not: id } },
+          data: shared,
+        });
+      }
+    }
 
     const priceChanged =
       !before.retailPrice.equals(product.retailPrice) ||

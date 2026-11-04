@@ -13,6 +13,8 @@ export const en: Record<string, string> = {
   UNIT_NOT_FOR_SERIAL:
     'Packs are only for standard products without serial numbers (a serial is one piece)',
   UNIT_INVALID: "Choose a unit other than the product's base unit",
+  PRODUCT_IN_GROUP: '{name} is already a version of another model',
+  VARIANT_EXISTS: 'This model already has the version "{value}"',
   INVALID_CREDENTIALS: 'Invalid sign-in details',
   FORBIDDEN: 'You are not allowed to do this',
   MISSING_PERMISSION: 'You need the permission "{permission}"',

@@ -13,6 +13,8 @@ export const th: Record<string, string> = {
   UNIT_NOT_FOR_SERIAL:
     'แพ็ก/ลัง ใช้ได้กับสินค้าทั่วไปที่ไม่มี serial เท่านั้น (serial นับเป็นเครื่อง)',
   UNIT_INVALID: 'เลือกหน่วยอื่นที่ไม่ใช่หน่วยหลักของสินค้า',
+  PRODUCT_IN_GROUP: '{name} เป็นรุ่นของกลุ่มสินค้าอื่นอยู่แล้ว',
+  VARIANT_EXISTS: 'กลุ่มนี้มีรุ่น "{value}" แล้ว',
   INVALID_CREDENTIALS: 'ข้อมูลเข้าสู่ระบบไม่ถูกต้อง',
   FORBIDDEN: 'คุณไม่มีสิทธิ์ทำรายการนี้',
   MISSING_PERMISSION: 'ต้องมีสิทธิ์ "{permission}"',

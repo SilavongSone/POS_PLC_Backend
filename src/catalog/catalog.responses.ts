@@ -126,6 +126,18 @@ const productFields = {
   wholesalePriceLak: decimalString.nullable(),
   /** Packs (pack of 10, carton of 50); the list and lookup show active ones only. */
   units: z.array(productUnit),
+  /** Version of a model (GET /product-groups/:id); name = model name + value. */
+  groupId: z.uuid().nullable(),
+  variantValue: z.string().nullable(),
+  variantOrder: z.int(),
+  group: z
+    .strictObject({
+      id: z.uuid(),
+      name: z.string(),
+      nameI18n: i18nMap,
+      optionName: z.string(),
+    })
+    .nullable(),
 };
 
 export const productListItemSchema = apiSchema(
@@ -244,6 +256,41 @@ export const productLookupSchema = apiSchema(
         warrantyEndsAt: dateTimeString.nullable(),
       })
       .nullable(),
+  }),
+);
+
+/** GET /product-groups/:id: a model and its versions. */
+export const productGroupSchema = apiSchema(
+  'ProductGroup',
+  z.strictObject({
+    id: z.uuid(),
+    tenantId: z.uuid(),
+    name: z.string(),
+    nameI18n: i18nMap,
+    optionName: z.string(),
+    createdAt: dateTimeString,
+    updatedAt: dateTimeString,
+    products: z.array(
+      z.strictObject({
+        id: z.uuid(),
+        sku: z.string(),
+        barcode: z.string().nullable(),
+        name: z.string(),
+        nameI18n: i18nMap,
+        variantValue: z.string().nullable(),
+        variantOrder: z.int(),
+        priceCurrency: currencySchema,
+        retailPrice: decimalString,
+        wholesalePrice: decimalString.nullable(),
+        stockQty: z.int(),
+        trackStock: z.boolean(),
+        trackSerial: z.boolean(),
+        unit: z.string(),
+        isActive: z.boolean(),
+        retailPriceLak: decimalString,
+        wholesalePriceLak: decimalString.nullable(),
+      }),
+    ),
   }),
 );
 

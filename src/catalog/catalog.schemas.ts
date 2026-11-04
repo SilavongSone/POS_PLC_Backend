@@ -138,6 +138,8 @@ export const updateProductSchema = productRules(
 
 export const listProductsSchema = pageQuerySchema.extend({
   categoryId: z.uuid().optional(),
+  /** Versions of one model. */
+  groupId: z.uuid().optional(),
   brandId: z.uuid().optional(),
   type: z.enum(['STANDARD', 'BUNDLE', 'SERVICE']).optional(),
   isActive: queryBoolean.optional(),

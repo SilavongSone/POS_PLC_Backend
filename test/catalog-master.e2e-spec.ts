@@ -410,4 +410,175 @@ describe('Catalog master data (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('product groups (versions of a model)', () => {
+    async function newProduct(body: object = {}) {
+      return (
+        await t
+          .http()
+          .post('/products')
+          .set(manager.auth)
+          .send({
+            sku: `GV-${uniq()}`,
+            name: `Model ${uniq()}`,
+            retailPrice: 850_000,
+            ...body,
+          })
+          .expect(201)
+      ).body as { id: string; sku: string };
+    }
+
+    it('groups products, adds a copied version, renames and ungroups', async () => {
+      const category = await newCategory();
+      const wifi = await newProduct({
+        categoryId: category.id,
+        warrantyMonths: 12,
+      });
+      const lan = await newProduct({ warrantyMonths: 6 });
+      const created = (
+        await t
+          .http()
+          .post('/product-groups')
+          .set(manager.auth)
+          .send({
+            name: 'Xprinter XP-T80Q',
+            optionName: 'Version',
+            products: [
+              { productId: wifi.id, value: 'USB+WiFi' },
+              { productId: lan.id, value: 'USB+LAN' },
+            ],
+            newVariants: [{ value: 'USB+Bluetooth', retailPrice: 900_000 }],
+          })
+          .expect(201)
+      ).body as {
+        id: string;
+        products: {
+          id: string;
+          name: string;
+          sku: string;
+          variantValue: string;
+          retailPriceLak: string;
+        }[];
+      };
+      expect(created.products.map((p) => p.name)).toEqual([
+        'Xprinter XP-T80Q (USB+WiFi)',
+        'Xprinter XP-T80Q (USB+LAN)',
+        'Xprinter XP-T80Q (USB+Bluetooth)',
+      ]);
+      const bt = created.products[2];
+      expect(bt.sku).toBe(`${wifi.sku}-USB-BLUETOOTH`);
+      expect(bt.retailPriceLak).toBe('900000');
+
+      // The first product gave its category and warranty to every version.
+      const lanRow = await t.prisma.product.findUniqueOrThrow({
+        where: { id: lan.id },
+      });
+      expect(lanRow).toMatchObject({
+        categoryId: category.id,
+        warrantyMonths: 12,
+      });
+
+      // Editing one version's shared fields updates the others; its name stays the model's.
+      await t
+        .http()
+        .patch(`/products/${lan.id}`)
+        .set(manager.auth)
+        .send({
+          warrantyMonths: 24,
+          name: 'Renamed by hand',
+          retailPrice: 820_000,
+        })
+        .expect(200);
+      const rows = await t.prisma.product.findMany({
+        where: { groupId: created.id },
+      });
+      expect(rows.map((r) => r.warrantyMonths)).toEqual([24, 24, 24]);
+      expect(rows.find((r) => r.id === lan.id)).toMatchObject({
+        name: 'Xprinter XP-T80Q (USB+LAN)',
+      });
+      expect(rows.find((r) => r.id === wifi.id)!.retailPrice.toString()).toBe(
+        '850000',
+      );
+
+      // Duplicate versions are refused; renaming the model renames every version.
+      const dup = await t
+        .http()
+        .post(`/product-groups/${created.id}/variants`)
+        .set(manager.auth)
+        .send({ value: 'usb+lan' })
+        .expect(409);
+      expect(dup.body).toMatchObject({
+        code: 'VARIANT_EXISTS',
+        field: 'value',
+      });
+      const renamed = (
+        await t
+          .http()
+          .patch(`/product-groups/${created.id}`)
+          .set(manager.auth)
+          .send({
+            name: 'XP-T80Q',
+            variants: [
+              { productId: lan.id, value: 'LAN' },
+              { productId: wifi.id, value: 'WiFi' },
+            ],
+          })
+          .expect(200)
+      ).body as { products: { name: string }[] };
+      expect(renamed.products.map((p) => p.name)).toEqual([
+        'XP-T80Q (LAN)',
+        'XP-T80Q (WiFi)',
+        'XP-T80Q (USB+Bluetooth)',
+      ]);
+
+      // A product of a model cannot join another one.
+      const other = await newProduct();
+      const taken = await t
+        .http()
+        .post('/product-groups')
+        .set(manager.auth)
+        .send({
+          name: 'Other',
+          optionName: 'Size',
+          products: [
+            { productId: other.id, value: 'A' },
+            { productId: wifi.id, value: 'B' },
+          ],
+        })
+        .expect(409);
+      expect(taken.body.code).toBe('PRODUCT_IN_GROUP');
+
+      // The list shows the model on each version; ungrouping keeps the products.
+      const list = (
+        await t
+          .http()
+          .get('/products')
+          .query({ groupId: created.id })
+          .set(cashier.auth)
+          .expect(200)
+      ).body as { items: { group: { name: string } | null }[] };
+      expect(list.items).toHaveLength(3);
+      expect(list.items[0].group?.name).toBe('XP-T80Q');
+      await t
+        .http()
+        .delete(`/product-groups/${created.id}`)
+        .set(manager.auth)
+        .expect(204);
+      const after = await t.prisma.product.findUniqueOrThrow({
+        where: { id: wifi.id },
+      });
+      expect(after).toMatchObject({ groupId: null, name: 'XP-T80Q (WiFi)' });
+
+      await t
+        .http()
+        .post('/product-groups')
+        .set(cashier.auth)
+        .send({
+          name: 'x',
+          optionName: 'y',
+          products: [{ productId: other.id, value: 'A' }],
+        })
+        .expect(403);
+    });
+  });
 });

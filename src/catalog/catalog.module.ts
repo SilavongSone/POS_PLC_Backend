@@ -7,6 +7,8 @@ import {
   UnitsController,
 } from './catalog.controller.js';
 import { LabelTemplatesController } from './label-templates.controller.js';
+import { ProductGroupsController } from './product-groups.controller.js';
+import { ProductGroupsService } from './product-groups.service.js';
 import { LabelTemplatesService } from './label-templates.service.js';
 import { UnitsService } from './units.service.js';
 import { CategoriesService } from './categories.service.js';
@@ -18,6 +20,7 @@ import { ProductsService } from './products.service.js';
     BrandsController,
     UnitsController,
     LabelTemplatesController,
+    ProductGroupsController,
     ProductsController,
   ],
   providers: [
@@ -26,6 +29,7 @@ import { ProductsService } from './products.service.js';
     UnitsService,
     LabelTemplatesService,
     ProductsService,
+    ProductGroupsService,
   ],
   exports: [ProductsService, CategoriesService],
 })
