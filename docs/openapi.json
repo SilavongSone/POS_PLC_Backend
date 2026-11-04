@@ -7328,6 +7328,18 @@
           "productCount"
         ],
         "type": "object"
+      },
+      "UploadedImage": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -18746,6 +18758,49 @@
         "summary": "Rename (also on its products), translate, order, switch off",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/uploads/logo": {
+      "post": {
+        "operationId": "UploadsController_logo",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload a logo (JPEG/PNG/WebP ≤ 5 MB, form field \"file\"); needs settings.manage or product.manage",
+        "tags": [
+          "uploads"
         ]
       }
     },

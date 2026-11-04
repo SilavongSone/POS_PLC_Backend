@@ -398,5 +398,65 @@ describe('Catalog (e2e)', () => {
         .expect(204);
       expect(existsSync(file)).toBe(false);
     });
+
+    it('uploads logos and removes the replaced file', async () => {
+      await t
+        .http()
+        .post('/uploads/logo')
+        .set(cashier.auth)
+        .attach('file', PNG, { filename: 'a.png', contentType: 'image/png' })
+        .expect(403);
+      await t
+        .http()
+        .post('/uploads/logo')
+        .set(manager.auth)
+        .attach('file', Buffer.from('nope'), {
+          filename: 'a.png',
+          contentType: 'image/png',
+        })
+        .expect(400);
+
+      const upload = async () =>
+        (
+          await t
+            .http()
+            .post('/uploads/logo')
+            .set(manager.auth)
+            .attach('file', PNG, {
+              filename: 'a.png',
+              contentType: 'image/png',
+            })
+            .expect(201)
+        ).body.url as string;
+      const fileOf = (url: string) =>
+        path.join(process.env.UPLOAD_DIR!, url.replace('/api/uploads/', ''));
+
+      // Brand logo: replacing it deletes the old file.
+      const first = await upload();
+      expect(first).toMatch(/^\/api\/uploads\/branding\/.+\.png$/);
+      const brand = (
+        await t
+          .http()
+          .post('/brands')
+          .set(manager.auth)
+          .send({ name: `Logo ${uniq()}`, logoUrl: first })
+          .expect(201)
+      ).body;
+      const second = await upload();
+      await t
+        .http()
+        .patch(`/brands/${brand.id}`)
+        .set(manager.auth)
+        .send({ logoUrl: second })
+        .expect(200);
+      expect(existsSync(fileOf(first))).toBe(false);
+      expect(existsSync(fileOf(second))).toBe(true);
+      await t
+        .http()
+        .delete(`/brands/${brand.id}`)
+        .set(manager.auth)
+        .expect(204);
+      expect(existsSync(fileOf(second))).toBe(false);
+    });
   });
 });

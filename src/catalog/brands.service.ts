@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
+import { ImageStoreService } from '../common/image-store.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
@@ -18,6 +19,7 @@ export class BrandsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly categories: CategoriesService,
+    private readonly images: ImageStoreService,
   ) {}
 
   /** All brands, or those of a category (linked to it or to a category above it). */
@@ -91,6 +93,8 @@ export class BrandsService {
       }
       return tx.brand.update({ where: { id }, data });
     });
+    if (data.logoUrl !== undefined && data.logoUrl !== before.logoUrl)
+      await this.images.remove(before.logoUrl);
     const beforeIds = before.categories.map((c) => c.categoryId);
     await this.audit.log({
       userId: actorId,
@@ -131,6 +135,7 @@ export class BrandsService {
       throw new ConflictException('This brand still has products');
     }
     await this.prisma.brand.delete({ where: { id } });
+    await this.images.remove(brand.logoUrl);
     await this.audit.log({
       userId: actorId,
       action: 'BRAND_DELETE',

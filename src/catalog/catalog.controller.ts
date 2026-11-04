@@ -81,7 +81,8 @@ import {
 } from './catalog.schemas.js';
 import { UnitsService } from './units.service.js';
 import { CategoriesService } from './categories.service.js';
-import { MAX_IMAGE_BYTES, ProductsService } from './products.service.js';
+import { MAX_IMAGE_BYTES } from '../common/image-store.service.js';
+import { ProductsService } from './products.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();

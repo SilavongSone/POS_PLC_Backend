@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ImageStoreService } from '../common/image-store.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { RequestContext } from '../common/request-context.js';
 import { TtlCache } from '../common/ttl-cache.js';
@@ -16,6 +17,7 @@ export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly images: ImageStoreService,
   ) {}
 
   /** Hot path (every sale and receipt): served from a short cache, cleared on change. */
@@ -56,6 +58,11 @@ export class SettingsService {
       ),
     );
     this.cache.clear();
+    if (
+      'store.logoUrl' in changes &&
+      changes['store.logoUrl'] !== before['store.logoUrl']
+    )
+      await this.images.remove(before['store.logoUrl']);
     const changedBefore = Object.fromEntries(
       Object.keys(changes).map((k) => [k, before[k as SettingKey]]),
     );

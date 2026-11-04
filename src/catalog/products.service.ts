@@ -1,16 +1,12 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../common/audit.service.js';
+import { ImageStoreService } from '../common/image-store.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
-import type { Env } from '../config/env.js';
 import { Prisma, type Currency } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -31,7 +27,6 @@ import { CategoriesService } from './categories.service.js';
 import { UnitsService } from './units.service.js';
 import { costToLak, priceToLak, roundUpLak } from './pricing.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
-import { RequestContext } from '../common/request-context.js';
 
 type BranchPriceRow = {
   retailPrice: Prisma.Decimal;
@@ -78,28 +73,6 @@ type ProductRow = Prisma.ProductGetPayload<{ include: typeof listInclude }>;
 
 const COST_FIELDS = ['costPrice', 'costCurrency', 'avgCostLak'] as const;
 
-export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-/** Magic bytes of the allowed image formats. */
-function hasImageSignature(buf: Buffer, ext: string): boolean {
-  if (ext === 'jpg')
-    return buf.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
-  if (ext === 'png')
-    return buf.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
-  if (ext === 'webp') {
-    return (
-      buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
-      buf.subarray(8, 12).toString('ascii') === 'WEBP'
-    );
-  }
-  return false;
-}
-
 export type PricingContext = { rates: CurrentRates; lakRounding: number };
 
 @Injectable()
@@ -110,9 +83,9 @@ export class ProductsService {
     private readonly categories: CategoriesService,
     private readonly rates: ExchangeRatesService,
     private readonly settings: SettingsService,
-    private readonly config: ConfigService<Env, true>,
     private readonly entitlements: EntitlementsService,
     private readonly brands: BrandsService,
+    private readonly images: ImageStoreService,
     private readonly units: UnitsService,
   ) {}
 
@@ -616,29 +589,12 @@ export class ProductsService {
 
   // ── Images ──
 
-  private uploadRoot() {
-    return path.resolve(this.config.get('UPLOAD_DIR', { infer: true }));
-  }
-
   async addImage(
     productId: string,
     file: { buffer: Buffer; mimetype: string; size: number },
   ) {
-    const ext = ALLOWED_IMAGE_TYPES[file.mimetype];
-    // Check the file's own signature too: the declared type comes from the client.
-    if (!ext || !hasImageSignature(file.buffer, ext)) {
-      throw new BadRequestException('Only JPEG, PNG or WebP images');
-    }
-    if (file.size > MAX_IMAGE_BYTES)
-      throw new BadRequestException('Image must be 5 MB or less');
     await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
-
-    const name = `${randomUUID()}.${ext}`;
-    // One folder per company, so a company's files can be exported or removed together.
-    const folder = `products/${RequestContext.tenantId()}`;
-    const dir = path.join(this.uploadRoot(), folder);
-    await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, name), file.buffer);
+    const url = await this.images.save('products', file);
 
     const last = await this.prisma.productImage.findFirst({
       where: { productId },
@@ -647,7 +603,7 @@ export class ProductsService {
     return this.prisma.productImage.create({
       data: {
         productId,
-        url: `/api/uploads/${folder}/${name}`,
+        url,
         sortOrder: (last?.sortOrder ?? -1) + 1,
       },
     });
@@ -697,13 +653,7 @@ export class ProductsService {
       this.prisma.branchPrice.deleteMany({ where: { productId: id } }),
       this.prisma.product.delete({ where: { id } }),
     ]);
-    for (const image of product.images) {
-      const prefix = '/api/uploads/';
-      if (!image.url.startsWith(prefix)) continue;
-      const file = path.join(this.uploadRoot(), image.url.slice(prefix.length));
-      if (file.startsWith(this.uploadRoot() + path.sep))
-        await unlink(file).catch(() => undefined);
-    }
+    for (const image of product.images) await this.images.remove(image.url);
     const { images: _images, _count, ...before } = product;
     await this.audit.log({
       userId: actorId,
@@ -722,13 +672,7 @@ export class ProductsService {
     });
     if (!image) throw new NotFoundException('Image not found');
     await this.prisma.productImage.delete({ where: { id: imageId } });
-    const prefix = '/api/uploads/';
-    if (image.url.startsWith(prefix)) {
-      const file = path.join(this.uploadRoot(), image.url.slice(prefix.length));
-      // Only delete files inside the upload directory.
-      if (file.startsWith(this.uploadRoot() + path.sep))
-        await unlink(file).catch(() => undefined);
-    }
+    await this.images.remove(image.url);
   }
 
   /** Sets image order; the first image is the product's main picture. */
