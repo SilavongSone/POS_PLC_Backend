@@ -1750,6 +1750,11 @@
           "productName": {
             "type": "string"
           },
+          "productUnitId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "promotionDiscountLak": {
             "description": "Decimal number as a string",
             "pattern": "^-?\\d+(\\.\\d+)?$",
@@ -1774,6 +1779,15 @@
           "sku": {
             "type": "string"
           },
+          "unitFactor": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "unitName": {
+            "nullable": true,
+            "type": "string"
+          },
           "unitPriceLak": {
             "description": "Decimal number as a string",
             "pattern": "^-?\\d+(\\.\\d+)?$",
@@ -1794,6 +1808,9 @@
           "sku",
           "components",
           "quantity",
+          "productUnitId",
+          "unitName",
+          "unitFactor",
           "serials",
           "listPriceLak",
           "unitPriceLak",
@@ -2316,6 +2333,93 @@
           "unit": {
             "type": "string"
           },
+          "units": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "barcode": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "createdAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "factor": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "productId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "retailPrice": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "retailPriceLak": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "sortOrder": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "tenantId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "wholesalePrice": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "wholesalePriceLak": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "tenantId",
+                "productId",
+                "unit",
+                "factor",
+                "barcode",
+                "retailPrice",
+                "wholesalePrice",
+                "isActive",
+                "sortOrder",
+                "createdAt",
+                "updatedAt",
+                "retailPriceLak",
+                "wholesalePriceLak"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "updatedAt": {
             "format": "date-time",
             "type": "string"
@@ -2377,6 +2481,7 @@
           "branchPrice",
           "retailPriceLak",
           "wholesalePriceLak",
+          "units",
           "category",
           "brand",
           "taxRate",
@@ -2624,6 +2729,93 @@
           "unit": {
             "type": "string"
           },
+          "units": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "barcode": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "createdAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "factor": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "productId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "retailPrice": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "retailPriceLak": {
+                  "description": "Decimal number as a string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "sortOrder": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "tenantId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "wholesalePrice": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
+                "wholesalePriceLak": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "tenantId",
+                "productId",
+                "unit",
+                "factor",
+                "barcode",
+                "retailPrice",
+                "wholesalePrice",
+                "isActive",
+                "sortOrder",
+                "createdAt",
+                "updatedAt",
+                "retailPriceLak",
+                "wholesalePriceLak"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "updatedAt": {
             "format": "date-time",
             "type": "string"
@@ -2685,6 +2877,7 @@
           "branchPrice",
           "retailPriceLak",
           "wholesalePriceLak",
+          "units",
           "category",
           "brand",
           "images"
@@ -2758,10 +2951,96 @@
               "warrantyEndsAt"
             ],
             "type": "object"
+          },
+          "unit": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "barcode": {
+                "nullable": true,
+                "type": "string"
+              },
+              "createdAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "factor": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "isActive": {
+                "type": "boolean"
+              },
+              "productId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "retailPrice": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "retailPriceLak": {
+                "description": "Decimal number as a string",
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "sortOrder": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "tenantId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "wholesalePrice": {
+                "description": "Decimal number as a string",
+                "nullable": true,
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              },
+              "wholesalePriceLak": {
+                "description": "Decimal number as a string",
+                "nullable": true,
+                "pattern": "^-?\\d+(\\.\\d+)?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "tenantId",
+              "productId",
+              "unit",
+              "factor",
+              "barcode",
+              "retailPrice",
+              "wholesalePrice",
+              "isActive",
+              "sortOrder",
+              "createdAt",
+              "updatedAt",
+              "retailPriceLak",
+              "wholesalePriceLak"
+            ],
+            "type": "object"
           }
         },
         "required": [
           "product",
+          "unit",
           "serial"
         ],
         "type": "object"
@@ -3380,6 +3659,11 @@
           "productName": {
             "type": "string"
           },
+          "productUnitId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "promotion": {
             "additionalProperties": false,
             "nullable": true,
@@ -3455,6 +3739,15 @@
             "pattern": "^-?\\d+(\\.\\d+)?$",
             "type": "string"
           },
+          "unitFactor": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "unitName": {
+            "nullable": true,
+            "type": "string"
+          },
           "unitPriceLak": {
             "description": "Decimal number as a string",
             "pattern": "^-?\\d+(\\.\\d+)?$",
@@ -3480,6 +3773,9 @@
           "discountLak",
           "lineTotalLak",
           "warrantyMonths",
+          "productUnitId",
+          "unitName",
+          "unitFactor",
           "serialNumbers",
           "promotion"
         ],
@@ -5830,6 +6126,11 @@
                   "format": "uuid",
                   "type": "string"
                 },
+                "productUnitId": {
+                  "format": "uuid",
+                  "nullable": true,
+                  "type": "string"
+                },
                 "quantity": {
                   "maximum": 9007199254740991,
                   "minimum": -9007199254740991,
@@ -5884,6 +6185,15 @@
                   "description": "Decimal number as a string",
                   "pattern": "^-?\\d+(\\.\\d+)?$",
                   "type": "string"
+                },
+                "unitFactor": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "unitName": {
+                  "nullable": true,
+                  "type": "string"
                 }
               },
               "required": [
@@ -5897,6 +6207,9 @@
                 "lotNo",
                 "expiryDate",
                 "draftSerials",
+                "productUnitId",
+                "unitName",
+                "unitFactor",
                 "product",
                 "serials"
               ],
@@ -6935,6 +7248,11 @@
                     "productName": {
                       "type": "string"
                     },
+                    "productUnitId": {
+                      "format": "uuid",
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "promotionId": {
                       "format": "uuid",
                       "nullable": true,
@@ -6968,6 +7286,15 @@
                       "format": "uuid",
                       "type": "string"
                     },
+                    "unitFactor": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "unitName": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "unitPriceLak": {
                       "description": "Decimal number as a string",
                       "pattern": "^-?\\d+(\\.\\d+)?$",
@@ -6993,6 +7320,9 @@
                     "discountLak",
                     "lineTotalLak",
                     "warrantyMonths",
+                    "productUnitId",
+                    "unitName",
+                    "unitFactor",
                     "serialNumbers"
                   ],
                   "type": "object"
@@ -10203,6 +10533,11 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                               "type": "string"
                             },
+                            "productUnitId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "quantity": {
                               "maximum": 100000,
                               "minimum": 1,
@@ -13279,6 +13614,108 @@
         ]
       }
     },
+    "/api/products/{id}/units": {
+      "put": {
+        "operationId": "ProductsController_setUnits",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "items": {
+                    "items": {
+                      "properties": {
+                        "barcode": {
+                          "nullable": true,
+                          "pattern": "^[0-9A-Za-z-]{4,50}$",
+                          "type": "string"
+                        },
+                        "factor": {
+                          "maximum": 100000,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "id": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "retailPrice": {
+                          "maximum": 1000000000000000,
+                          "minimum": 0,
+                          "multipleOf": 0.01,
+                          "type": "number"
+                        },
+                        "unit": {
+                          "maxLength": 20,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "wholesalePrice": {
+                          "maximum": 1000000000000000,
+                          "minimum": 0,
+                          "multipleOf": 0.01,
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "unit",
+                        "factor",
+                        "retailPrice"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDetail"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Packs the product is sold in (pack of 10, carton of 50): own barcode and price, stock stays in the base unit (replaces the list)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/promotions": {
       "get": {
         "operationId": "PromotionsController_list",
@@ -14184,6 +14621,11 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "productUnitId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
                         "quantity": {
                           "maximum": 100000,
                           "minimum": 1,
@@ -14324,6 +14766,11 @@
                           "type": "integer"
                         },
                         "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "productUnitId": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
@@ -15388,6 +15835,11 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "productUnitId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
                         "quantity": {
                           "maximum": 100000,
                           "minimum": 1,
@@ -15642,6 +16094,11 @@
                           "type": "integer"
                         },
                         "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "productUnitId": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
@@ -17513,6 +17970,11 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "productUnitId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
                         "quantity": {
                           "maximum": 9007199254740991,
                           "minimum": -9007199254740991,
@@ -17695,6 +18157,11 @@
                           "type": "string"
                         },
                         "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "productUnitId": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"

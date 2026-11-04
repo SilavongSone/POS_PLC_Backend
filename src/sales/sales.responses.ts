@@ -33,6 +33,10 @@ export const pricedLineSchema = apiSchema(
       }),
     ),
     quantity: z.int(),
+    /** Pack sold (null = base unit); quantity counts packs of unitFactor base units. */
+    productUnitId: z.uuid().nullable(),
+    unitName: z.string().nullable(),
+    unitFactor: z.int(),
     serials: z.array(z.string()),
     listPriceLak: decimalString,
     unitPriceLak: decimalString,
@@ -135,6 +139,10 @@ export const saleItemSchema = apiSchema(
       .optional()
       .meta({ description: 'Only with the product.viewCost permission' }),
     warrantyMonths: z.int(),
+    /** Pack sold (null = base unit); quantity counts packs of unitFactor base units. */
+    productUnitId: z.uuid().nullable(),
+    unitName: z.string().nullable(),
+    unitFactor: z.int(),
     serialNumbers: z.array(
       z.strictObject({
         id: z.uuid(),

@@ -19,6 +19,8 @@ export const listSuppliersSchema = pageQuerySchema;
 
 const docItem = z.object({
   productId: z.uuid(),
+  /** Received/issued in a pack: quantity counts packs, unitCost is per pack. */
+  productUnitId: z.uuid().optional(),
   /** Positive for RECEIVE/ISSUE/TRANSFER; signed (±) for ADJUST. */
   quantity: z
     .number()

@@ -15,6 +15,8 @@ export const quotationSchema = z.object({
     .array(
       z.object({
         productId: z.uuid(),
+        /** Sell a pack (GET /products … units[].id); quantity then counts packs. */
+        productUnitId: z.uuid().optional(),
         quantity: z.number().int().min(1).max(100_000),
         /** Quoted unit price; defaults to the current price. */
         unitPriceLak: lakAmount.optional(),

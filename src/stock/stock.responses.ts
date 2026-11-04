@@ -120,6 +120,10 @@ export const stockDocDetailSchema = apiSchema(
         expiryDate: dateTimeString.nullable(),
         /** Serials typed on a draft, created when it is posted. */
         draftSerials: z.array(z.string()),
+        /** Pack the line was entered in; quantity/unitCost are base units (packs = quantity / unitFactor). */
+        productUnitId: z.uuid().nullable(),
+        unitName: z.string().nullable(),
+        unitFactor: z.int(),
         product: z.strictObject({
           id: z.uuid(),
           sku: z.string(),

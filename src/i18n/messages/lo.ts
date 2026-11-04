@@ -10,6 +10,9 @@ export const lo: Record<string, string> = {
   WRONG_PIN: 'PIN ບໍ່ຖືກຕ້ອງ',
   PRODUCT_SKU_EXISTS: 'SKU "{value}" ຖືກໃຊ້ແລ້ວໂດຍສິນຄ້າ {name}',
   PRODUCT_BARCODE_EXISTS: 'ບາໂຄດ "{value}" ຖືກໃຊ້ແລ້ວໂດຍສິນຄ້າ {name}',
+  UNIT_NOT_FOR_SERIAL:
+    'ແພັກ/ແກັດ ໃຊ້ໄດ້ກັບສິນຄ້າທົ່ວໄປທີ່ບໍ່ມີ serial ເທົ່ານັ້ນ (serial ນັບເປັນເຄື່ອງ)',
+  UNIT_INVALID: 'ເລືອກຫົວໜ່ວຍອື່ນ ທີ່ບໍ່ແມ່ນຫົວໜ່ວຍຫຼັກຂອງສິນຄ້າ',
   INVALID_CREDENTIALS: 'ຂໍ້ມູນເຂົ້າລະບົບບໍ່ຖືກຕ້ອງ',
   FORBIDDEN: 'ທ່ານບໍ່ມີສິດເຮັດລາຍການນີ້',
   MISSING_PERMISSION: 'ຕ້ອງມີສິດ "{permission}"',

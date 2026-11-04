@@ -9,6 +9,8 @@ const localDay = z.iso.date();
 
 export const saleItemSchema = z.object({
   productId: z.uuid(),
+  /** Sell a pack (GET /products … units[].id); quantity then counts packs. */
+  productUnitId: z.uuid().optional(),
   quantity: z.number().int().min(1).max(100_000),
   /** Required for serialized products: one per unit. */
   serials: z.array(text(100).min(1)).max(1000).optional(),

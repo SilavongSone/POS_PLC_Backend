@@ -58,6 +58,24 @@ const productImage = z.strictObject({
   sortOrder: z.int(),
 });
 
+/** A pack the product is sold in; prices in the product's priceCurrency, *Lak converted. */
+const productUnit = z.strictObject({
+  id: z.uuid(),
+  tenantId: z.uuid(),
+  productId: z.uuid(),
+  unit: z.string(),
+  factor: z.int(),
+  barcode: z.string().nullable(),
+  retailPrice: decimalString,
+  wholesalePrice: decimalString.nullable(),
+  isActive: z.boolean(),
+  sortOrder: z.int(),
+  createdAt: dateTimeString,
+  updatedAt: dateTimeString,
+  retailPriceLak: decimalString,
+  wholesalePriceLak: decimalString.nullable(),
+});
+
 /** Product columns. Prices are in `priceCurrency`; *Lak fields are converted and rounded. */
 const productFields = {
   id: z.uuid(),
@@ -106,6 +124,8 @@ const productFields = {
   branchPrice: z.boolean(),
   retailPriceLak: decimalString,
   wholesalePriceLak: decimalString.nullable(),
+  /** Packs (pack of 10, carton of 50); the list and lookup show active ones only. */
+  units: z.array(productUnit),
 };
 
 export const productListItemSchema = apiSchema(
@@ -202,6 +222,8 @@ export const productLookupSchema = apiSchema(
   'ProductLookup',
   z.strictObject({
     product: productDetailSchema,
+    /** Set when the code matched a pack's barcode: sell that pack. */
+    unit: productUnit.nullable(),
     /** Set when the code matched a serial number rather than a barcode/SKU. */
     serial: z
       .strictObject({

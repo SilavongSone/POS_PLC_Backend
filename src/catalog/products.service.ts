@@ -19,6 +19,7 @@ import type {
   BundleItemsInput,
   CreateProductInput,
   ListProductsQuery,
+  ProductUnitsInput,
   SetPricesInput,
   UpdateProductInput,
 } from './catalog.schemas.js';
@@ -53,6 +54,7 @@ const listInclude = {
   category: { select: { id: true, name: true, slug: true } },
   brand: { select: { id: true, name: true } },
   images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+  units: { where: { isActive: true }, orderBy: { factor: 'asc' } },
 } satisfies Prisma.ProductInclude;
 
 const detailInclude = {
@@ -60,6 +62,7 @@ const detailInclude = {
   brand: { select: { id: true, name: true, logoUrl: true } },
   taxRate: { select: { id: true, name: true, percent: true } },
   images: { orderBy: { sortOrder: 'asc' } },
+  units: { orderBy: { factor: 'asc' } },
   bundleItems: {
     include: {
       component: {
@@ -161,6 +164,10 @@ export class ProductsService {
     const view: Record<string, unknown> = {
       ...row,
       ...this.lakPrices(row, ctx),
+      units: row.units.map((u) => ({
+        ...u,
+        ...this.lakPrices({ ...u, priceCurrency: row.priceCurrency }, ctx),
+      })),
     };
     if (!canViewCost) for (const f of COST_FIELDS) delete view[f];
     return view as unknown as T & ReturnType<ProductsService['lakPrices']>;
@@ -331,8 +338,22 @@ export class ProductsService {
     if (product)
       return {
         product: await this.get(product.id, canViewCost, branchId),
+        unit: null,
         serial: null,
       };
+
+    const pack = await this.prisma.productUnit.findFirst({
+      where: { barcode: code, isActive: true },
+      select: { id: true, productId: true },
+    });
+    if (pack) {
+      const found = await this.get(pack.productId, canViewCost, branchId);
+      return {
+        product: found,
+        unit: found.units.find((u) => u.id === pack.id) ?? null,
+        serial: null,
+      };
+    }
 
     const serial = await this.prisma.serialNumber.findFirst({
       where: { serial: code },
@@ -351,8 +372,98 @@ export class ProductsService {
       throw new NotFoundException(`No product or serial matches "${code}"`);
     return {
       product: await this.get(serial.productId, canViewCost, branchId),
+      unit: null,
       serial,
     };
+  }
+
+  /**
+   * Replaces the packs a product is sold in. Stock stays in the base unit, so packs need a
+   * countable standard product without serials (a serial is one piece).
+   */
+  async setUnits(
+    id: string,
+    input: ProductUnitsInput,
+    actorId: string,
+    canViewCost: boolean,
+  ) {
+    const product = await this.prisma.product.findUniqueOrThrow({
+      where: { id },
+      include: { units: true },
+    });
+    if (
+      input.items.length &&
+      (product.trackSerial || product.type !== 'STANDARD')
+    ) {
+      throw new BadRequestException({
+        message: 'Packs are for standard products without serial numbers',
+        code: 'UNIT_NOT_FOR_SERIAL',
+      });
+    }
+    const known = new Set(
+      (
+        await this.prisma.unit.findMany({
+          where: { name: { in: input.items.map((i) => i.unit) } },
+          select: { name: true },
+        })
+      ).map((u) => u.name),
+    );
+    for (const [i, item] of input.items.entries()) {
+      if (!known.has(item.unit) || item.unit === product.unit) {
+        throw new BadRequestException({
+          message: `Choose another unit than the base unit (${product.unit})`,
+          code: 'UNIT_INVALID',
+          field: `items.${i}.unit`,
+        });
+      }
+      if (item.id && !product.units.some((u) => u.id === item.id))
+        throw new BadRequestException(`items.${i}: unknown pack`);
+      if (!item.barcode) continue;
+      try {
+        await this.assertUnique({ barcode: item.barcode }, undefined, id);
+        await this.assertCodesFree({ barcode: item.barcode });
+      } catch (error) {
+        if (error instanceof ConflictException) {
+          const body = error.getResponse() as Record<string, unknown>;
+          throw new ConflictException({ ...body, field: `items.${i}.barcode` });
+        }
+        throw error;
+      }
+    }
+    const keep = input.items.flatMap((i) => (i.id ? [i.id] : []));
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productUnit.deleteMany({
+        where: { productId: id, id: { notIn: keep } },
+      });
+      // Free barcodes first so two packs can swap them.
+      await tx.productUnit.updateMany({
+        where: { productId: id },
+        data: { barcode: null },
+      });
+      for (const [sortOrder, item] of input.items.entries()) {
+        const data = {
+          unit: item.unit,
+          factor: item.factor,
+          barcode: item.barcode ?? null,
+          retailPrice: item.retailPrice,
+          wholesalePrice: item.wholesalePrice ?? null,
+          isActive: item.isActive,
+          sortOrder,
+        };
+        if (item.id)
+          await tx.productUnit.update({ where: { id: item.id }, data });
+        else await tx.productUnit.create({ data: { ...data, productId: id } });
+      }
+    });
+    await this.audit.log({
+      userId: actorId,
+      action: 'PRODUCT_UNITS',
+      entity: 'Product',
+      entityId: id,
+      before: product.units,
+      after: input.items,
+    });
+    return this.get(id, canViewCost);
   }
 
   async create(
@@ -429,6 +540,16 @@ export class ProductsService {
       );
     }
     const type = input.type ?? before.type;
+    if (
+      (type !== 'STANDARD' || (input.trackSerial ?? before.trackSerial)) &&
+      (await this.prisma.productUnit.count({ where: { productId: id } }))
+    ) {
+      throw new BadRequestException({
+        message:
+          'Remove the packs first: they are for standard products without serial numbers',
+        code: 'UNIT_NOT_FOR_SERIAL',
+      });
+    }
     if (type === 'SERVICE' && (input.trackSerial ?? before.trackSerial)) {
       throw new BadRequestException('Services have no serials');
     }
@@ -727,14 +848,29 @@ export class ProductsService {
   private async assertUnique(
     codes: { sku?: string; barcode?: string | null },
     exceptId?: string,
+    /** Checking a pack barcode of this product: its other packs are being replaced. */
+    packOf?: string,
   ) {
     for (const field of ['sku', 'barcode'] as const) {
       const value = codes[field];
       if (!value) continue;
-      const other = await this.prisma.product.findFirst({
-        where: { [field]: value, ...(exceptId && { id: { not: exceptId } }) },
-        select: { name: true, sku: true },
-      });
+      const other =
+        (await this.prisma.product.findFirst({
+          where: {
+            OR: [{ barcode: value }, { sku: value.toUpperCase() }],
+            ...(exceptId && { id: { not: exceptId } }),
+          },
+          select: { name: true, sku: true },
+        })) ??
+        (
+          await this.prisma.productUnit.findFirst({
+            where: {
+              barcode: value,
+              ...(packOf && { productId: { not: packOf } }),
+            },
+            select: { product: { select: { name: true, sku: true } } },
+          })
+        )?.product;
       if (other) {
         throw new ConflictException({
           message: `${field === 'sku' ? 'SKU' : 'Barcode'} ${value} is already used by ${other.name} (${other.sku})`,

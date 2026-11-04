@@ -361,8 +361,11 @@ export class StockLedgerService {
     tx: Tx,
     input: {
       productId: string;
+      /** Sold units; with `unitFactor` (a pack) the stock gets quantity × factor back. */
       quantity: number;
+      unitFactor?: number;
       serialIds: string[];
+      /** Cost of one sold unit (one pack). */
       unitCostLak: Prisma.Decimal;
       type: StockMoveType;
       status?: 'IN_STOCK' | 'DEFECTIVE';
@@ -370,6 +373,7 @@ export class StockLedgerService {
     ref: MoveRef,
   ) {
     const status = input.status ?? 'IN_STOCK';
+    const factor = input.unitFactor ?? 1;
     const product = await tx.product.findUniqueOrThrow({
       where: { id: input.productId },
       include: { bundleItems: { include: { component: true } } },
@@ -388,8 +392,12 @@ export class StockLedgerService {
         await this.restoreQuantity(
           tx,
           product.id,
-          input.quantity,
-          input.unitCostLak,
+          input.quantity * factor,
+          factor === 1
+            ? input.unitCostLak
+            : input.unitCostLak
+                .div(factor)
+                .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP),
           input.type,
           ref,
         );

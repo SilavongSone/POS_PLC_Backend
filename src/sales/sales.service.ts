@@ -237,6 +237,9 @@ export class SalesService {
           lineTotalLak: line.lineTotalLak,
           unitCostLak: 0,
           warrantyMonths: line.warrantyMonths,
+          productUnitId: line.productUnitId,
+          unitName: line.unitName,
+          unitFactor: line.unitFactor,
         },
       });
       // A bundle takes its components out of stock; each keeps its own warranty.
@@ -245,7 +248,8 @@ export class SalesService {
         : [
             {
               productId: line.productId,
-              quantity: line.quantity,
+              // A pack takes its base units out of stock.
+              quantity: line.quantity * line.unitFactor,
               serials: line.serials,
               warrantyMonths: line.warrantyMonths,
             },
@@ -492,6 +496,7 @@ export class SalesService {
             {
               productId: item.productId,
               quantity: item.quantity,
+              unitFactor: item.unitFactor,
               serialIds: item.serialNumbers.map((s) => s.id),
               unitCostLak: item.unitCostLak,
               type: 'VOID_IN',

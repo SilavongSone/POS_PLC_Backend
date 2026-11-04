@@ -10,6 +10,9 @@ export const en: Record<string, string> = {
   WRONG_PIN: 'Wrong PIN',
   PRODUCT_SKU_EXISTS: 'SKU "{value}" is already used by {name}',
   PRODUCT_BARCODE_EXISTS: 'Barcode "{value}" is already used by {name}',
+  UNIT_NOT_FOR_SERIAL:
+    'Packs are only for standard products without serial numbers (a serial is one piece)',
+  UNIT_INVALID: "Choose a unit other than the product's base unit",
   INVALID_CREDENTIALS: 'Invalid sign-in details',
   FORBIDDEN: 'You are not allowed to do this',
   MISSING_PERMISSION: 'You need the permission "{permission}"',

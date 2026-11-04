@@ -221,6 +221,7 @@ export class ReturnsService {
             {
               productId: item.productId,
               quantity: line.quantity,
+              unitFactor: item.unitFactor,
               serialIds: item.serialNumbers
                 .filter((s) => serials.includes(s.serial))
                 .map((s) => s.id),

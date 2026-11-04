@@ -60,6 +60,8 @@ import {
   reorderImagesSchema,
   reorderSchema,
   type ReorderInput,
+  productUnitsSchema,
+  type ProductUnitsInput,
   setPricesSchema,
   branchPricesSchema,
   type BranchPricesInput,
@@ -320,6 +322,22 @@ export class ProductsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.products.get(productId, canViewCost(user), query.branchId);
+  }
+
+  @Put(':id/units')
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary:
+      'Packs the product is sold in (pack of 10, carton of 50): own barcode and price, stock stays in the base unit (replaces the list)',
+  })
+  @ApiZodBody(productUnitsSchema)
+  @ApiZodResponse(productDetailSchema)
+  setUnits(
+    @Param('id', id) productId: string,
+    @Body(zod(productUnitsSchema)) body: ProductUnitsInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.products.setUnits(productId, body, user.id, canViewCost(user));
   }
 
   @Put(':id/branch-prices')

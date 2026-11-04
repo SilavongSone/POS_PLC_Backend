@@ -32,6 +32,9 @@ const PERMISSION_FOR: Record<StockDocType, Permission> = {
   TRANSFER: 'stock.transfer',
 };
 /** Receipts and positive adjustments bring stock in; issues and negative adjustments take it out. */
+/** Set by inBaseUnits on lines entered in packs. */
+type PackSnapshot = { unitName?: string; unitFactor?: number };
+
 function isInbound(type: StockDocType, quantity: number): boolean {
   return type === 'RECEIVE' || (type === 'ADJUST' && quantity > 0);
 }
@@ -187,6 +190,7 @@ export class StockDocumentsService {
       await this.entitlements.assertFeature('stockTransfers');
     const branches = await this.resolveBranches(input, user);
     const lakPerUnit = await this.resolveRate(input);
+    input = await this.inBaseUnits(input);
     await this.validateLines(input);
     const doc = await this.prisma.$transaction(async (tx) => {
       const docNo = await this.docNumbers.daily(tx, PREFIX_FOR[input.type]);
@@ -222,6 +226,7 @@ export class StockDocumentsService {
     this.branches.assertAccess(user, doc.branchId);
     const branches = await this.resolveBranches(input, user);
     const lakPerUnit = await this.resolveRate(input);
+    input = await this.inBaseUnits(input);
     await this.validateLines(input);
     await this.prisma.$transaction([
       this.prisma.stockDocumentItem.deleteMany({ where: { documentId: id } }),
@@ -541,6 +546,41 @@ export class StockDocumentsService {
     return (await this.rates.current())[input.currency].lakPerUnit;
   }
 
+  /**
+   * Lines entered in packs (4 cartons at 1,000,000) are stored in base units (200 rolls at
+   * 20,000) with the pack kept for display, so posting and cancelling count base units only.
+   */
+  private async inBaseUnits(input: StockDocInput): Promise<StockDocInput> {
+    const ids = input.items.flatMap((i) =>
+      i.productUnitId ? [i.productUnitId] : [],
+    );
+    if (!ids.length) return input;
+    const packs = new Map(
+      (
+        await this.prisma.productUnit.findMany({ where: { id: { in: ids } } })
+      ).map((u) => [u.id, u]),
+    );
+    return {
+      ...input,
+      items: input.items.map((item, i) => {
+        if (!item.productUnitId) return item;
+        const pack = packs.get(item.productUnitId);
+        if (!pack || pack.productId !== item.productId)
+          throw new BadRequestException(`items[${i}]: unknown pack`);
+        return {
+          ...item,
+          quantity: item.quantity * pack.factor,
+          unitCost: new Decimal(item.unitCost)
+            .div(pack.factor)
+            .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+            .toNumber(),
+          unitName: pack.unit,
+          unitFactor: pack.factor,
+        };
+      }),
+    };
+  }
+
   /** Checks products and the serial/lot data each line needs, before anything is saved. */
   private async validateLines(input: StockDocInput) {
     const ids = [...new Set(input.items.map((i) => i.productId))];
@@ -585,16 +625,21 @@ export class StockDocumentsService {
   }
 
   private lineData(input: StockDocInput, lakPerUnit: Prisma.Decimal) {
-    return input.items.map((i) => ({
-      productId: i.productId,
-      quantity: i.quantity,
-      unitCost: i.unitCost,
-      unitCostLak: costToLak(i.unitCost, lakPerUnit),
-      condition: i.condition,
-      lotNo: i.lotNo,
-      expiryDate: i.expiryDate,
-      draftSerials: i.serials ?? [],
-    }));
+    return input.items.map(
+      (i: StockDocInput['items'][number] & PackSnapshot) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        productUnitId: i.productUnitId ?? null,
+        unitName: i.unitName ?? null,
+        unitFactor: i.unitFactor ?? 1,
+        unitCost: i.unitCost,
+        unitCostLak: costToLak(i.unitCost, lakPerUnit),
+        condition: i.condition,
+        lotNo: i.lotNo,
+        expiryDate: i.expiryDate,
+        draftSerials: i.serials ?? [],
+      }),
+    );
   }
 
   private total(input: StockDocInput, lakPerUnit: Prisma.Decimal) {

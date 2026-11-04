@@ -10,6 +10,9 @@ export const th: Record<string, string> = {
   WRONG_PIN: 'PIN ไม่ถูกต้อง',
   PRODUCT_SKU_EXISTS: 'SKU "{value}" ถูกใช้แล้วโดยสินค้า {name}',
   PRODUCT_BARCODE_EXISTS: 'บาร์โค้ด "{value}" ถูกใช้แล้วโดยสินค้า {name}',
+  UNIT_NOT_FOR_SERIAL:
+    'แพ็ก/ลัง ใช้ได้กับสินค้าทั่วไปที่ไม่มี serial เท่านั้น (serial นับเป็นเครื่อง)',
+  UNIT_INVALID: 'เลือกหน่วยอื่นที่ไม่ใช่หน่วยหลักของสินค้า',
   INVALID_CREDENTIALS: 'ข้อมูลเข้าสู่ระบบไม่ถูกต้อง',
   FORBIDDEN: 'คุณไม่มีสิทธิ์ทำรายการนี้',
   MISSING_PERMISSION: 'ต้องมีสิทธิ์ "{permission}"',

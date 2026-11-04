@@ -79,6 +79,9 @@ export class QuotationsService {
         productId: l.productId,
         productName: l.productName,
         quantity: l.quantity,
+        productUnitId: l.productUnitId,
+        unitName: l.unitName,
+        unitFactor: l.unitFactor,
         unitPriceLak: l.unitPriceLak,
         discountLak: l.discountLak,
         lineTotalLak: l.lineTotalLak,
@@ -232,6 +235,7 @@ export class QuotationsService {
         items: q.items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
+          productUnitId: i.productUnitId ?? undefined,
           unitPriceLak: Number(i.unitPriceLak),
           discountLak: Number(i.discountLak),
           serials: byLine.get(i.id)?.serials,

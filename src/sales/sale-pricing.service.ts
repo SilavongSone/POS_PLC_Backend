@@ -38,6 +38,10 @@ export type PricedLine = {
     warrantyMonths: number;
   }[];
   quantity: number;
+  /** Pack sold (null = base unit); stock moves quantity × unitFactor. */
+  productUnitId: string | null;
+  unitName: string | null;
+  unitFactor: number;
   serials: string[];
   listPriceLak: Decimal;
   unitPriceLak: Decimal;
@@ -143,6 +147,7 @@ export class SalePricingService {
           include: {
             taxRate: true,
             bundleItems: { include: { component: true } },
+            units: true,
           },
         }),
         this.products.pricingContext(db),
@@ -184,6 +189,11 @@ export class SalePricingService {
           `${at}: only services take a description`,
         );
       }
+      const pack = item.productUnitId
+        ? p.units.find((u) => u.id === item.productUnitId)
+        : undefined;
+      if (item.productUnitId && !pack?.isActive)
+        throw new BadRequestException(`${at}: unknown pack for ${p.sku}`);
       const components = await this.bundleComponents(
         db,
         p,
@@ -232,14 +242,19 @@ export class SalePricingService {
         unitOwnPrice = units[0].priceLak;
       }
 
+      // A pack has its own price (branch prices are for the base unit).
       const { retailPriceLak, wholesalePriceLak } = this.products.lakPrices(
-        atBranch(p, branchPrices.get(p.id)),
+        pack
+          ? { ...pack, priceCurrency: p.priceCurrency }
+          : atBranch(p, branchPrices.get(p.id)),
         ctx,
       );
+      const factor = pack?.factor ?? 1;
       const wholesale =
         wholesalePriceLak !== null &&
         (priceTier === 'WHOLESALE' ||
-          (p.wholesaleMinQty !== null && item.quantity >= p.wholesaleMinQty));
+          (p.wholesaleMinQty !== null &&
+            item.quantity * factor >= p.wholesaleMinQty));
       const listPriceLak =
         unitOwnPrice ?? (wholesale ? wholesalePriceLak : retailPriceLak);
       const overridden =
@@ -290,6 +305,9 @@ export class SalePricingService {
         sku: p.sku,
         components,
         quantity: item.quantity,
+        productUnitId: pack?.id ?? null,
+        unitName: pack?.unit ?? null,
+        unitFactor: factor,
         serials,
         listPriceLak,
         unitPriceLak,

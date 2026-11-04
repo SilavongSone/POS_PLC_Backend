@@ -175,6 +175,51 @@ export const branchPricesSchema = z.object({
 });
 export type BranchPricesInput = z.infer<typeof branchPricesSchema>;
 
+/** PUT /products/:id/units: the packs the product is sold in (replaces the list). */
+export const productUnitsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        /** Keep the id of an existing pack so carts and quotations still find it. */
+        id: z.uuid().optional(),
+        /** Unit code (Unit.name), e.g. "carton". */
+        unit: text(20).min(1),
+        /** Base units in one pack. */
+        factor: z.number().int().min(2).max(100000),
+        barcode: z
+          .string()
+          .trim()
+          .regex(/^[0-9A-Za-z-]{4,50}$/)
+          .nullable()
+          .optional(),
+        retailPrice: money,
+        wholesalePrice: money.nullable().optional(),
+        isActive: z.boolean().default(true),
+      }),
+    )
+    .max(10)
+    .superRefine((items, ctx) => {
+      const seen = new Map<string, number>();
+      items.forEach((item, i) => {
+        for (const [key, value] of [
+          ['unit', item.unit],
+          ['barcode', item.barcode],
+        ] as const) {
+          if (!value) continue;
+          const k = `${key}:${value}`;
+          if (seen.has(k))
+            ctx.addIssue({
+              code: 'custom',
+              message: `Used twice: ${value}`,
+              path: [i, key],
+            });
+          seen.set(k, i);
+        }
+      });
+    }),
+});
+export type ProductUnitsInput = z.infer<typeof productUnitsSchema>;
+
 export const bulkPriceSchema = z
   .object({
     productIds: z.array(z.uuid()).min(1).max(1000).optional(),

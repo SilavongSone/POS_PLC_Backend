@@ -483,6 +483,8 @@ model Product {
   tenant         Tenant              @relation(fields: [tenantId], references: [id])
   branchStock    BranchStock[]
   branchPrices   BranchPrice[]
+  /// Packs it is also sold/bought in (pack of 10, carton of 50); stock stays in this base unit.
+  units          ProductUnit[]
 
   @@unique([tenantId, sku])
   @@unique([tenantId, barcode])
@@ -668,19 +670,23 @@ model StockDocument {
 }
 
 model StockDocumentItem {
-  id           String        @id @default(uuid())
-  documentId   String
-  productId    String
+  id            String        @id @default(uuid())
+  documentId    String
+  productId     String
   /// Positive for RECEIVE/ISSUE; signed for ADJUST.
-  quantity     Int
+  quantity      Int
   /// Unit cost in the document currency (RECEIVE only).
-  unitCost     Decimal       @default(0) @db.Decimal(18, 2)
-  unitCostLak  Decimal       @default(0) @db.Decimal(18, 0)
-  condition    ItemCondition @default(NEW)
-  lotNo        String?
-  expiryDate   DateTime?
+  unitCost      Decimal       @default(0) @db.Decimal(18, 2)
+  unitCostLak   Decimal       @default(0) @db.Decimal(18, 0)
+  condition     ItemCondition @default(NEW)
+  lotNo         String?
+  expiryDate    DateTime?
   /// Serial numbers entered on the draft; turned into SerialNumber rows when posted.
-  draftSerials String[]
+  draftSerials  String[]
+  /// Pack the line was entered in (display only): quantity and unitCost are already in base units (packs = quantity / unitFactor).
+  productUnitId String?
+  unitName      String?
+  unitFactor    Int           @default(1)
 
   document StockDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   product  Product        @relation(fields: [productId], references: [id])
@@ -809,14 +815,18 @@ model Quotation {
 }
 
 model QuotationItem {
-  id           String  @id @default(uuid())
-  quotationId  String
-  productId    String
-  productName  String
-  quantity     Int
-  unitPriceLak Decimal @db.Decimal(18, 0)
-  discountLak  Decimal @default(0) @db.Decimal(18, 0)
-  lineTotalLak Decimal @db.Decimal(18, 0)
+  id            String  @id @default(uuid())
+  quotationId   String
+  productId     String
+  productName   String
+  quantity      Int
+  unitPriceLak  Decimal @db.Decimal(18, 0)
+  discountLak   Decimal @default(0) @db.Decimal(18, 0)
+  lineTotalLak  Decimal @db.Decimal(18, 0)
+  /// Pack sold/bought (null = the product's base unit); `quantity` counts packs, stock moves quantity × unitFactor.
+  productUnitId String?
+  unitName      String?
+  unitFactor    Int     @default(1)
 
   quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])
@@ -929,6 +939,10 @@ model SaleItem {
   /// Cost snapshot for profit reports.
   unitCostLak         Decimal @db.Decimal(18, 0)
   warrantyMonths      Int     @default(0)
+  /// Pack sold/bought (null = the product's base unit); `quantity` counts packs, stock moves quantity × unitFactor.
+  productUnitId       String?
+  unitName            String?
+  unitFactor          Int     @default(1)
 
   sale              Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product           Product          @relation(fields: [productId], references: [id])
@@ -1271,6 +1285,7 @@ model Tenant {
   branches          Branch[]
   branchStock       BranchStock[]
   branchPrices      BranchPrice[]
+  productUnits      ProductUnit[]
   userTokens        UserToken[]
   invoices          BillingInvoice[]
   idempotencyKeys   IdempotencyKey[]
@@ -1548,4 +1563,30 @@ model BillingInvoice {
   @@unique([tenantId, number])
   @@index([status, createdAt])
   @@index([planId])
+}
+
+/// A pack a product is also sold and received in: `factor` base units, own barcode and price.
+model ProductUnit {
+  id             String   @id @default(uuid())
+  tenantId       String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  productId      String
+  /// Unit.name (code), e.g. "pack", "carton".
+  unit           String
+  /// Base units in one pack (≥ 2).
+  factor         Int
+  barcode        String?
+  /// In the product's priceCurrency.
+  retailPrice    Decimal  @db.Decimal(18, 2)
+  wholesalePrice Decimal? @db.Decimal(18, 2)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, barcode])
+  @@unique([productId, unit])
+  @@index([tenantId])
 }

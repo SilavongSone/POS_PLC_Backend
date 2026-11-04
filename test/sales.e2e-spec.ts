@@ -690,4 +690,177 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
       .send({ reason: 'late' })
       .expect(409);
   });
+
+  describe('selling units (packs)', () => {
+    beforeAll(async () => {
+      // The shift tests above closed the register's shift.
+      await t
+        .http()
+        .post('/shifts/open')
+        .set(cashier.auth)
+        .send({ registerId, openingCash: { LAK: 0 } })
+        .expect(201);
+    });
+
+    it('sells, receives, returns and voids packs out of one base-unit stock', async () => {
+      const p = await product(
+        { unit: 'roll', retailPrice: 25_000 },
+        { quantity: 0 },
+      );
+      const stock = async () =>
+        (await t.prisma.product.findUniqueOrThrow({ where: { id: p.id } }))
+          .stockQty;
+      const setUnits = (items: object[]) =>
+        t
+          .http()
+          .put(`/products/${p.id}/units`)
+          .set(manager.auth)
+          .send({ items });
+
+      // The base unit cannot also be a pack; a pack barcode must be free.
+      expect(
+        (
+          await setUnits([{ unit: 'roll', factor: 10, retailPrice: 1 }]).expect(
+            400,
+          )
+        ).body.code,
+      ).toBe('UNIT_INVALID');
+      const taken = await setUnits([
+        { unit: 'pack', factor: 10, barcode: p.sku, retailPrice: 1 },
+      ]).expect(409);
+      expect(taken.body).toMatchObject({
+        code: 'PRODUCT_BARCODE_EXISTS',
+        field: 'items.0.barcode',
+      });
+
+      const packCode = `PK${uniq()}`;
+      const units = (
+        await setUnits([
+          { unit: 'pack', factor: 10, barcode: packCode, retailPrice: 240_000 },
+          { unit: 'box', factor: 50, retailPrice: 1_150_000 },
+        ]).expect(200)
+      ).body.units as { id: string; unit: string; retailPriceLak: string }[];
+      const pack = units.find((u) => u.unit === 'pack')!;
+      const box = units.find((u) => u.unit === 'box')!;
+      expect(box.retailPriceLak).toBe('1150000');
+
+      // Receive 2 boxes at 1,000,000 each = 100 rolls at 20,000.
+      const doc = (
+        await t
+          .http()
+          .post('/stock-documents')
+          .set(manager.auth)
+          .send({
+            type: 'RECEIVE',
+            items: [
+              {
+                productId: p.id,
+                productUnitId: box.id,
+                quantity: 2,
+                unitCost: 1_000_000,
+              },
+            ],
+          })
+          .expect(201)
+      ).body;
+      expect(doc.items[0]).toMatchObject({
+        quantity: 100,
+        unitCost: '20000',
+        unitName: 'box',
+        unitFactor: 50,
+      });
+      await t
+        .http()
+        .post(`/stock-documents/${doc.id}/post`)
+        .set(manager.auth)
+        .expect(200);
+      expect(await stock()).toBe(100);
+
+      // The scanner finds the pack by its barcode.
+      const found = await t
+        .http()
+        .get('/products/lookup')
+        .query({ code: packCode })
+        .set(cashier.auth)
+        .expect(200);
+      expect(found.body.unit.id).toBe(pack.id);
+
+      // 1 pack + 3 rolls = 13 rolls out.
+      const sale = (
+        await sell({
+          items: [
+            { productId: p.id, productUnitId: pack.id, quantity: 1 },
+            { productId: p.id, quantity: 3 },
+          ],
+          payments: [cash(315_000)],
+        }).expect(201)
+      ).body;
+      expect(sale.totalLak).toBe('315000');
+      const packLine = sale.items.find(
+        (i: { productUnitId: string | null }) => i.productUnitId === pack.id,
+      );
+      expect(packLine).toMatchObject({
+        quantity: 1,
+        unitName: 'pack',
+        unitFactor: 10,
+        unitPriceLak: '240000',
+      });
+      expect(await stock()).toBe(87);
+      const saved = await t.prisma.saleItem.findUniqueOrThrow({
+        where: { id: packLine.id },
+      });
+      expect(saved.unitCostLak.toString()).toBe('200000');
+
+      // Returning the pack puts its 10 rolls back.
+      const approvalToken = await approval('return.create');
+      await t
+        .http()
+        .post(`/sales/${sale.id}/returns`)
+        .set(cashier.auth)
+        .send({
+          reason: 'not needed',
+          paymentTypeId: pay.CASH,
+          approvalToken,
+          items: [{ saleItemId: packLine.id, quantity: 1 }],
+        })
+        .expect(201);
+      expect(await stock()).toBe(97);
+
+      // Voiding a box sale puts 50 rolls back.
+      const boxSale = (
+        await sell({
+          items: [{ productId: p.id, productUnitId: box.id, quantity: 1 }],
+          payments: [cash(1_150_000)],
+        }).expect(201)
+      ).body;
+      expect(await stock()).toBe(47);
+      // Get the approval first: supertest requests must not overlap.
+      const voidToken = await approval('sale.void');
+      await t
+        .http()
+        .post(`/sales/${boxSale.id}/void`)
+        .set(cashier.auth)
+        .send({ reason: 'test', approvalToken: voidToken })
+        .expect(200);
+      expect(await stock()).toBe(97);
+
+      // A pack that was removed cannot be sold any more.
+      await setUnits([]).expect(200);
+      await sell({
+        items: [{ productId: p.id, productUnitId: pack.id, quantity: 1 }],
+        payments: [cash(240_000)],
+      }).expect(400);
+    });
+
+    it('keeps packs off serial products', async () => {
+      const p = await product({ trackSerial: true }, { quantity: 0 });
+      const res = await t
+        .http()
+        .put(`/products/${p.id}/units`)
+        .set(manager.auth)
+        .send({ items: [{ unit: 'box', factor: 5, retailPrice: 1 }] })
+        .expect(400);
+      expect(res.body.code).toBe('UNIT_NOT_FOR_SERIAL');
+    });
+  });
 });
