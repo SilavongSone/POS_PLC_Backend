@@ -241,14 +241,22 @@ describe('Accounts and e-mail (e2e)', () => {
       expect(single.body.tenantCode).toBe(one.tenant.code);
       expect(single.body.user.email).toBe(email);
 
-      for (const wrong of [
-        { email, password: 'wrong-password-1' },
-        { email: `nobody-${uniq()}@example.com`, password: PASSWORD },
-      ]) {
-        expect((await login(wrong).expect(401)).body.code).toBe(
-          'INVALID_CREDENTIALS',
-        );
-      }
+      // The error says which field is wrong, so the form can mark it.
+      const badPassword = await login({ email, password: 'wrong-password-1' });
+      expect(badPassword.status).toBe(401);
+      expect(badPassword.body).toMatchObject({
+        code: 'WRONG_PASSWORD',
+        field: 'password',
+      });
+      const noAccount = await login({
+        email: `nobody-${uniq()}@example.com`,
+        password: PASSWORD,
+      });
+      expect(noAccount.status).toBe(401);
+      expect(noAccount.body).toMatchObject({
+        code: 'EMAIL_NOT_FOUND',
+        field: 'email',
+      });
 
       const two = await signupWith(email, `Login B ${uniq()}`);
       const ask = await login({ email, password: PASSWORD }).expect(409);

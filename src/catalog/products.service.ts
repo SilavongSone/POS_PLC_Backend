@@ -362,7 +362,8 @@ export class ProductsService {
   ) {
     await this.assertReferences(input);
     await this.assertPlanAllows(input);
-    await this.assertCodesFree([input.sku, input.barcode]);
+    await this.assertUnique({ sku: input.sku, barcode: input.barcode });
+    await this.assertCodesFree({ sku: input.sku, barcode: input.barcode });
     if (input.isActive !== false)
       await this.entitlements.assertLimit('maxProducts');
     const ctx = await this.pricingContext();
@@ -398,8 +399,10 @@ export class ProductsService {
     });
     await this.assertReferences(input);
     await this.assertPlanAllows(input);
-    if (input.barcode && input.barcode !== before.barcode)
-      await this.assertCodesFree([input.barcode]);
+    if (input.barcode && input.barcode !== before.barcode) {
+      await this.assertUnique({ barcode: input.barcode }, id);
+      await this.assertCodesFree({ barcode: input.barcode });
+    }
 
     const hasStock = before.stockQty !== 0;
     if (
@@ -720,12 +723,45 @@ export class ProductsService {
   }
 
   /** A barcode/SKU equal to a serial number would hide that unit from the scanner. */
-  private async assertCodesFree(codes: (string | null | undefined)[]) {
-    const list = codes.filter((c): c is string => !!c);
-    if (!list.length) return;
+  /** SKU and barcode are unique per company; the error names the product that has them. */
+  private async assertUnique(
+    codes: { sku?: string; barcode?: string | null },
+    exceptId?: string,
+  ) {
+    for (const field of ['sku', 'barcode'] as const) {
+      const value = codes[field];
+      if (!value) continue;
+      const other = await this.prisma.product.findFirst({
+        where: { [field]: value, ...(exceptId && { id: { not: exceptId } }) },
+        select: { name: true, sku: true },
+      });
+      if (other) {
+        throw new ConflictException({
+          message: `${field === 'sku' ? 'SKU' : 'Barcode'} ${value} is already used by ${other.name} (${other.sku})`,
+          code:
+            field === 'sku' ? 'PRODUCT_SKU_EXISTS' : 'PRODUCT_BARCODE_EXISTS',
+          field,
+          value,
+          name: other.name,
+        });
+      }
+    }
+  }
+
+  /** SKU and barcode must not equal a serial number: the till looks codes up first. */
+  private async assertCodesFree(codes: {
+    sku?: string;
+    barcode?: string | null;
+  }) {
+    const entries = Object.entries(codes).filter(
+      (e): e is [string, string] => !!e[1],
+    );
+    if (!entries.length) return;
     const unit = await this.prisma.serialNumber.findFirst({
       where: {
-        OR: list.map((c) => ({ serial: { equals: c, mode: 'insensitive' } })),
+        OR: entries.map(([, c]) => ({
+          serial: { equals: c, mode: 'insensitive' },
+        })),
       },
       select: { serial: true },
     });
@@ -733,6 +769,9 @@ export class ProductsService {
       throw new ConflictException({
         message: `This code is already the serial number ${unit.serial} of a unit`,
         code: 'PRODUCT_CODE_MATCHES_SERIAL',
+        field: entries.find(
+          ([, c]) => c.toLowerCase() === unit.serial.toLowerCase(),
+        )?.[0],
       });
     }
   }

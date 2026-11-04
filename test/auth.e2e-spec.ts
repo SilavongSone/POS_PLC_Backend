@@ -68,11 +68,18 @@ describe('Auth (e2e)', () => {
       .expect(401);
   });
 
-  it('returns the same error for an unknown user and a wrong password', async () => {
+  it('tells an unknown user from a wrong password (lockout limits guessing)', async () => {
     const user = await createUser();
     const unknown = await login(`${prefix}-nobody`).expect(401);
+    expect(unknown.body).toMatchObject({
+      code: 'USERNAME_NOT_FOUND',
+      field: 'username',
+    });
     const wrong = await login(user.username, 'wrong-password').expect(401);
-    expect(unknown.body.message).toBe(wrong.body.message);
+    expect(wrong.body).toMatchObject({
+      code: 'WRONG_PASSWORD',
+      field: 'password',
+    });
   });
 
   it('validates the request body', async () => {

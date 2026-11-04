@@ -44,6 +44,7 @@ export class ApprovalService {
             : Promise.resolve(false);
         return argon2.verify(u.passwordHash, input.password ?? '');
       },
+      input.pin ? 'pin' : 'password',
     );
     const approver = await this.auth.findActiveUser(approverRow.id);
     if (!approver || !hasPermission(approver.permissions, input.permission)) {

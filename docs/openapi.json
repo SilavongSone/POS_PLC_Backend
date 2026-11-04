@@ -7637,7 +7637,7 @@
                 }
               }
             },
-            "description": "Not signed in, or the credentials/token are invalid. Codes: GOOGLE_TOKEN_INVALID, GOOGLE_ACCOUNT_UNKNOWN, INVALID_CREDENTIALS"
+            "description": "Not signed in, or the credentials/token are invalid. Codes: GOOGLE_TOKEN_INVALID, GOOGLE_ACCOUNT_UNKNOWN, COMPANY_NOT_FOUND"
           },
           "403": {
             "content": {
@@ -7783,7 +7783,7 @@
                 }
               }
             },
-            "description": "Not signed in, or the credentials/token are invalid. Codes: INVALID_CREDENTIALS"
+            "description": "Not signed in, or the credentials/token are invalid. Codes: COMPANY_NOT_FOUND, EMAIL_NOT_FOUND, USERNAME_NOT_FOUND, WRONG_PASSWORD, WRONG_PIN"
           },
           "403": {
             "content": {
@@ -8063,7 +8063,7 @@
                 }
               }
             },
-            "description": "Not signed in, or the credentials/token are invalid. Codes: INVALID_CREDENTIALS"
+            "description": "Not signed in, or the credentials/token are invalid. Codes: COMPANY_NOT_FOUND, EMAIL_NOT_FOUND, USERNAME_NOT_FOUND, WRONG_PASSWORD, WRONG_PIN"
           },
           "403": {
             "content": {

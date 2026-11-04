@@ -50,7 +50,13 @@ import { Public } from './decorators/public.decorator.js';
  */
 /** Password/PIN sign-in errors (unknown company, wrong credentials, lockout, suspended). */
 const CREDENTIAL_ERRORS = errors(VALIDATION, THROTTLED, {
-  401: ['INVALID_CREDENTIALS'],
+  401: [
+    'COMPANY_NOT_FOUND',
+    'EMAIL_NOT_FOUND',
+    'USERNAME_NOT_FOUND',
+    'WRONG_PASSWORD',
+    'WRONG_PIN',
+  ],
   403: ['TENANT_SUSPENDED'],
   409: ['TENANT_REQUIRED'],
   423: ['ACCOUNT_LOCKED'],

@@ -80,7 +80,7 @@ export class AuthService {
     );
     if (!users.length) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw this.invalidCredentials('Invalid e-mail or password');
+      throw this.accountNotFound('email');
     }
 
     const now = Date.now();
@@ -120,7 +120,7 @@ export class AuthService {
           }),
         ),
       );
-      throw this.invalidCredentials('Invalid e-mail or password');
+      throw this.wrongSecret('password');
     }
 
     if (matches.length > 1) {
@@ -148,8 +148,28 @@ export class AuthService {
     );
   }
 
-  private invalidCredentials(message: string) {
-    return new UnauthorizedException({ message, code: 'INVALID_CREDENTIALS' });
+  /**
+   * Sign-in errors name the wrong field (the shop asked to tell "no such account" from
+   * "wrong password"); lockout after MAX_FAILED_LOGINS and the request throttle limit
+   * guessing.
+   */
+  private accountNotFound(field: 'email' | 'username') {
+    return new UnauthorizedException({
+      message:
+        field === 'email'
+          ? 'No account uses this e-mail'
+          : 'No user has this username',
+      code: field === 'email' ? 'EMAIL_NOT_FOUND' : 'USERNAME_NOT_FOUND',
+      field,
+    });
+  }
+
+  private wrongSecret(field: 'password' | 'pin') {
+    return new UnauthorizedException({
+      message: field === 'pin' ? 'Wrong PIN' : 'Wrong password',
+      code: field === 'pin' ? 'WRONG_PIN' : 'WRONG_PASSWORD',
+      field,
+    });
   }
 
   /** A password-length session for a user already authenticated another way (Google, sign-up). */
@@ -244,8 +264,11 @@ export class AuthService {
     pin: string,
   ): Promise<AuthTokens> {
     await this.enterTenant(tenantCode);
-    const user = await this.verifyCredential(username, (u) =>
-      u.pinHash ? argon2.verify(u.pinHash, pin) : Promise.resolve(false),
+    const user = await this.verifyCredential(
+      username,
+      (u) =>
+        u.pinHash ? argon2.verify(u.pinHash, pin) : Promise.resolve(false),
+      'pin',
     );
     return this.issueTokens(
       user.id,
@@ -352,37 +375,46 @@ export class AuthService {
       where: { id: userId },
     });
     if (!(await argon2.verify(user.passwordHash, password))) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException({
+        message: 'Current password is incorrect',
+        code: 'WRONG_PASSWORD',
+        field: 'currentPassword',
+      });
     }
   }
 
   /**
    * Checks a password or PIN with lockout: after MAX_FAILED_LOGINS wrong attempts the
-   * account is locked for LOCK_MINUTES. Errors never say whether the account exists.
+   * account is locked for LOCK_MINUTES.
    */
   async verifyCredential(
     username: string,
     check: (user: User) => Promise<boolean>,
+    secret: 'password' | 'pin' = 'password',
   ) {
     const user = await this.prisma.user.findFirst({ where: { username } });
-    return this.verifyUserCredential(user, check);
+    return this.verifyUserCredential(user, check, 'username', secret);
   }
 
   private async verifyEmailCredential(email: string, password: string) {
     const user = await this.prisma.user.findFirst({ where: { email } });
-    return this.verifyUserCredential(user, (candidate) =>
-      argon2.verify(candidate.passwordHash, password),
+    return this.verifyUserCredential(
+      user,
+      (candidate) => argon2.verify(candidate.passwordHash, password),
+      'email',
+      'password',
     );
   }
 
   private async verifyUserCredential(
     user: User | null,
     check: (user: User) => Promise<boolean>,
-    invalidMessage = 'Invalid username or credentials',
+    account: 'email' | 'username',
+    secret: 'password' | 'pin',
   ) {
     if (!user || !user.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
-      throw this.invalidCredentials(invalidMessage);
+      throw this.accountNotFound(account);
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new HttpException(
@@ -406,7 +438,7 @@ export class AuthService {
             }
           : { failedLoginCount: failed },
       });
-      throw this.invalidCredentials(invalidMessage);
+      throw this.wrongSecret(secret);
     }
 
     if (user.failedLoginCount > 0 || user.lockedUntil) {
@@ -473,8 +505,9 @@ export class AuthService {
     if (!tenant?.isActive) {
       await argon2.verify(await this.dummyHash, 'x');
       throw new UnauthorizedException({
-        message: 'Invalid sign-in details',
-        code: 'INVALID_CREDENTIALS',
+        message: 'No company has this code',
+        code: 'COMPANY_NOT_FOUND',
+        field: 'tenantCode',
       });
     }
     const e = await this.entitlements.get(tenant.id);

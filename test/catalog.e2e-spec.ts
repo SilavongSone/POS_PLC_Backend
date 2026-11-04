@@ -458,5 +458,43 @@ describe('Catalog (e2e)', () => {
         .expect(204);
       expect(existsSync(fileOf(second))).toBe(false);
     });
+
+    it('names the product that already has a SKU or barcode', async () => {
+      const first = (
+        await t
+          .http()
+          .post('/products')
+          .set(manager.auth)
+          .send({
+            sku: `ORIG-${uniq()}`,
+            barcode: `88${Date.now()}`,
+            name: `Original ${uniq()}`,
+            retailPrice: 1000,
+          })
+          .expect(201)
+      ).body;
+      const sku = `DUP-${uniq()}`;
+      const res = await t
+        .http()
+        .post('/products')
+        .set(manager.auth)
+        .send({ sku, name: 'Copy', retailPrice: 1000, barcode: first.barcode })
+        .expect(409);
+      expect(res.body).toMatchObject({
+        code: 'PRODUCT_BARCODE_EXISTS',
+        field: 'barcode',
+        name: first.name,
+      });
+      const again = await t
+        .http()
+        .post('/products')
+        .set(manager.auth)
+        .send({ sku: first.sku, name: 'Copy', retailPrice: 1000 })
+        .expect(409);
+      expect(again.body).toMatchObject({
+        code: 'PRODUCT_SKU_EXISTS',
+        field: 'sku',
+      });
+    });
   });
 });

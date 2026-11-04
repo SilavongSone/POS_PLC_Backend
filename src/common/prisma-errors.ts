@@ -17,11 +17,16 @@ export function toHttpException(
             cause?: { constraint?: { fields?: string[] } };
           }
         )?.cause?.constraint?.fields) as string[] | string | undefined;
-      const fields = Array.isArray(target) ? target.join(', ') : target;
+      const list = (Array.isArray(target) ? target : [target ?? '']).filter(
+        (f) => f && f !== 'tenantId',
+      );
+      const fields = list.join(', ');
       return new ConflictException({
         message: fields ? `Already exists: ${fields}` : 'Already exists',
         code: 'ALREADY_EXISTS',
         fields,
+        // The form field to highlight (the unique key without the company).
+        ...(list.length && { field: list[list.length - 1] }),
       });
     }
     case 'P2025':

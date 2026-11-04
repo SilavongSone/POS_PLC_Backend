@@ -48,11 +48,7 @@ const google = z.object({
 
 /** Sign in with Google: bad token, no/ambiguous account, disabled, suspended company. */
 const GOOGLE_LOGIN_ERRORS = errors(VALIDATION, THROTTLED, {
-  401: [
-    'GOOGLE_TOKEN_INVALID',
-    'GOOGLE_ACCOUNT_UNKNOWN',
-    'INVALID_CREDENTIALS',
-  ],
+  401: ['GOOGLE_TOKEN_INVALID', 'GOOGLE_ACCOUNT_UNKNOWN', 'COMPANY_NOT_FOUND'],
   403: ['GOOGLE_DISABLED', 'TENANT_SUSPENDED'],
   409: ['TENANT_REQUIRED', 'GOOGLE_ACCOUNT_AMBIGUOUS'],
 });
