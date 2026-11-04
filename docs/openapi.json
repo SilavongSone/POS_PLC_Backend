@@ -15861,7 +15861,6 @@
                   }
                 },
                 "required": [
-                  "code",
                   "name"
                 ],
                 "type": "object"
