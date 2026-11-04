@@ -12,8 +12,11 @@ async function bootstrap() {
     // Webhooks verify signatures over the exact bytes received (req.rawBody).
     rawBody: true,
   });
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  app.useLogger(logger);
   configureApp(app);
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port);
+  logger.log(`API listening on http://localhost:${port}/api`, 'Bootstrap');
 }
 await bootstrap();
