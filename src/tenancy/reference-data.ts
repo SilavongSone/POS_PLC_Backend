@@ -100,6 +100,7 @@ export const UNITS = [
   { name: 'set', nameI18n: { lo: 'ຊຸດ', th: 'ชุด', en: 'set' } },
   { name: 'box', nameI18n: { lo: 'ກ່ອງ', th: 'กล่อง', en: 'box' } },
   { name: 'pack', nameI18n: { lo: 'ແພັກ', th: 'แพ็ก', en: 'pack' } },
+  { name: 'carton', nameI18n: { lo: 'ແກັດ', th: 'ลัง', en: 'carton' } },
   { name: 'roll', nameI18n: { lo: 'ມ້ວນ', th: 'ม้วน', en: 'roll' } },
   { name: 'm', nameI18n: { lo: 'ແມັດ', th: 'เมตร', en: 'm' } },
   { name: 'hour', nameI18n: { lo: 'ຊົ່ວໂມງ', th: 'ชั่วโมง', en: 'hour' } },

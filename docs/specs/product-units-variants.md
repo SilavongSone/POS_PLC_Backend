@@ -76,8 +76,9 @@ model ProductUnit {            // a pack the product is also sold/bought in
 
 ### API
 
-- `GET/POST/PATCH /products` accept and return `units: ProductUnit[]` (replace the whole
-  list on update, like branch prices).
+- `PUT /products/:id/units` replaces the list (like branch prices); `GET /products` and
+  `/products/:id` return `units` with LAK prices. (Built 2026-11-04; "carton" ແກັດ added to
+  the standard units.)
 - `GET /products/lookup?code=` also matches unit barcodes and returns `{ product, unit }`.
 - `POST /sales`, `/quotations`, stock documents: items take optional `productUnitId`.
 
