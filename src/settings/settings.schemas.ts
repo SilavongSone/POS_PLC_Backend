@@ -105,7 +105,9 @@ export const createRegisterSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{1,6}$/, '1–6 letters or digits, e.g. R2'),
+    .regex(/^[A-Z0-9]{1,6}$/, '1–6 letters or digits, e.g. R2')
+    /** Leave out for the next free R1, R2 … */
+    .optional(),
   name: text(50).min(1),
   /** Branch the till stands in; may be omitted when the company has one branch. */
   branchId: z.uuid().optional(),

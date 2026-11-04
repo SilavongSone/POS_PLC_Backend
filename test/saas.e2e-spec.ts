@@ -405,11 +405,15 @@ describe('SaaS (e2e)', () => {
       ).body;
       expect(value.items[0].stockQty).toBe(3);
 
+      // A new branch gets its first till (next free code) by itself.
       const register = (
-        await api(c)
-          .post('/registers', { code: 'R2', name: 'B2 till', branchId: second })
-          .expect(201)
-      ).body;
+        (await api(c).get('/registers').expect(200)).body as {
+          id: string;
+          code: string;
+          branchId: string;
+        }[]
+      ).find((r) => r.branchId === second)!;
+      expect(register.code).toBe('R2');
       await api(c)
         .post('/shifts/open', { registerId: register.id, openingCash: {} })
         .expect(201);

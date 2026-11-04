@@ -55,7 +55,35 @@ export class BranchesService {
       entityId: branch.id,
       after: branch,
     });
+    await this.addFirstRegister(branch.id);
     return branch;
+  }
+
+  /**
+   * A new branch gets a till right away (code R2, R3 … free in the company), so its staff can
+   * sell without asking an admin first. Skipped when the plan has no register left.
+   */
+  private async addFirstRegister(branchId: string) {
+    try {
+      await this.entitlements.assertLimit('maxRegisters');
+    } catch {
+      return;
+    }
+    const codes = new Set(
+      (await this.prisma.register.findMany({ select: { code: true } })).map(
+        (r) => r.code,
+      ),
+    );
+    let n = 1;
+    while (codes.has(`R${n}`)) n++;
+    await this.prisma.register.create({
+      data: {
+        code: `R${n}`,
+        name: 'Counter 1',
+        branchId,
+        printer: { connection: 'usb', paperWidth: 80, openDrawer: true },
+      },
+    });
   }
 
   async update(id: string, input: UpdateBranchInput, actorId: string) {

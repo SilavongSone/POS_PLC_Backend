@@ -65,7 +65,12 @@ export class RegistersService {
     const branchId = await this.branches.resolve(actor, input.branchId);
     if (input.isActive) await this.entitlements.assertLimit('maxRegisters');
     const register = await this.prisma.register.create({
-      data: { ...input, branchId, printer: printerData(input.printer) },
+      data: {
+        ...input,
+        code: input.code ?? (await this.nextCode()),
+        branchId,
+        printer: printerData(input.printer),
+      },
     });
     await this.audit.log({
       userId: actor.id,
@@ -75,6 +80,18 @@ export class RegistersService {
       after: register,
     });
     return register;
+  }
+
+  /** First free R1, R2 … in the company (codes are unique per company, not per branch). */
+  private async nextCode() {
+    const codes = new Set(
+      (await this.prisma.register.findMany({ select: { code: true } })).map(
+        (r) => r.code,
+      ),
+    );
+    let n = 1;
+    while (codes.has(`R${n}`)) n++;
+    return `R${n}`;
   }
 
   async update(id: string, input: UpdateRegisterInput, actor: AuthUser) {
