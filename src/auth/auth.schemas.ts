@@ -1,3 +1,4 @@
+import { firstNameSchema, lastNameSchema } from '../common/person-name.js';
 import { z } from 'zod';
 import { PERMISSIONS } from '../common/permissions.js';
 
@@ -32,9 +33,15 @@ export const pinLoginSchema = z.object({
 });
 export type PinLoginInput = z.infer<typeof pinLoginSchema>;
 
-export const updateMeSchema = z.object({
-  language: z.enum(['lo', 'th', 'en']).nullable(),
-});
+export const updateMeSchema = z
+  .object({
+    language: z.enum(['lo', 'th', 'en']).nullable(),
+    firstName: firstNameSchema,
+    lastName: lastNameSchema,
+    /** From POST /uploads/avatar; null removes the photo. */
+    avatarUrl: z.string().max(500).nullable(),
+  })
+  .partial();
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 
 export const refreshSchema = z.object({

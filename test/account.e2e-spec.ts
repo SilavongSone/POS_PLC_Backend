@@ -25,7 +25,13 @@ describe('Accounts and e-mail (e2e)', () => {
   const tokenFrom = (to: string) =>
     /token=([\w-]+)/.exec(mail.lastTo(to)!.text)![1];
   const googleToken = (o: object) =>
-    JSON.stringify({ name: 'Google User', emailVerified: true, ...o });
+    JSON.stringify({
+      name: 'Google User',
+      firstName: 'Google',
+      lastName: 'User',
+      emailVerified: true,
+      ...o,
+    });
 
   describe('sign-up with e-mail', () => {
     it('creates the company only after the mailed code is entered', async () => {

@@ -13,6 +13,9 @@ import type { Env } from '../config/env.js';
 import type { User } from '../generated/prisma/client.js';
 import { RequestContext } from '../common/request-context.js';
 import { isLang } from '../i18n/i18n.js';
+import { ImageStoreService } from '../common/image-store.service.js';
+import { nameFromInput } from '../common/person-name.js';
+import type { UpdateMeInput } from './auth.schemas.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import type { AccessTokenPayload, AuthTokens, AuthUser } from './auth.types.js';
@@ -40,6 +43,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
     private readonly entitlements: EntitlementsService,
+    private readonly images: ImageStoreService,
   ) {}
 
   async login(
@@ -338,11 +342,22 @@ export class AuthService {
     });
   }
 
-  async updateMe(userId: string, input: { language: string | null }) {
+  /** Your own language, name and photo. */
+  async updateMe(userId: string, input: UpdateMeInput) {
+    this.images.assertOwn([input.avatarUrl], 'avatars');
+    const before = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     await this.prisma.user.update({
       where: { id: userId },
-      data: { language: input.language },
+      data: {
+        language: input.language,
+        avatarUrl: input.avatarUrl,
+        ...nameFromInput(input, before),
+      },
     });
+    if (input.avatarUrl !== undefined && input.avatarUrl !== before.avatarUrl)
+      await this.images.remove(before.avatarUrl);
     return (await this.findActiveUser(userId))!;
   }
 
@@ -357,6 +372,9 @@ export class AuthService {
       tenantId: user.tenantId,
       username: user.username,
       fullName: user.fullName,
+      firstName: user.firstName ?? user.fullName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
       groupId: user.groupId,
       groupName: user.group.name,
       permissions: user.group.permissions,

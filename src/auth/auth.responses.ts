@@ -8,7 +8,11 @@ export const authUserSchema = apiSchema(
     id: z.uuid(),
     tenantId: z.uuid(),
     username: z.string(),
+    /** "firstName lastName". */
     fullName: z.string(),
+    firstName: z.string(),
+    lastName: z.string().nullable(),
+    avatarUrl: z.string().nullable(),
     groupId: z.uuid(),
     groupName: z.string(),
     /** Permission codes from common/permissions.ts. */

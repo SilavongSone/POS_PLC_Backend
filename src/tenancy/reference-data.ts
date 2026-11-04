@@ -1,3 +1,4 @@
+import { personName } from '../common/person-name.js';
 import { randomBytes } from 'node:crypto';
 import argon2 from 'argon2';
 import { SYSTEM_GROUPS } from '../common/permissions.js';
@@ -353,6 +354,9 @@ export async function ensureFirstBranch(
 export type OwnerInput = {
   username: string;
   fullName: string;
+  /** Split name (Google sign-up); otherwise fullName is used whole. */
+  firstName?: string;
+  lastName?: string | null;
   /** Plain password, or an already hashed one (verified sign-up). */
   password?: string;
   passwordHash?: string;
@@ -374,7 +378,9 @@ export async function createOwner(db: Db, input: OwnerInput) {
   return db.user.create({
     data: {
       username: input.username,
-      fullName: input.fullName,
+      ...(input.firstName
+        ? personName(input.firstName, input.lastName)
+        : { firstName: input.fullName, fullName: input.fullName }),
       passwordHash,
       groupId: admin.id,
       email: input.email?.toLowerCase() ?? null,

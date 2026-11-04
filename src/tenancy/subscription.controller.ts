@@ -23,7 +23,7 @@ export class SubscriptionController {
   })
   async get() {
     const tenantId = RequestContext.tenantId();
-    const [e, usage, tenant] = await Promise.all([
+    const [e, usage, tenant, logo] = await Promise.all([
       this.entitlements.get(tenantId),
       this.entitlements.usage(),
       RequestContext.asPlatform(() =>
@@ -32,7 +32,9 @@ export class SubscriptionController {
           select: { code: true, name: true, defaultLanguage: true },
         }),
       ),
+      this.prisma.setting.findFirst({ where: { key: 'store.logoUrl' } }),
     ]);
-    return { company: tenant, ...e, usage };
+    const logoUrl = typeof logo?.value === 'string' && logo.value ? logo.value : null;
+    return { company: { ...tenant, logoUrl }, ...e, usage };
   }
 }

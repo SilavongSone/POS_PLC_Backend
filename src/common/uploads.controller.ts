@@ -62,9 +62,12 @@ export class UploadsController {
     folder: ImageFolder,
     file: Express.Multer.File | undefined,
     user: AuthUser,
-    anyOf: Permission[],
+    anyOf: Permission[] | 'anyone',
   ) {
-    if (!anyOf.some((p) => hasPermission(user.permissions, p)))
+    if (
+      anyOf !== 'anyone' &&
+      !anyOf.some((p) => hasPermission(user.permissions, p))
+    )
       throw new ForbiddenException();
     if (!file)
       throw new BadRequestException('Send the image as form field "file"');
@@ -97,6 +100,15 @@ export class UploadsController {
       'repair.receive',
       'repair.manage',
     ]);
+  }
+
+  @Post('avatar')
+  @ImageUpload('Profile photo (your own, or a user you manage)')
+  avatar(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.save('avatars', file, user, 'anyone');
   }
 
   @Post('expense')

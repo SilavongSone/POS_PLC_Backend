@@ -153,7 +153,8 @@ export class AuthController {
   @Patch('me')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Set your own language (lo, th, en; null = company default)',
+    summary:
+      'Set your own language (lo, th, en; null = company default), name and photo',
   })
   @ApiBody({ schema: openApiSchema(updateMeSchema) })
   async updateMe(

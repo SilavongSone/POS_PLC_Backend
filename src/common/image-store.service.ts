@@ -14,8 +14,19 @@ export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Folders under UPLOAD_DIR; each holds one sub-folder per company. */
-export type ImageFolder = 'products' | 'branding' | 'repairs' | 'expenses';
-const FOLDERS: ImageFolder[] = ['products', 'branding', 'repairs', 'expenses'];
+export type ImageFolder =
+  | 'products'
+  | 'branding'
+  | 'repairs'
+  | 'expenses'
+  | 'avatars';
+const FOLDERS: ImageFolder[] = [
+  'products',
+  'branding',
+  'repairs',
+  'expenses',
+  'avatars',
+];
 
 const PREFIX = '/api/uploads/';
 

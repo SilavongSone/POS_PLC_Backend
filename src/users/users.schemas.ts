@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { ALL_PERMISSIONS, PERMISSIONS } from '../common/permissions.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
+import { firstNameSchema, lastNameSchema } from '../common/person-name.js';
 
 const username = z
   .string()
@@ -30,7 +31,12 @@ export type ListUsersQuery = z.infer<typeof listUsersSchema>;
 
 export const createUserSchema = z.object({
   username,
-  fullName: z.string().trim().min(1).max(100),
+  firstName: firstNameSchema.optional(),
+  lastName: lastNameSchema.optional(),
+  /** Older clients: the whole name in one field (use firstName/lastName). */
+  fullName: z.string().trim().min(1).max(100).optional(),
+  /** From POST /uploads/avatar. */
+  avatarUrl: z.string().max(500).nullish(),
   password,
   groupId: z.uuid(),
   /** Gets a confirmation link; needed for password reset and Google sign-in by e-mail. */
@@ -38,12 +44,18 @@ export const createUserSchema = z.object({
   pin: pin.optional(),
   branchIds: branchIds.optional(),
   language: language.optional(),
+}).refine((u) => u.firstName || u.fullName, {
+  message: 'Enter the first name',
+  path: ['firstName'],
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const updateUserSchema = z
   .object({
+    firstName: firstNameSchema,
+    lastName: lastNameSchema,
     fullName: z.string().trim().min(1).max(100),
+    avatarUrl: z.string().max(500).nullable(),
     groupId: z.uuid(),
     email: z.email().trim().toLowerCase().nullable(),
     isActive: z.boolean(),

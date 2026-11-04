@@ -104,7 +104,13 @@ describe('API contract (e2e)', () => {
   const codeFrom = (to: string) =>
     /\b(\d{6})\b/.exec(mail.lastTo(to)!.text)![1];
   const googleToken = (o: object) =>
-    JSON.stringify({ name: 'Google User', emailVerified: true, ...o });
+    JSON.stringify({
+      name: 'Google User',
+      firstName: 'Google',
+      lastName: 'User',
+      emailVerified: true,
+      ...o,
+    });
 
   beforeAll(async () => {
     t = await createTestApp();

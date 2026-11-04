@@ -125,6 +125,8 @@
 
 > **SaaS (2026-10-27):** เพิ่ม `Tenant`, `Branch`, `BranchStock`, `UserBranch`, `Plan`, `Subscription`, `PlatformAdmin`, `IdempotencyKey` · ทุกตารางของบริษัทมี `tenantId` และค่าที่ต้องไม่ซ้ำกลายเป็น "ไม่ซ้ำภายในบริษัท" · ตารางที่ผูกกับสาขามี `branchId` · รายละเอียดและเหตุผลอยู่ใน [`saas-design.md`](./saas-design.md)
 
+> **โปรไฟล์ผู้ใช้ (2026-11-04):** `User.firstName` + `lastName` (แยกชื่อ/นามสกุล; `fullName` = "ชื่อ นามสกุล" เก็บไว้ให้บิลและรายงาน) + `avatarUrl` (รูปโปรไฟล์ในโฟลเดอร์ `avatars`) · แก้ของตัวเองผ่าน `PATCH /auth/me` · Google ใช้ `given_name`/`family_name` ไม่ใช้ชื่อแสดงของ Google
+
 ✅ = มีใน schema ปัจจุบัน (อาจมีฟิลด์เพิ่ม), 🆕 = ตารางใหม่
 
 | โมดูล | ตาราง |

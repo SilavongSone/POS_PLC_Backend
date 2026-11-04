@@ -1,3 +1,4 @@
+import { personName } from '../common/person-name.js';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import {
   BadRequestException,
@@ -200,7 +201,7 @@ export class SignupService {
         status: 'TRIAL',
         owner: {
           username: usernameFromEmail(identity.email),
-          fullName: identity.name,
+          ...personName(identity.firstName, identity.lastName),
           email: identity.email,
           emailVerified: true,
           googleSub: identity.sub,

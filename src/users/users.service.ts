@@ -8,6 +8,8 @@ import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
 import { ALL_PERMISSIONS } from '../common/permissions.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { ImageStoreService } from '../common/image-store.service.js';
+import { nameFromInput } from '../common/person-name.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateUserInput,
@@ -21,6 +23,9 @@ const userSelect = {
   id: true,
   username: true,
   fullName: true,
+  firstName: true,
+  lastName: true,
+  avatarUrl: true,
   isActive: true,
   pinHash: true,
   failedLoginCount: true,
@@ -46,6 +51,7 @@ export type UserView = Omit<UserRow, 'pinHash' | 'branches'> & {
 function toView({ pinHash, branches, ...user }: UserRow): UserView {
   return {
     ...user,
+    firstName: user.firstName ?? user.fullName,
     hasPin: pinHash !== null,
     branchIds: branches.map((b) => b.branchId),
   };
@@ -58,6 +64,7 @@ export class UsersService {
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
     private readonly account: AccountService,
+    private readonly images: ImageStoreService,
   ) {}
 
   async list(query: ListUsersQuery): Promise<Page<UserView>> {
@@ -68,6 +75,7 @@ export class UsersService {
         OR: [
           { username: { contains: query.q, mode: 'insensitive' } },
           { fullName: { contains: query.q, mode: 'insensitive' } },
+          { email: { contains: query.q, mode: 'insensitive' } },
         ],
       }),
     };
@@ -98,10 +106,12 @@ export class UsersService {
     });
     await this.assertBranches(input.branchIds);
     await this.entitlements.assertLimit('maxUsers');
+    this.images.assertOwn([input.avatarUrl], 'avatars');
     const user = await this.prisma.user.create({
       data: {
         username: input.username,
-        fullName: input.fullName,
+        ...nameFromInput(input)!,
+        avatarUrl: input.avatarUrl ?? null,
         groupId: input.groupId,
         passwordHash: await argon2.hash(input.password),
         pinHash: input.pin ? await argon2.hash(input.pin) : null,
@@ -155,12 +165,14 @@ export class UsersService {
     }
 
     await this.assertBranches(input.branchIds);
-    const { branchIds, ...fields } = input;
+    this.images.assertOwn([input.avatarUrl], 'avatars');
+    const { branchIds, firstName, lastName, fullName, ...fields } = input;
     const user = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
         where: { id },
         data: {
           ...fields,
+          ...nameFromInput({ firstName, lastName, fullName }, before),
           // A new address must be confirmed again.
           ...(fields.email !== undefined &&
             fields.email !== before.email && { emailVerifiedAt: null }),
@@ -176,6 +188,11 @@ export class UsersService {
       if (input.isActive === false) await this.revokeSessions(tx, id);
       return updated;
     });
+    if (
+      input.avatarUrl !== undefined &&
+      input.avatarUrl !== before.avatarUrl
+    )
+      await this.images.remove(before.avatarUrl);
     if (user.email && user.email !== before.email) {
       await this.account.sendVerification({ ...user, email: user.email });
     }

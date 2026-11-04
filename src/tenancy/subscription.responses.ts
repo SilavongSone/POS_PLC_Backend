@@ -17,6 +17,8 @@ export const subscriptionSchema = apiSchema(
       code: z.string(),
       name: z.string(),
       defaultLanguage: z.string(),
+      /** Shop logo (setting store.logoUrl) for the app shell; null = none uploaded. */
+      logoUrl: z.string().nullable(),
     }),
     tenantId: z.uuid(),
     defaultLanguage: z.string(),

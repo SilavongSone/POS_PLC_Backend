@@ -35,6 +35,10 @@
       "AuthUser": {
         "additionalProperties": false,
         "properties": {
+          "avatarUrl": {
+            "nullable": true,
+            "type": "string"
+          },
           "branchIds": {
             "items": {
               "format": "uuid",
@@ -49,6 +53,9 @@
           },
           "emailVerified": {
             "type": "boolean"
+          },
+          "firstName": {
+            "type": "string"
           },
           "fullName": {
             "type": "string"
@@ -76,6 +83,10 @@
             "nullable": true,
             "type": "string"
           },
+          "lastName": {
+            "nullable": true,
+            "type": "string"
+          },
           "permissions": {
             "items": {
               "type": "string"
@@ -95,6 +106,9 @@
           "tenantId",
           "username",
           "fullName",
+          "firstName",
+          "lastName",
+          "avatarUrl",
           "groupId",
           "groupName",
           "permissions",
@@ -7078,6 +7092,10 @@
               "defaultLanguage": {
                 "type": "string"
               },
+              "logoUrl": {
+                "nullable": true,
+                "type": "string"
+              },
               "name": {
                 "type": "string"
               }
@@ -7085,7 +7103,8 @@
             "required": [
               "code",
               "name",
-              "defaultLanguage"
+              "defaultLanguage",
+              "logoUrl"
             ],
             "type": "object"
           },
@@ -8573,6 +8592,16 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "avatarUrl": {
+                    "maxLength": 500,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
                   "language": {
                     "enum": [
                       "lo",
@@ -8581,11 +8610,13 @@
                     ],
                     "nullable": true,
                     "type": "string"
+                  },
+                  "lastName": {
+                    "maxLength": 60,
+                    "nullable": true,
+                    "type": "string"
                   }
                 },
-                "required": [
-                  "language"
-                ],
                 "type": "object"
               }
             }
@@ -8602,7 +8633,7 @@
             "bearer": []
           }
         ],
-        "summary": "Set your own language (lo, th, en; null = company default)",
+        "summary": "Set your own language (lo, th, en; null = company default), name and photo",
         "tags": [
           "auth"
         ]
@@ -20148,6 +20179,49 @@
         ]
       }
     },
+    "/api/uploads/avatar": {
+      "post": {
+        "operationId": "UploadsController_avatar",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Profile photo (your own, or a user you manage)",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
     "/api/uploads/expense": {
       "post": {
         "operationId": "UploadsController_expense",
@@ -20526,6 +20600,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "avatarUrl": {
+                    "maxLength": 500,
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "branchIds": {
                     "items": {
                       "format": "uuid",
@@ -20539,6 +20618,11 @@
                     "format": "email",
                     "nullable": true,
                     "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "maxLength": 60,
+                    "minLength": 1,
                     "type": "string"
                   },
                   "fullName": {
@@ -20560,6 +20644,11 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "lastName": {
+                    "maxLength": 60,
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "password": {
                     "maxLength": 200,
                     "minLength": 8,
@@ -20578,7 +20667,6 @@
                 },
                 "required": [
                   "username",
-                  "fullName",
                   "password",
                   "groupId"
                 ],
@@ -20647,6 +20735,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "avatarUrl": {
+                    "maxLength": 500,
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "branchIds": {
                     "items": {
                       "format": "uuid",
@@ -20660,6 +20753,11 @@
                     "format": "email",
                     "nullable": true,
                     "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "maxLength": 60,
+                    "minLength": 1,
                     "type": "string"
                   },
                   "fullName": {
@@ -20681,6 +20779,11 @@
                       "th",
                       "en"
                     ],
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "maxLength": 60,
                     "nullable": true,
                     "type": "string"
                   }

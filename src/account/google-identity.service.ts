@@ -12,6 +12,9 @@ export type GoogleIdentity = {
   email: string;
   emailVerified: boolean;
   name: string;
+  /** Given and family name, so the order never depends on Google's display name. */
+  firstName: string;
+  lastName: string | null;
 };
 
 /** Checks Google ID tokens ("Sign in with Google") against Google's keys and our client ids. */
@@ -48,6 +51,8 @@ export class GoogleIdentityService {
       email: payload.email.toLowerCase(),
       emailVerified: payload.email_verified === true,
       name: payload.name ?? payload.email,
+      firstName: payload.given_name ?? payload.name ?? payload.email,
+      lastName: payload.family_name ?? null,
     };
   }
 }

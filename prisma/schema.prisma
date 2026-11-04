@@ -177,7 +177,14 @@ model User {
   failedLoginCount Int       @default(0)
   /// Set after 5 failed attempts; login is refused until this time.
   lockedUntil      DateTime?
+  /// Display name "firstName lastName", kept in sync for receipts, reports and lists.
   fullName         String
+  /// Given name (null on rows from before the split: fullName holds the whole name).
+  firstName        String?
+  /// Family name.
+  lastName         String?
+  /// Profile photo (/api/uploads/avatars/...).
+  avatarUrl        String?
   /// Optional (cashiers on PIN need none); unique within the company.
   email            String?
   emailVerifiedAt  DateTime?

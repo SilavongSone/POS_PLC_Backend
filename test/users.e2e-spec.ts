@@ -51,6 +51,83 @@ describe('Users and groups (e2e)', () => {
       .expect(400);
   });
 
+  it('keeps first and last name apart, Lao order in fullName', async () => {
+    const res = await t
+      .http()
+      .post('/users')
+      .set(admin.auth)
+      .send({
+        username: uniq(),
+        firstName: 'ສອນ',
+        lastName: 'ສີລາວົງ',
+        password: 'password-123',
+        groupId: cashierGroupId,
+      })
+      .expect(201);
+    expect(res.body).toMatchObject({
+      firstName: 'ສອນ',
+      lastName: 'ສີລາວົງ',
+      fullName: 'ສອນ ສີລາວົງ',
+      avatarUrl: null,
+    });
+    const upd = await t
+      .http()
+      .patch(`/users/${res.body.id}`)
+      .set(admin.auth)
+      .send({ lastName: 'ພົມມະ' })
+      .expect(200);
+    expect(upd.body.fullName).toBe('ສອນ ພົມມະ');
+    // Older clients still send one field.
+    const old = await createUser().expect(201);
+    expect(old.body).toMatchObject({
+      firstName: 'New Cashier',
+      lastName: null,
+      fullName: 'New Cashier',
+    });
+    // Someone else's file cannot become a photo.
+    await t
+      .http()
+      .patch(`/users/${res.body.id}`)
+      .set(admin.auth)
+      .send({ avatarUrl: 'https://example.com/a.png' })
+      .expect(400);
+  });
+
+  it('lets anyone set their own name and photo', async () => {
+    const cashier = await t.userWith('Cashier');
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const up = await t
+      .http()
+      .post('/uploads/avatar')
+      .set(cashier.auth)
+      .attach('file', png, { filename: 'me.png', contentType: 'image/png' })
+      .expect(201);
+    expect(up.body.url).toMatch(/^\/api\/uploads\/avatars\//);
+    const me = await t
+      .http()
+      .patch('/auth/me')
+      .set(cashier.auth)
+      .send({ firstName: 'ນ້ອຍ', lastName: 'ແກ້ວ', avatarUrl: up.body.url })
+      .expect(200);
+    expect(me.body).toMatchObject({
+      firstName: 'ນ້ອຍ',
+      lastName: 'ແກ້ວ',
+      fullName: 'ນ້ອຍ ແກ້ວ',
+      avatarUrl: up.body.url,
+    });
+    const cleared = await t
+      .http()
+      .patch('/auth/me')
+      .set(cashier.auth)
+      .send({ avatarUrl: null })
+      .expect(200);
+    expect(cleared.body.avatarUrl).toBeNull();
+    expect(cleared.body.fullName).toBe('ນ້ອຍ ແກ້ວ');
+  });
+
   it('lists and searches users with pagination', async () => {
     const username = uniq();
     await createUser(username).expect(201);

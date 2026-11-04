@@ -4,6 +4,9 @@ export type AuthUser = {
   tenantId: string;
   username: string;
   fullName: string;
+  firstName: string;
+  lastName: string | null;
+  avatarUrl: string | null;
   groupId: string;
   groupName: string;
   permissions: string[];
