@@ -8,6 +8,7 @@ import { BranchAccessService } from '../branches/branch-access.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { Prisma, type TicketStatus } from '../generated/prisma/client.js';
+import { ImageStoreService } from '../common/image-store.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lakToWords } from '../i18n/amount-words.js';
 import type { SaleItemInput } from '../sales/sales.schemas.js';
@@ -68,10 +69,12 @@ export class RepairsService {
     private readonly docNumbers: DocNumberService,
     private readonly settings: SettingsService,
     private readonly branches: BranchAccessService,
+    private readonly images: ImageStoreService,
   ) {}
 
   /** Receives a device. A shop serial fills in the device and whether it is under warranty. */
   async create(input: CreateTicketInput, user: AuthUser) {
+    this.images.assertOwn(input.photoUrls ?? [], 'repairs');
     const branchId = await this.branches.resolve(user, input.branchId);
     const id = await this.prisma.$transaction(async (tx) => {
       await tx.customer.findUniqueOrThrow({ where: { id: input.customerId } });
@@ -99,6 +102,7 @@ export class RepairsService {
           deviceSerial: input.deviceSerial ?? input.serial,
           accessories: input.accessories,
           problem: input.problem,
+          photoUrls: input.photoUrls,
           promisedAt: input.promisedAt,
           underWarranty: Boolean(
             unit?.warrantyEndsAt && unit.warrantyEndsAt > new Date(),
@@ -187,14 +191,20 @@ export class RepairsService {
   }
 
   async update(id: string, input: UpdateTicketInput) {
-    await this.prisma.$transaction(async (tx) => {
-      await this.openTicket(tx, id);
+    if (input.photoUrls) this.images.assertOwn(input.photoUrls, 'repairs');
+    const before = await this.prisma.$transaction(async (tx) => {
+      const ticket = await this.openTicket(tx, id);
       if (input.supplierId)
         await tx.supplier.findUniqueOrThrow({
           where: { id: input.supplierId },
         });
       await tx.serviceTicket.update({ where: { id }, data: input });
+      return ticket;
     });
+    if (input.photoUrls) {
+      for (const url of before.photoUrls)
+        if (!input.photoUrls.includes(url)) await this.images.remove(url);
+    }
     return this.get(id);
   }
 

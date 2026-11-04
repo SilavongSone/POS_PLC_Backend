@@ -14,7 +14,8 @@ export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Folders under UPLOAD_DIR; each holds one sub-folder per company. */
-export type ImageFolder = 'products' | 'branding';
+export type ImageFolder = 'products' | 'branding' | 'repairs' | 'expenses';
+const FOLDERS: ImageFolder[] = ['products', 'branding', 'repairs', 'expenses'];
 
 const PREFIX = '/api/uploads/';
 
@@ -65,6 +66,29 @@ export class ImageStoreService {
     return `${PREFIX}${dir}/${name}`;
   }
 
+  /** True for a URL that `save()` returned for this folder and the current company. */
+  isOwn(url: string, folder: ImageFolder): boolean {
+    const [f, tenantId, name, ...rest] = url.startsWith(PREFIX)
+      ? url.slice(PREFIX.length).split('/')
+      : [];
+    return (
+      f === folder &&
+      tenantId === RequestContext.tenantId() &&
+      !!name &&
+      !rest.length &&
+      /^[\w-]+\.(jpg|png|webp)$/.test(name)
+    );
+  }
+
+  /** Rejects URLs that were not uploaded by this company into `folder`. */
+  assertOwn(urls: (string | null | undefined)[], folder: ImageFolder) {
+    if (urls.some((u) => u && !this.isOwn(u, folder)))
+      throw new BadRequestException({
+        message: 'Upload the image first',
+        code: 'IMAGE_NOT_UPLOADED',
+      });
+  }
+
   /**
    * Deletes the file behind a URL from `save()`. Ignores outside links and files of other
    * companies, so a URL typed into a settings field can never remove someone else's file.
@@ -73,7 +97,7 @@ export class ImageStoreService {
     if (!url?.startsWith(PREFIX)) return;
     const [folder, tenantId] = url.slice(PREFIX.length).split('/');
     if (
-      !['products', 'branding'].includes(folder) ||
+      !FOLDERS.includes(folder as ImageFolder) ||
       tenantId !== RequestContext.tenantId()
     )
       return;

@@ -23,6 +23,7 @@ export const createExpenseSchema = z
       .datetime({ offset: true })
       .transform((d) => new Date(d))
       .optional(),
+    /** Receipt photo from POST /uploads/expense. */
     attachmentUrl: z.string().trim().max(500).optional(),
   })
   .refine((e) => e.currency !== 'LAK' || Number.isInteger(e.amount), {

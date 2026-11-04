@@ -1,4 +1,13 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { createTestApp, type TestApp } from './helpers.js';
+
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+const fileOf = (url: string) =>
+  path.join(process.env.UPLOAD_DIR!, url.replace('/api/uploads/', ''));
 
 type User = Awaited<ReturnType<TestApp['userWith']>>;
 
@@ -489,6 +498,62 @@ describe('Bundles, quotations and repairs (e2e)', () => {
         await t.http().get('/reports/repairs').set(manager.auth).expect(200)
       ).body;
       expect(report.delivered).toBeGreaterThanOrEqual(2);
+    });
+
+    it('keeps photos of the device condition', async () => {
+      const upload = async () =>
+        (
+          await t
+            .http()
+            .post('/uploads/repair')
+            .set(manager.auth)
+            .attach('file', PNG, {
+              filename: 'a.png',
+              contentType: 'image/png',
+            })
+            .expect(201)
+        ).body.url as string;
+      const [a, b] = [await upload(), await upload()];
+      expect(a).toMatch(/^\/api\/uploads\/repairs\/.+\.png$/);
+
+      // Only this company's uploads are accepted.
+      const bad = await t
+        .http()
+        .post('/service-tickets')
+        .set(manager.auth)
+        .send({
+          customerId,
+          deviceName: 'Scanner',
+          problem: 'Cracked',
+          photoUrls: ['/api/uploads/repairs/other/x.png'],
+        })
+        .expect(400);
+      expect(bad.body.code).toBe('IMAGE_NOT_UPLOADED');
+
+      const ticket = (
+        await t
+          .http()
+          .post('/service-tickets')
+          .set(manager.auth)
+          .send({
+            customerId,
+            deviceName: 'Scanner',
+            problem: 'Cracked',
+            photoUrls: [a, b],
+          })
+          .expect(201)
+      ).body;
+      expect(ticket.photoUrls).toEqual([a, b]);
+
+      const updated = await t
+        .http()
+        .patch(`/service-tickets/${ticket.id}`)
+        .set(manager.auth)
+        .send({ photoUrls: [b] })
+        .expect(200);
+      expect(updated.body.photoUrls).toEqual([b]);
+      expect(existsSync(fileOf(a))).toBe(false);
+      expect(existsSync(fileOf(b))).toBe(true);
     });
   });
 });

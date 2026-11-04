@@ -1,5 +1,14 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import argon2 from 'argon2';
 import { createTestApp, type TestApp } from './helpers.js';
+
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+const fileOf = (url: string) =>
+  path.join(process.env.UPLOAD_DIR!, url.replace('/api/uploads/', ''));
 
 type User = Awaited<ReturnType<TestApp['userWith']>>;
 
@@ -441,6 +450,59 @@ describe('Returns, promotions and expenses (e2e)', () => {
         await t.http().get(`/shifts/${shiftId}/report`).set(cashier.auth)
       ).body.cash.expected.LAK;
       expect(Number(before) - Number(after)).toBe(20_000);
+    });
+
+    it('keeps the receipt photo of an expense', async () => {
+      const viewer = await t.userWith({ permissions: ['catalog.view'] });
+      await t
+        .http()
+        .post('/uploads/expense')
+        .set(viewer.auth)
+        .attach('file', PNG, { filename: 'r.png', contentType: 'image/png' })
+        .expect(403);
+      const url = (
+        await t
+          .http()
+          .post('/uploads/expense')
+          .set(manager.auth)
+          .attach('file', PNG, { filename: 'r.png', contentType: 'image/png' })
+          .expect(201)
+      ).body.url as string;
+      const category = (
+        await t
+          .http()
+          .post('/expense-categories')
+          .set(manager.auth)
+          .send({ name: `Receipt ${uniq()}` })
+          .expect(201)
+      ).body;
+      const body = {
+        categoryId: category.id,
+        description: 'Ink',
+        amount: 50_000,
+        paymentTypeId: pay.BANK_TRANSFER,
+      };
+      await t
+        .http()
+        .post('/expenses')
+        .set(manager.auth)
+        .send({ ...body, attachmentUrl: 'https://example.com/x.png' })
+        .expect(400);
+      const expense = (
+        await t
+          .http()
+          .post('/expenses')
+          .set(manager.auth)
+          .send({ ...body, attachmentUrl: url })
+          .expect(201)
+      ).body;
+      expect(expense.attachmentUrl).toBe(url);
+      await t
+        .http()
+        .delete(`/expenses/${expense.id}`)
+        .set(manager.auth)
+        .expect(204);
+      expect(existsSync(fileOf(url))).toBe(false);
     });
   });
 });

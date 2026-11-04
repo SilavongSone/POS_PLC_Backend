@@ -8,6 +8,7 @@ import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { startOfLocalDay } from '../common/time.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { ImageStoreService } from '../common/image-store.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toLakAmount } from '../sales/sale-math.js';
 import { ExchangeRatesService } from '../settings/exchange-rates.service.js';
@@ -23,6 +24,7 @@ export class ExpensesService {
     private readonly prisma: PrismaService,
     private readonly rates: ExchangeRatesService,
     private readonly audit: AuditService,
+    private readonly images: ImageStoreService,
   ) {}
 
   categories() {
@@ -38,6 +40,7 @@ export class ExpensesService {
   }
 
   async create(input: CreateExpenseInput, user: AuthUser) {
+    this.images.assertOwn([input.attachmentUrl], 'expenses');
     const [category, type] = await Promise.all([
       this.prisma.expenseCategory.findUniqueOrThrow({
         where: { id: input.categoryId },
@@ -133,6 +136,7 @@ export class ExpensesService {
       );
     }
     await this.prisma.expense.delete({ where: { id } });
+    await this.images.remove(expense.attachmentUrl);
     await this.audit.log({
       userId: user.id,
       action: 'EXPENSE_DELETE',

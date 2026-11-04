@@ -17,6 +17,8 @@ export const createTicketSchema = z
     accessories: text(300).optional(),
     problem: text(2000).min(1),
     promisedAt: dateTime.optional(),
+    /** URLs from POST /uploads/repair. */
+    photoUrls: z.array(text(500)).max(10).optional(),
   })
   .refine((t) => t.serial || t.deviceName, {
     message: 'Give the serial or the device name',
@@ -32,6 +34,8 @@ export const updateTicketSchema = z
     warrantyTerms: text(2000).nullable(),
     supplierId: z.uuid().nullable(),
     accessories: text(300).nullable(),
+    /** URLs from POST /uploads/repair; photos left out are deleted. */
+    photoUrls: z.array(text(500)).max(10),
   })
   .partial();
 

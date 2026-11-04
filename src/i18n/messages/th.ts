@@ -35,6 +35,7 @@ export const th: Record<string, string> = {
     'เลข serial ซ้ำกับบาร์โค้ดหรือ SKU ของสินค้า — เครื่องสแกนจะหาเครื่องนี้ไม่เจอ',
   PRODUCT_CODE_MATCHES_SERIAL:
     'รหัสนี้ซ้ำกับเลข serial ของเครื่องที่มีอยู่ — เครื่องสแกนจะแยกไม่ออก',
+  IMAGE_NOT_UPLOADED: 'กรุณาอัปโหลดรูปก่อน',
   PRODUCT_HAS_HISTORY:
     'สินค้านี้มีประวัติแล้ว (สต็อก การขาย หรือเอกสาร) — ลบไม่ได้ ให้ปิดใช้แทน',
   IDEMPOTENCY_CONFLICT: 'Idempotency-Key นี้ถูกใช้กับคำขออื่นแล้ว',

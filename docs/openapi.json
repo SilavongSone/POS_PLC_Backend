@@ -16191,6 +16191,14 @@
                     "maxLength": 100,
                     "type": "string"
                   },
+                  "photoUrls": {
+                    "items": {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
+                  },
                   "problem": {
                     "maxLength": 2000,
                     "minLength": 1,
@@ -16286,6 +16294,14 @@
                     "maxLength": 2000,
                     "nullable": true,
                     "type": "string"
+                  },
+                  "photoUrls": {
+                    "items": {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
                   },
                   "promisedAt": {
                     "format": "date-time",
@@ -18761,6 +18777,49 @@
         ]
       }
     },
+    "/api/uploads/expense": {
+      "post": {
+        "operationId": "UploadsController_expense",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Photo of an expense receipt; needs expense.manage",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
     "/api/uploads/logo": {
       "post": {
         "operationId": "UploadsController_logo",
@@ -18798,7 +18857,50 @@
             "bearer": []
           }
         ],
-        "summary": "Upload a logo (JPEG/PNG/WebP ≤ 5 MB, form field \"file\"); needs settings.manage or product.manage",
+        "summary": "Shop or brand logo (JPEG/PNG/WebP ≤ 5 MB); needs settings.manage or product.manage",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/uploads/repair": {
+      "post": {
+        "operationId": "UploadsController_repair",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Photo of a repair device's condition; needs repair.receive or repair.manage",
         "tags": [
           "uploads"
         ]

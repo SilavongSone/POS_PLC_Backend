@@ -1173,6 +1173,8 @@ model ServiceTicket {
   deviceSerial  String?
   accessories   String?
   problem       String
+  /// Photos of the device's condition (uploads/repairs/<tenant>/…), taken when it is received.
+  photoUrls     String[]     @default([])
   diagnosis     String?
   underWarranty Boolean      @default(false)
   /// Repair quotation total (from lines).
