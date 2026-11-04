@@ -398,6 +398,12 @@ describe('SaaS (e2e)', () => {
         ),
       ).toEqual({ [main]: 7, [second]: 3 });
 
+      // A branch sees its own stock next to the company total.
+      const atSecond = (
+        await api(c).get(`/products?branchId=${second}&q=${p.sku}`).expect(200)
+      ).body.items[0];
+      expect(atSecond).toMatchObject({ stockQty: 10, branchStockQty: 3 });
+
       const value = (
         await api(c)
           .get(`/reports/stock-value?branchId=${second}&q=${p.sku}`)

@@ -112,6 +112,8 @@ const productFields = {
   trackStock: z.boolean(),
   /** Total on hand over all branches. */
   stockQty: z.int(),
+  /** On hand at the requested branch (?branchId): what that branch can sell. */
+  branchStockQty: z.int().optional(),
   lowStockAlert: z.int(),
   trackSerial: z.boolean(),
   trackExpiry: z.boolean(),

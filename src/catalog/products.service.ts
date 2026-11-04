@@ -115,6 +115,16 @@ export class ProductsService {
     return { rates, lakRounding };
   }
 
+  /** On hand at one branch for these products (empty without a branch). */
+  private async branchQtyMap(productIds: string[], branchId?: string) {
+    if (!branchId || !productIds.length) return new Map<string, number>();
+    const rows = await this.prisma.branchStock.findMany({
+      where: { branchId, productId: { in: productIds } },
+      select: { productId: true, qty: true },
+    });
+    return new Map(rows.map((r) => [r.productId, r.qty]));
+  }
+
   /** Current selling prices in LAK for a product row. */
   /** Prices set for these products at one branch (empty without a branch). */
   async branchPriceMap(
@@ -221,10 +231,15 @@ export class ProductsService {
       rows.map((r) => r.id),
       query.branchId,
     );
+    const branchQty = await this.branchQtyMap(
+      rows.map((r) => r.id),
+      query.branchId,
+    );
     return toPage(
-      rows.map((r) =>
-        this.present(atBranch(r, prices.get(r.id)), ctx, canViewCost),
-      ),
+      rows.map((r) => ({
+        ...this.present(atBranch(r, prices.get(r.id)), ctx, canViewCost),
+        ...(query.branchId && { branchStockQty: branchQty.get(r.id) ?? 0 }),
+      })),
       total,
       query,
     );
@@ -323,6 +338,10 @@ export class ProductsService {
       })),
       /** On hand per branch; stockQty is the total. */
       branchStock: branchStock.map((b) => ({ ...b.branch, qty: b.qty })),
+      ...(branchId && {
+        branchStockQty:
+          branchStock.find((b) => b.branch.id === branchId)?.qty ?? 0,
+      }),
       serialsInStock: Object.fromEntries(
         serialCounts.map((c) => [c.condition, c._count]),
       ),
