@@ -105,6 +105,8 @@ export const UNITS = [
   { name: 'roll', nameI18n: { lo: 'ມ້ວນ', th: 'ม้วน', en: 'roll' } },
   { name: 'm', nameI18n: { lo: 'ແມັດ', th: 'เมตร', en: 'm' } },
   { name: 'hour', nameI18n: { lo: 'ຊົ່ວໂມງ', th: 'ชั่วโมง', en: 'hour' } },
+  { name: 'sheet', nameI18n: { lo: 'ແຜ່ນ', th: 'แผ่น', en: 'sheet' } },
+  { name: 'ream', nameI18n: { lo: 'ລີມ', th: 'รีม', en: 'ream' } },
 ];
 
 const PAYMENT_TYPES = [
