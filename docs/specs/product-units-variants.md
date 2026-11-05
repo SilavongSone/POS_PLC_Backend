@@ -90,8 +90,20 @@ model ProductUnit {            // a pack the product is also sold/bought in
 - **Till**: scanning a pack barcode adds that pack. Tapping a product with packs opens a
   small picker (roll ₭25,000 / pack ₭240,000 / carton ₭1,150,000); the cart line shows the
   unit and can be switched. Receipt prints "2 ແກັດ (×50)".
-- **Stock receive**: choose the unit per line (buy 4 cartons at ₭1,000,000 → +200 rolls,
-  cost ₭20,000/roll).
+- **Stock receive** (built 2026-11-05): each line picks the unit (base unit + active packs;
+  hidden for serial products and products without packs), the quantity in that unit and the
+  cost per that unit; the form shows "= 48 ມ້ວນ" and "= ₭41,667 / ມ້ວນ". Scanning a pack
+  barcode adds a line in that pack (scanning again adds one more); the same product can be on
+  two lines in different units (2 cartons + 5 rolls). The line is stored in base units
+  (`quantity` = packs × factor, `unitCost` = pack cost ÷ factor) with `productUnitId`,
+  `unitName`, `unitFactor` and `packCost` (the exact cost per pack as entered), so posting,
+  cancelling and average cost work in base units only, and the document total = packs ×
+  pack cost (matches the supplier invoice; 3 packs at 99,999 = 299,997, not 30 × 10,000).
+  The base cost in LAK = pack cost in LAK ÷ factor, rounded to the kip. Serial products
+  refuse a pack (400 `UNIT_NOT_FOR_SERIAL`), switched-off packs are refused. The document
+  page shows "2 ແກັດ ×24 = 48 ມ້ວນ" and "₭1,000,000 / ແກັດ"; printing labels from a receive
+  document prints one carton label (carton barcode and price) per carton received. Issue,
+  adjust and transfer lines can also choose a pack (same conversion, no cost).
 - **Labels**: print labels per unit (the carton label carries the carton barcode/price).
 - **Products list / search**: one row per product; unit barcodes are searchable.
 

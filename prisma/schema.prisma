@@ -723,6 +723,8 @@ model StockDocumentItem {
   productUnitId String?
   unitName      String?
   unitFactor    Int           @default(1)
+  /// Cost of one pack as entered, in the document currency (RECEIVE in a pack); the line total is packs × packCost exactly.
+  packCost      Decimal?      @db.Decimal(18, 2)
 
   document StockDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   product  Product        @relation(fields: [productId], references: [id])

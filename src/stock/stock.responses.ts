@@ -124,6 +124,8 @@ export const stockDocDetailSchema = apiSchema(
         productUnitId: z.uuid().nullable(),
         unitName: z.string().nullable(),
         unitFactor: z.int(),
+        /** Cost of one pack as entered (document currency), null for base-unit lines. */
+        packCost: decimalString.nullable(),
         product: z.strictObject({
           id: z.uuid(),
           sku: z.string(),

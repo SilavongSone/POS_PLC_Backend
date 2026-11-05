@@ -768,6 +768,35 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
         unitCost: '20000',
         unitName: 'box',
         unitFactor: 50,
+        packCost: '1000000',
+      });
+      expect(doc.totalLak).toBe('2000000');
+
+      // A pack cost that does not divide evenly keeps the invoice total exact
+      // (3 packs at 99,999 = 299,997) while each roll costs 10,000 (rounded).
+      const odd = (
+        await t
+          .http()
+          .post('/stock-documents')
+          .set(manager.auth)
+          .send({
+            type: 'RECEIVE',
+            items: [
+              {
+                productId: p.id,
+                productUnitId: pack.id,
+                quantity: 3,
+                unitCost: 99_999,
+              },
+            ],
+          })
+          .expect(201)
+      ).body;
+      expect(odd.totalLak).toBe('299997');
+      expect(odd.items[0]).toMatchObject({
+        quantity: 30,
+        packCost: '99999',
+        unitCostLak: '10000',
       });
       await t
         .http()

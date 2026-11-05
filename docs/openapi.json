@@ -6488,6 +6488,12 @@
                     },
                     "unit": {
                       "type": "string"
+                "packCost": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
                     }
                   },
                   "required": [
@@ -6609,6 +6615,7 @@
             "nullable": true,
             "type": "string"
           },
+                "packCost",
           "reference": {
             "nullable": true,
             "type": "string"

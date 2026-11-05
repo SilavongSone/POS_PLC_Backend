@@ -37,7 +37,11 @@ const PERMISSION_FOR: Record<StockDocType, Permission> = {
 };
 /** Receipts and positive adjustments bring stock in; issues and negative adjustments take it out. */
 /** Set by inBaseUnits on lines entered in packs. */
-type PackSnapshot = { unitName?: string; unitFactor?: number };
+type PackSnapshot = {
+  unitName?: string;
+  unitFactor?: number;
+  packCost?: number;
+};
 
 function isInbound(type: StockDocType, quantity: number): boolean {
   return type === 'RECEIVE' || (type === 'ADJUST' && quantity > 0);
@@ -563,7 +567,10 @@ export class StockDocumentsService {
     if (!ids.length) return input;
     const packs = new Map(
       (
-        await this.prisma.productUnit.findMany({ where: { id: { in: ids } } })
+        await this.prisma.productUnit.findMany({
+          where: { id: { in: ids } },
+          include: { product: { select: { trackSerial: true } } },
+        })
       ).map((u) => [u.id, u]),
     );
     return {
@@ -571,9 +578,15 @@ export class StockDocumentsService {
       items: input.items.map((item, i) => {
         if (!item.productUnitId) return item;
         const pack = packs.get(item.productUnitId);
-        if (!pack || pack.productId !== item.productId)
+        if (!pack || pack.productId !== item.productId || !pack.isActive)
           throw new BadRequestException(`items[${i}]: unknown pack`);
-        return {
+        // Serial numbers are per piece, so serial products are always counted one by one.
+        if (pack.product.trackSerial)
+          throw new BadRequestException({
+            code: 'UNIT_NOT_FOR_SERIAL',
+            message: `items[${i}]: serial products are received one by one`,
+          });
+        const line: StockDocInput['items'][number] & PackSnapshot = {
           ...item,
           quantity: item.quantity * pack.factor,
           unitCost: new Decimal(item.unitCost)
@@ -582,7 +595,9 @@ export class StockDocumentsService {
             .toNumber(),
           unitName: pack.unit,
           unitFactor: pack.factor,
+          packCost: item.unitCost,
         };
+        return line;
       }),
     };
   }
@@ -638,8 +653,9 @@ export class StockDocumentsService {
         productUnitId: i.productUnitId ?? null,
         unitName: i.unitName ?? null,
         unitFactor: i.unitFactor ?? 1,
+        packCost: i.packCost ?? null,
         unitCost: i.unitCost,
-        unitCostLak: costToLak(i.unitCost, lakPerUnit),
+        unitCostLak: this.baseCostLak(i, lakPerUnit),
         condition: i.condition,
         lotNo: i.lotNo,
         expiryDate: i.expiryDate,
@@ -648,10 +664,28 @@ export class StockDocumentsService {
     );
   }
 
+  /** Cost of one base unit in LAK; a pack line divides the exact pack cost (4 cartons at 1,000,000 → 41,667 a roll). */
+  private baseCostLak(
+    i: StockDocInput['items'][number] & PackSnapshot,
+    lakPerUnit: Prisma.Decimal,
+  ) {
+    if (i.packCost === undefined || !i.unitFactor || i.unitFactor === 1)
+      return costToLak(i.unitCost, lakPerUnit);
+    return costToLak(i.packCost, lakPerUnit)
+      .div(i.unitFactor)
+      .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  }
+
+  /** Document total in LAK; pack lines count packs × pack cost so the total matches the supplier invoice. */
   private total(input: StockDocInput, lakPerUnit: Prisma.Decimal) {
     if (input.type !== 'RECEIVE') return new Decimal(0);
     return input.items.reduce(
-      (sum, i) => sum.add(costToLak(i.unitCost, lakPerUnit).mul(i.quantity)),
+      (sum, i: StockDocInput['items'][number] & PackSnapshot) =>
+        i.packCost !== undefined && i.unitFactor && i.unitFactor > 1
+          ? sum.add(
+              costToLak(i.packCost, lakPerUnit).mul(i.quantity / i.unitFactor),
+            )
+          : sum.add(costToLak(i.unitCost, lakPerUnit).mul(i.quantity)),
       new Decimal(0),
     );
   }
