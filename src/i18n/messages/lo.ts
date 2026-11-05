@@ -21,6 +21,14 @@ export const lo: Record<string, string> = {
   NOT_FOUND: 'ບໍ່ພົບຂໍ້ມູນ',
   CONFLICT: 'ບໍ່ສາມາດເຮັດລາຍການນີ້ໃນສະຖານະປັດຈຸບັນ',
   ALREADY_EXISTS: 'ມີຂໍ້ມູນນີ້ແລ້ວ',
+  CURRENCY_UNAVAILABLE: 'ສະກຸນເງິນ {value} ບໍ່ມີ ຫຼື ຖືກປິດໃຊ້ຢູ່',
+  CURRENCY_DECIMALS:
+    'ຈຳນວນເງິນ {value} ມີທົດສະນິຍົມໄດ້ບໍ່ເກີນ {decimals} ຕຳແໜ່ງ',
+  CURRENCY_NO_RATE: 'ຍັງບໍ່ໄດ້ຕັ້ງອັດຕາແລກປ່ຽນຂອງ {value}',
+  CURRENCY_EXISTS: 'ມີສະກຸນເງິນ {value} ຢູ່ແລ້ວ',
+  CURRENCY_IN_USE:
+    'ສະກຸນເງິນ {value} ຖືກໃຊ້ໃນບິນ ຫຼື ເອກະສານແລ້ວ — ປິດໃຊ້ແທນການລຶບ',
+  CURRENCY_BASE_LOCKED: 'ກີບ (LAK) ເປັນສະກຸນຫຼັກ ປິດ ຫຼື ລຶບບໍ່ໄດ້',
   IN_USE: 'ຂໍ້ມູນນີ້ຍັງຖືກໃຊ້ຢູ່',
   PAYLOAD_TOO_LARGE: 'ຂໍ້ມູນທີ່ສົ່ງມາໃຫຍ່ເກີນໄປ',
   ACCOUNT_LOCKED: 'ບັນຊີຖືກລັອກຊົ່ວຄາວ ເພາະໃສ່ລະຫັດຜິດຫຼາຍຄັ້ງ',

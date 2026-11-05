@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { apiSchema, dateTimeString, decimalString } from '../common/openapi.js';
+import {
+  apiSchema,
+  currencySchema,
+  dateTimeString,
+  decimalString,
+} from '../common/openapi.js';
 
 /** Sales totals (reports.service.ts withProfit); cost and profit only with product.viewCost. */
 const summaryFields = {
@@ -80,7 +85,7 @@ export const paymentGroupSchema = apiSchema(
     key: z.uuid(),
     label: z.string(),
     kind: z.enum(['CASH', 'BANK_TRANSFER', 'QR', 'CARD', 'CREDIT']),
-    currency: z.enum(['LAK', 'THB', 'USD']),
+    currency: currencySchema,
     count: z.int(),
     amount: decimalString,
     amountLak: decimalString,

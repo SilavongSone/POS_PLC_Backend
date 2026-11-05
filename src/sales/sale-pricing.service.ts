@@ -5,11 +5,9 @@ import {
 } from '@nestjs/common';
 import { atBranch, ProductsService } from '../catalog/products.service.js';
 import { CustomersService } from '../customers/customers.service.js';
-import {
-  Prisma,
-  type Currency,
-  type PriceTier,
-} from '../generated/prisma/client.js';
+import { Prisma, type PriceTier } from '../generated/prisma/client.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
+import { rateOf } from '../settings/exchange-rates.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { TaxRatesService } from '../settings/tax-rates.service.js';
 import { countsStock } from '../stock/stock-ledger.service.js';
@@ -91,7 +89,7 @@ export type PlannedPayment = {
   paymentTypeId: string;
   name: string;
   kind: string;
-  currency: Currency;
+  currency: string;
   amount: Decimal;
   lakPerUnit: Decimal;
   amountLak: Decimal;
@@ -119,6 +117,7 @@ export class SalePricingService {
     private readonly settings: SettingsService,
     private readonly taxRates: TaxRatesService,
     private readonly entitlements: EntitlementsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   /** Prices a cart; see PriceOptions for quotations. */
@@ -448,6 +447,12 @@ export class SalePricingService {
       this.products.pricingContext(db).then((c) => c.rates),
     ]);
     const typeById = new Map(types.map((t) => [t.id, t]));
+    for (const [i, p] of input.entries())
+      await this.currencies.assertUsable(
+        p.currency,
+        p.amount,
+        `payments[${i}].currency`,
+      );
 
     const payments: PlannedPayment[] = input.map((p, i) => {
       const type = typeById.get(p.paymentTypeId);
@@ -465,7 +470,7 @@ export class SalePricingService {
       if (p.currency === 'LAK' && !Number.isInteger(p.amount)) {
         throw new BadRequestException(`${at}: LAK amounts are whole kip`);
       }
-      const lakPerUnit = rates[p.currency].lakPerUnit;
+      const lakPerUnit = rateOf(rates, p.currency, `${at}.currency`).lakPerUnit;
       return {
         paymentTypeId: type.id,
         name: type.name,

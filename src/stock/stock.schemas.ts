@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -45,7 +46,7 @@ export const stockDocSchema = z
     /** Supplier invoice no. for RECEIVE, reason for ISSUE/ADJUST. */
     reference: text(100).nullable().optional(),
     note: text(1000).nullable().optional(),
-    currency: z.enum(['LAK', 'THB', 'USD']).default('LAK'),
+    currency: currencyCode.default('LAK'),
     /** Defaults to the current rate for the currency. */
     lakPerUnit: z.coerce.number().positive().optional(),
     items: z.array(docItem).min(1).max(500),

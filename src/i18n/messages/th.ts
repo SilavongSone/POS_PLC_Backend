@@ -21,6 +21,13 @@ export const th: Record<string, string> = {
   NOT_FOUND: 'ไม่พบข้อมูล',
   CONFLICT: 'ทำรายการนี้ในสถานะปัจจุบันไม่ได้',
   ALREADY_EXISTS: 'มีข้อมูลนี้อยู่แล้ว',
+  CURRENCY_UNAVAILABLE: 'ไม่มีสกุลเงิน {value} หรือถูกปิดใช้อยู่',
+  CURRENCY_DECIMALS: 'จำนวนเงิน {value} มีทศนิยมได้ไม่เกิน {decimals} ตำแหน่ง',
+  CURRENCY_NO_RATE: 'ยังไม่ได้ตั้งอัตราแลกเปลี่ยนของ {value}',
+  CURRENCY_EXISTS: 'มีสกุลเงิน {value} อยู่แล้ว',
+  CURRENCY_IN_USE:
+    'สกุลเงิน {value} ถูกใช้ในบิลหรือเอกสารแล้ว — ปิดใช้แทนการลบ',
+  CURRENCY_BASE_LOCKED: 'กีบ (LAK) เป็นสกุลหลัก ปิดหรือลบไม่ได้',
   IN_USE: 'ข้อมูลนี้ยังถูกใช้อยู่',
   PAYLOAD_TOO_LARGE: 'ข้อมูลที่ส่งมาใหญ่เกินไป',
   ACCOUNT_LOCKED: 'บัญชีถูกล็อกชั่วคราวเพราะใส่รหัสผิดหลายครั้ง',

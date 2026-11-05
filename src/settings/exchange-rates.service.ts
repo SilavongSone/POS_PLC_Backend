@@ -1,17 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit.service.js';
+import { BASE_CURRENCY } from '../common/currency.js';
 import { TtlCache } from '../common/ttl-cache.js';
-import { Prisma, type Currency } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateExchangeRateInput,
   ListExchangeRatesQuery,
 } from './settings.schemas.js';
 
-export type CurrentRates = Record<
-  Currency,
-  { lakPerUnit: Prisma.Decimal; effectiveFrom: Date | null }
->;
+export type CurrentRate = {
+  lakPerUnit: Prisma.Decimal;
+  effectiveFrom: Date | null;
+};
+/** Latest rate per currency code that has one; LAK is always present (1). */
+export type CurrentRates = Record<string, CurrentRate>;
+
+/** The current rate of `currency`, or a 400 when none is set yet. */
+export function rateOf(
+  rates: CurrentRates,
+  currency: string,
+  at = 'currency',
+): CurrentRate {
+  const rate = rates[currency];
+  if (!rate) {
+    throw new BadRequestException({
+      message: `${at}: no exchange rate is set for ${currency}`,
+      code: 'CURRENCY_NO_RATE',
+      field: at,
+      value: currency,
+    });
+  }
+  return rate;
+}
 
 @Injectable()
 export class ExchangeRatesService {
@@ -27,24 +48,32 @@ export class ExchangeRatesService {
     return this.cache.get('current', () => this.load());
   }
 
+  /** Called when rates change outside `create` (a new currency with its first rate). */
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   private async load(): Promise<CurrentRates> {
-    const db = this.prisma;
-    const [thb, usd] = await Promise.all(
-      (['THB', 'USD'] as const).map((currency) =>
-        db.exchangeRate.findFirst({
-          where: { currency, effectiveFrom: { lte: new Date() } },
-          orderBy: { effectiveFrom: 'desc' },
-        }),
-      ),
-    );
-    if (!thb || !usd) {
-      throw new NotFoundException('Exchange rates for THB and USD must be set');
-    }
-    return {
-      LAK: { lakPerUnit: new Prisma.Decimal(1), effectiveFrom: null },
-      THB: { lakPerUnit: thb.lakPerUnit, effectiveFrom: thb.effectiveFrom },
-      USD: { lakPerUnit: usd.lakPerUnit, effectiveFrom: usd.effectiveFrom },
+    // Disabled currencies keep their rate: products priced in them still need it.
+    const latest = await this.prisma.exchangeRate.findMany({
+      where: { effectiveFrom: { lte: new Date() } },
+      orderBy: [{ currency: 'asc' }, { effectiveFrom: 'desc' }],
+      distinct: ['currency'],
+    });
+    const rates: CurrentRates = {
+      [BASE_CURRENCY]: {
+        lakPerUnit: new Prisma.Decimal(1),
+        effectiveFrom: null,
+      },
     };
+    for (const r of latest) {
+      if (r.currency !== BASE_CURRENCY)
+        rates[r.currency] = {
+          lakPerUnit: r.lakPerUnit,
+          effectiveFrom: r.effectiveFrom,
+        };
+    }
+    return rates;
   }
 
   history(query: ListExchangeRatesQuery) {
@@ -57,6 +86,20 @@ export class ExchangeRatesService {
   }
 
   async create(input: CreateExchangeRateInput, actorId: string) {
+    const currency =
+      input.currency === BASE_CURRENCY
+        ? null
+        : await this.prisma.currency.findFirst({
+            where: { code: input.currency },
+          });
+    if (!currency) {
+      throw new BadRequestException({
+        message: `${input.currency} is not one of the company's foreign currencies`,
+        code: 'CURRENCY_UNAVAILABLE',
+        field: 'currency',
+        value: input.currency,
+      });
+    }
     const rate = await this.prisma.exchangeRate.create({
       data: {
         currency: input.currency,

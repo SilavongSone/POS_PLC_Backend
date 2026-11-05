@@ -12,7 +12,11 @@ import { ImageStoreService } from '../common/image-store.service.js';
 import { BranchAccessService } from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toLakAmount } from '../sales/sale-math.js';
-import { ExchangeRatesService } from '../settings/exchange-rates.service.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
+import {
+  ExchangeRatesService,
+  rateOf,
+} from '../settings/exchange-rates.service.js';
 import type {
   CreateExpenseInput,
   ExpenseCategoryInput,
@@ -24,6 +28,7 @@ export class ExpensesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rates: ExchangeRatesService,
+    private readonly currencies: CurrenciesService,
     private readonly audit: AuditService,
     private readonly images: ImageStoreService,
     private readonly branches: BranchAccessService,
@@ -80,7 +85,11 @@ export class ExpensesService {
     // Paid from a drawer = that till's branch; otherwise the one chosen (or the only one).
     const branchId =
       drawerBranch ?? (await this.branches.optional(user, input.branchId));
-    const lakPerUnit = (await this.rates.current())[input.currency].lakPerUnit;
+    await this.currencies.assertUsable(input.currency, input.amount);
+    const lakPerUnit = rateOf(
+      await this.rates.current(),
+      input.currency,
+    ).lakPerUnit;
     const expense = await this.prisma.expense.create({
       data: {
         categoryId: category.id,

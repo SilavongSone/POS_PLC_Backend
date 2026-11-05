@@ -9,7 +9,7 @@
 
 ## 1. ขอบเขตธุรกิจ
 
-ร้านขาย **อุปกรณ์ POS และสินค้าไอทีที่เกี่ยวข้อง** ใน สปป. ลาว ใช้ LAK เป็นสกุลเงินหลัก และรับ THB/USD ด้วย
+ร้านขาย **อุปกรณ์ POS และสินค้าไอทีที่เกี่ยวข้อง** ใน สปป. ลาว ใช้ LAK เป็นสกุลเงินหลัก และรับสกุลอื่นที่ร้านตั้งเองได้ (เริ่มต้น THB/USD; เพิ่ม CNY, VND, EUR … ได้ใน `Currency`)
 
 | กลุ่มสินค้า | ตัวอย่าง | Serial | หมดอายุ | ประกัน |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@
 |---|---|
 | เปิด-ปิดกะ | `Register` + `Shift` (+ `CashMovement`, `expectedCash`) |
 | ขายด้วยการยิงบาร์โค้ดหรือเลือกสินค้า | `Product.barcode`/`sku`, `SerialNumber.serial` |
-| ขายเป็น กีบ / บาท / ดอลลาร์ | `Payment.currency` + snapshot `lakPerUnit` |
+| ขายเป็น กีบ / บาท / ดอลลาร์ / สกุลอื่นที่ร้านเพิ่มเอง | `Currency` (ต่อบริษัท) + `Payment.currency` + snapshot `lakPerUnit` |
 | แสดงสินค้าพร้อมรูปและราคา | `ProductImage` |
 | จอแสดงผลสำหรับลูกค้า | ฟีเจอร์ฝั่ง frontend (ไม่ต้องมีตาราง) |
 | ส่วนลดรายสินค้าหรือส่วนลดรวมบิล | `SaleItem.discountLak`, `Sale.discountLak`, `Promotion` |
@@ -131,7 +131,7 @@
 
 | โมดูล | ตาราง |
 |---|---|
-| ผู้ใช้และระบบ (8) | 🆕 `UserGroup`, ✅ `User` (เปลี่ยน enum `role` เป็น `groupId`), 🆕 `RefreshToken`, 🆕 `Setting`, 🆕 `AuditLog`, 🆕 `PaymentType` (แทน enum `PaymentMethod`), 🆕 `TaxRate`, ✅ `ExchangeRate` |
+| ผู้ใช้และระบบ (9) | 🆕 `UserGroup`, ✅ `User` (เปลี่ยน enum `role` เป็น `groupId`), 🆕 `RefreshToken`, 🆕 `Setting`, 🆕 `AuditLog`, 🆕 `PaymentType` (แทน enum `PaymentMethod`), 🆕 `TaxRate`, 🆕 `Currency` (สกุลเงินต่อบริษัท แทน enum), ✅ `ExchangeRate` |
 | แคตตาล็อก (10) | ✅ `Category` (แบบต้นไม้), ✅ `Brand`, 🆕 `BrandCategory` (ยี่ห้อ↔หมวด แบบ many-to-many), 🆕 `Unit` (หน่วยขาย; `Product.unit` เก็บ `Unit.name`), 🆕 `LabelTemplate` (แม่แบบป้ายบาร์โค้ด: ขนาดดวง, ดวงต่อแถว, กล่องข้อมูลเป็น JSON), ✅ `Product`, 🆕 `ProductImage`, 🆕 `ProductBundleItem`, 🆕 `Promotion`, 🆕 `PromotionItem` |
 | สต็อก (6) | ✅ `SerialNumber`, 🆕 `StockLot`, 🆕 `Supplier`, 🆕 `StockDocument`, 🆕 `StockDocumentItem`, 🆕 `StockMovement` |
 | การขาย (11) | ✅ `Customer`, 🆕 `HeldBill`, 🆕 `Quotation`, 🆕 `QuotationItem`, ✅ `Sale`, ✅ `SaleItem`, ✅ `Payment`, 🆕 `TaxInvoice`, 🆕 `DebtPayment`, 🆕 `SaleReturn`, 🆕 `SaleReturnItem` |
@@ -228,8 +228,11 @@ erDiagram
 ## 6. กฎทางธุรกิจหลัก
 
 **เงินและราคา**
-1. เงิน LAK = `Decimal(18,0)`, THB/USD = `Decimal(18,2)`, อัตราแลกเปลี่ยน = `Decimal(18,4)`, เปอร์เซ็นต์ = `Decimal(5,2)`
-2. ราคาสินค้าเก็บใน `priceCurrency` ถ้าเป็น USD/THB ราคากีบจะเท่ากับ `price × อัตราปัจจุบัน` **ปัดขึ้น**ตามหน่วย `pricing.lakRounding` (ค่าเริ่มต้น 1,000 กีบ) แล้ว snapshot ไว้ใน `SaleItem`
+1. เงิน LAK = `Decimal(18,0)`, สกุลอื่น = `Decimal(18,2)`, อัตราแลกเปลี่ยน = `Decimal(18,4)`, เปอร์เซ็นต์ = `Decimal(5,2)`
+   - **สกุลเงินตั้งได้ต่อบริษัท** (`Currency`, 2026-11-05): `code` ISO 4217 (unique ต่อบริษัท), `name` + `nameI18n`, `symbol`, `decimals` 0–2 (คอลัมน์เงินเก็บได้ 2 ตำแหน่ง), `cashRounding` (0 = ไม่ปัด), `isBase`, `isActive`, `sortOrder` · LAK = `isBase` ปิดหรือลบไม่ได้ ทศนิยม 0 เสมอ · บริษัทใหม่ได้ LAK/THB/USD (`reference-data.ts`), บริษัทเดิม backfill ใน migration `20261105090000_tenant_currencies`
+   - คอลัมน์สกุลเงินทุกตาราง (`ExchangeRate`, `Product.priceCurrency/costCurrency`, `StockDocument`, `Payment`, `DebtPayment`, `CashMovement`, `Expense`) เก็บ **รหัส** `VARCHAR(3)` ไม่มี FK (enum `Currency` ถูกลบ) เพื่อให้ปิดใช้สกุลได้โดยบิลเก่ายังอ้างถึงได้ · `Shift.openingCash/closingCash/expectedCash` เป็น JSON key = รหัสสกุล
+   - ใช้ได้กับรายการใหม่ (ชำระเงิน นับเงิน รายจ่าย ฯลฯ) เฉพาะสกุลที่ `isActive` และมีอัตราแลกเปลี่ยน (`CURRENCY_UNAVAILABLE`, `CURRENCY_NO_RATE`); จำนวนเงินต้องไม่เกิน `decimals` (`CURRENCY_DECIMALS`) · ลบได้เฉพาะสกุลที่ไม่เคยถูกใช้ (ลบประวัติอัตราไปด้วย) ไม่งั้น `CURRENCY_IN_USE` ให้ปิดใช้แทน · สกุลที่ปิดแล้วยังมีอัตราใน `GET /exchange-rates/current` เพราะสินค้าที่ตั้งราคาไว้ยังต้องแปลงเป็นกีบ
+2. ราคาสินค้าเก็บใน `priceCurrency` ถ้าไม่ใช่ LAK ราคากีบจะเท่ากับ `price × อัตราปัจจุบัน` **ปัดขึ้น**ตามหน่วย `pricing.lakRounding` (ค่าเริ่มต้น 1,000 กีบ) แล้ว snapshot ไว้ใน `SaleItem`
 3. ลำดับการเลือกราคา: ราคาเฉพาะชิ้นของตัวโชว์ (`SerialNumber.priceLak`) → ราคาส่ง (ถ้าลูกค้าเป็น WHOLESALE หรือจำนวนถึง `wholesaleMinQty`) → ราคาปลีก จากนั้นจึงหักโปรโมชั่นที่ใช้ได้และดีที่สุด**หนึ่งรายการ**
 4. แก้ราคาด้วยมือได้เฉพาะผู้มีสิทธิ์ `price.override` โดยบันทึก `priceOverriddenById` + `AuditLog`
 5. VAT (ค่าเริ่มต้น 12%): ใบขาย snapshot `vatPercent` จาก `TaxRate` ของสาขาที่ขาย (`Branch.taxRateId`, 2026-10-29: แต่ละสาขาตั้งอัตราเองได้) ถ้าสาขาไม่ได้ตั้งหรืออัตราถูกปิด ใช้ `TaxRate` ที่เป็นค่าเริ่มต้นของบริษัท ถ้าราคารวม VAT แล้ว `vatLak = total × p / (100 + p)` ถ้ายังไม่รวม `vatLak = (subtotal − discount) × p / 100`

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
+import { currencyCode } from '../common/currency.js';
 
 const text = (max: number) => z.string().trim().max(max);
 
@@ -55,20 +56,51 @@ export const updateTaxRateSchema = z
   .object({ name: text(50).min(1), percent, isActive: z.boolean() })
   .partial();
 
-export const foreignCurrency = z.enum(['THB', 'USD']);
+/** LAK per 1 unit of a currency, e.g. 21800 for USD or 0.85 for VND. */
+const lakPerUnit = z.coerce
+  .number()
+  .positive()
+  .max(1_000_000)
+  .refine(
+    (n) => Number.isInteger(Math.round(n * 1e8) / 1e4),
+    'At most 4 decimals',
+  );
 
 export const createExchangeRateSchema = z.object({
-  currency: foreignCurrency,
-  /** LAK per 1 unit of currency, e.g. 21800 for USD. */
-  lakPerUnit: z.coerce
-    .number()
-    .positive()
-    .max(1_000_000)
-    .refine((n) => Number.isInteger(n * 10_000), 'At most 4 decimals'),
+  /** Any of the company's currencies except LAK. */
+  currency: currencyCode,
+  lakPerUnit,
 });
 export const listExchangeRatesSchema = z.object({
-  currency: foreignCurrency.optional(),
+  currency: currencyCode.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+const currencyFields = {
+  name: text(50).min(1),
+  nameI18n: i18nText(50).optional(),
+  /** Shown before amounts, e.g. "¥". */
+  symbol: text(5).default(''),
+  /** Decimal places (amount columns hold at most 2). */
+  decimals: z.number().int().min(0).max(2).default(2),
+  /** Cash is rounded to a multiple of this; 0 = no rounding. */
+  cashRounding: z.coerce
+    .number()
+    .min(0)
+    .max(1_000_000)
+    .multipleOf(0.01)
+    .default(0),
+  isActive: z.boolean().default(true),
+};
+export const createCurrencySchema = z.object({
+  code: currencyCode,
+  ...currencyFields,
+  /** First exchange rate (LAK per unit); can be set later. */
+  lakPerUnit: lakPerUnit.optional(),
+});
+export const updateCurrencySchema = patchOf(z.object(currencyFields));
+export const moveCurrencySchema = z.object({
+  direction: z.enum(['up', 'down']),
 });
 
 export const paymentKind = z.enum([
@@ -120,6 +152,8 @@ export const updateRegisterSchema = patchOf(
 
 export type CreateTaxRateInput = z.infer<typeof createTaxRateSchema>;
 export type UpdateTaxRateInput = z.infer<typeof updateTaxRateSchema>;
+export type CreateCurrencyInput = z.infer<typeof createCurrencySchema>;
+export type UpdateCurrencyInput = z.infer<typeof updateCurrencySchema>;
 export type CreateExchangeRateInput = z.infer<typeof createExchangeRateSchema>;
 export type ListExchangeRatesQuery = z.infer<typeof listExchangeRatesSchema>;
 export type CreatePaymentTypeInput = z.infer<typeof createPaymentTypeSchema>;

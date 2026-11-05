@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   apiSchema,
+  currencySchema,
   dateTimeString,
   decimalString,
   i18nMap,
@@ -22,21 +23,39 @@ export const paymentTypeSchema = apiSchema(
 );
 export const paymentTypesSchema = z.array(paymentTypeSchema);
 
-/** Latest LAK rate per currency; LAK is always 1 with no date. */
+/** Latest LAK rate per currency code that has one; LAK is always 1 with no date. */
 export const currentRatesSchema = apiSchema(
   'CurrentExchangeRates',
+  z.record(
+    currencySchema,
+    z.strictObject({
+      lakPerUnit: decimalString,
+      effectiveFrom: dateTimeString.nullable(),
+    }),
+  ),
+);
+
+/** One of the company's currencies (Settings → Currencies). */
+export const currencyRowSchema = apiSchema(
+  'Currency',
   z.strictObject({
-    LAK: z.strictObject({ lakPerUnit: decimalString, effectiveFrom: z.null() }),
-    THB: z.strictObject({
-      lakPerUnit: decimalString,
-      effectiveFrom: dateTimeString,
-    }),
-    USD: z.strictObject({
-      lakPerUnit: decimalString,
-      effectiveFrom: dateTimeString,
-    }),
+    id: z.uuid(),
+    tenantId: z.uuid(),
+    code: currencySchema,
+    /** In the request language (nameI18n keeps every translation). */
+    name: z.string(),
+    nameI18n: i18nMap,
+    symbol: z.string(),
+    decimals: z.int().min(0).max(2),
+    cashRounding: decimalString,
+    isBase: z.boolean(),
+    isActive: z.boolean(),
+    sortOrder: z.int(),
+    createdAt: dateTimeString,
+    updatedAt: dateTimeString,
   }),
 );
+export const currenciesSchema = z.array(currencyRowSchema);
 
 /** ESC/POS printer settings of a register (settings.schemas.ts printerConfigSchema). */
 export const printerConfigSchema = apiSchema(

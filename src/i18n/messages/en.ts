@@ -21,6 +21,13 @@ export const en: Record<string, string> = {
   NOT_FOUND: 'Not found',
   CONFLICT: 'This cannot be done in the current state',
   ALREADY_EXISTS: 'This already exists',
+  CURRENCY_UNAVAILABLE: 'Currency {value} does not exist or is disabled',
+  CURRENCY_DECIMALS: '{value} amounts have at most {decimals} decimals',
+  CURRENCY_NO_RATE: 'No exchange rate is set for {value}',
+  CURRENCY_EXISTS: 'Currency {value} already exists',
+  CURRENCY_IN_USE: '{value} is used by bills or documents; disable it instead',
+  CURRENCY_BASE_LOCKED:
+    'LAK is the base currency and cannot be disabled or deleted',
   IN_USE: 'This is still used by other records',
   PAYLOAD_TOO_LARGE: 'The data sent is too large',
   ACCOUNT_LOCKED:

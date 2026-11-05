@@ -1,13 +1,20 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 const amount = z.coerce.number().min(0).max(1e13).multipleOf(0.01);
 
-/** Cash counted per currency; missing currencies count as 0. */
+/**
+ * Cash counted per currency code, e.g. {"LAK": 500000, "CNY": 120}; missing currencies
+ * count as 0. Codes and decimals are checked against the company's currencies.
+ */
 export const cashCountSchema = z
-  .object({ LAK: amount.int(), THB: amount, USD: amount })
-  .partial()
-  .transform((c) => ({ LAK: c.LAK ?? 0, THB: c.THB ?? 0, USD: c.USD ?? 0 }));
+  .record(currencyCode, amount)
+  .refine((c) => Object.keys(c).length <= 30, 'At most 30 currencies')
+  .refine((c) => Number.isInteger(c.LAK ?? 0), {
+    message: 'LAK amounts are whole kip',
+    path: ['LAK'],
+  });
 
 export const openShiftSchema = z.object({
   registerId: z.uuid(),
@@ -22,7 +29,7 @@ export const closeShiftSchema = z.object({
 export const cashMovementSchema = z
   .object({
     type: z.enum(['PAY_IN', 'PAY_OUT']),
-    currency: z.enum(['LAK', 'THB', 'USD']),
+    currency: currencyCode,
     amount: amount.positive(),
     reason: z.string().trim().min(1).max(300),
   })

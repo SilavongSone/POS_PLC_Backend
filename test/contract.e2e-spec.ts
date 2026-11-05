@@ -38,6 +38,7 @@ import {
   taxInvoiceSchema,
 } from '../src/sales/sales.responses.js';
 import {
+  currenciesSchema,
   currentRatesSchema,
   paymentTypesSchema,
   registersSchema,
@@ -586,6 +587,10 @@ describe('API contract (e2e)', () => {
           .get('/payment-types?active=true')
           .set(cashier.auth)
           .expect(200),
+      );
+      conforms(
+        currenciesSchema,
+        await t.http().get('/currencies').set(cashier.auth).expect(200),
       );
       conforms(
         currentRatesSchema,

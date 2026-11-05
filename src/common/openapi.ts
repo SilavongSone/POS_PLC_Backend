@@ -72,7 +72,8 @@ export const decimalString = z
   .regex(/^-?\d+(\.\d+)?$/)
   .meta({ description: 'Decimal number as a string' });
 export const dateTimeString = z.iso.datetime();
-export const currencySchema = z.enum(['LAK', 'THB', 'USD']);
+/** ISO 4217 code of one of the company's currencies. */
+export const currencySchema = z.string().regex(/^[A-Z]{3}$/);
 /** Stored translations `{ lo?, th?, en? }`, or null. */
 export const i18nMap = z
   .strictObject({

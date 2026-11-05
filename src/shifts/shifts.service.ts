@@ -10,8 +10,9 @@ import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
 import { hasPermission } from '../common/permissions.js';
-import { Prisma, type Currency } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
 import type {
   CashCount,
   CashMovementInput,
@@ -22,22 +23,22 @@ import type {
 
 const Decimal = Prisma.Decimal;
 type Decimal = Prisma.Decimal;
-const CURRENCIES: Currency[] = ['LAK', 'THB', 'USD'];
-type Cash = Record<Currency, Decimal>;
+/** Cash per currency code. */
+type Cash = Record<string, Decimal>;
 
-const toCash = (json: unknown): Cash => {
-  const c = (json ?? {}) as Partial<Record<Currency, string | number>>;
-  return {
-    LAK: new Decimal(c.LAK ?? 0),
-    THB: new Decimal(c.THB ?? 0),
-    USD: new Decimal(c.USD ?? 0),
-  };
+const keysOf = (codes: string[], ...objects: object[]) => [
+  ...new Set([...codes, ...objects.flatMap((o) => Object.keys(o))]),
+];
+const toCash = (json: unknown, codes: string[] = []): Cash => {
+  const c = (json ?? {}) as Record<string, string | number>;
+  return Object.fromEntries(
+    keysOf(codes, c).map((k) => [k, new Decimal(c[k] ?? 0)]),
+  );
 };
-const cashJson = (c: Cash | CashCount) =>
-  Object.fromEntries(CURRENCIES.map((k) => [k, String(c[k])])) as Record<
-    Currency,
-    string
-  >;
+const cashJson = (c: Cash | CashCount, codes: string[] = []) =>
+  Object.fromEntries(
+    keysOf(codes, c).map((k) => [k, String(c[k] ?? 0)]),
+  ) as Record<string, string>;
 
 @Injectable()
 export class ShiftsService {
@@ -45,7 +46,24 @@ export class ShiftsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly branches: BranchAccessService,
+    private readonly currencies: CurrenciesService,
   ) {}
+
+  /** Codes of the active currencies; LAK first. */
+  private async codes(): Promise<string[]> {
+    return (await this.currencies.active()).map((c) => c.code);
+  }
+
+  /** Checks a cash count: each non-zero amount must be in an active currency with valid decimals. */
+  private async checkCount(count: CashCount, field: string) {
+    const out: CashCount = {};
+    for (const [code, amount] of Object.entries(count)) {
+      if (!amount) continue;
+      await this.currencies.assertUsable(code, amount, `${field}.${code}`);
+      out[code] = amount;
+    }
+    return cashJson(out, await this.codes());
+  }
 
   async open(input: OpenShiftInput, user: AuthUser) {
     const register = await this.prisma.register.findUniqueOrThrow({
@@ -59,7 +77,7 @@ export class ShiftsService {
         data: {
           registerId: register.id,
           userId: user.id,
-          openingCash: cashJson(input.openingCash),
+          openingCash: await this.checkCount(input.openingCash, 'openingCash'),
         },
         include: { register: true },
       });
@@ -146,6 +164,7 @@ export class ShiftsService {
     const shift = await this.getForUser(shiftId, user);
     if (shift.status !== 'OPEN')
       throw new ConflictException('The shift is closed');
+    await this.currencies.assertUsable(input.currency, input.amount, 'amount');
     return this.prisma.cashMovement.create({
       data: { shiftId, ...input, userId: user.id },
     });
@@ -232,9 +251,10 @@ export class ShiftsService {
         amountLak: r._sum.amountLak ?? new Decimal(0),
       }));
 
-    const expected = toCash(shift.openingCash);
-    const add = (c: Currency, v: Prisma.Decimal | number | null) =>
-      (expected[c] = expected[c].add(v ?? 0));
+    const codes = await this.codes();
+    const expected = toCash(shift.openingCash, codes);
+    const add = (c: string, v: Prisma.Decimal | number | null) =>
+      (expected[c] = (expected[c] ?? new Decimal(0)).add(v ?? 0));
     for (const p of payments)
       if (isCash(p.paymentTypeId)) add(p.currency, p._sum.amount);
     add('LAK', new Decimal(sales._sum.changeLak ?? 0).neg());
@@ -257,7 +277,9 @@ export class ShiftsService {
         add('LAK', new Decimal(r._sum.refundLak ?? 0).neg());
     }
 
-    const counted = shift.closingCash ? toCash(shift.closingCash) : null;
+    const counted = shift.closingCash
+      ? toCash(shift.closingCash, Object.keys(expected))
+      : null;
     const creditLak = byType(payments)
       .filter((p) => p.kind === 'CREDIT')
       .reduce((s, p) => s.add(p.amountLak), new Decimal(0));
@@ -290,15 +312,18 @@ export class ShiftsService {
         refundLak: r._sum.refundLak,
       })),
       cash: {
-        opening: cashJson(toCash(shift.openingCash)),
+        opening: cashJson(toCash(shift.openingCash, codes)),
         expected: cashJson(expected),
         counted: counted && cashJson(counted),
         difference:
           counted &&
           cashJson(
             Object.fromEntries(
-              CURRENCIES.map((c) => [c, counted[c].sub(expected[c])]),
-            ) as Cash,
+              keysOf([], expected, counted).map((c) => [
+                c,
+                (counted[c] ?? new Decimal(0)).sub(expected[c] ?? 0),
+              ]),
+            ),
           ),
       },
     };
@@ -317,7 +342,7 @@ export class ShiftsService {
       data: {
         status: 'CLOSED',
         closedAt: new Date(),
-        closingCash: cashJson(input.closingCash),
+        closingCash: await this.checkCount(input.closingCash, 'closingCash'),
         expectedCash: before.cash.expected,
         note: input.note,
       },

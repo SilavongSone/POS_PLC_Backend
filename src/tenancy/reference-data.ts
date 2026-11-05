@@ -209,6 +209,34 @@ const EXPENSE_I18N: Record<string, { lo: string; th: string }> = {
   Other: { lo: 'ອື່ນໆ', th: 'อื่น ๆ' },
 };
 
+/** Currencies every company starts with (LAK is the base); edited in Settings → Currencies. */
+const CURRENCIES = [
+  {
+    code: 'LAK',
+    name: 'Lao kip',
+    nameI18n: { lo: 'ກີບ', th: 'กีบ', en: 'Lao kip' },
+    symbol: '₭',
+    decimals: 0,
+    isBase: true,
+  },
+  {
+    code: 'THB',
+    name: 'Thai baht',
+    nameI18n: { lo: 'ບາດ', th: 'บาท', en: 'Thai baht' },
+    symbol: '฿',
+    decimals: 2,
+    isBase: false,
+  },
+  {
+    code: 'USD',
+    name: 'US dollar',
+    nameI18n: { lo: 'ໂດລາ', th: 'ดอลลาร์สหรัฐ', en: 'US dollar' },
+    symbol: '$',
+    decimals: 2,
+    isBase: false,
+  },
+];
+
 /** LAK per unit; only used when no rate exists yet. */
 const INITIAL_RATES = { THB: '650', USD: '21800' } as const;
 
@@ -291,11 +319,23 @@ export async function seedReferenceData(
     });
   }
 
+  // Only for a company that has no currencies yet, so deleted/edited ones never come back.
+  if ((await db.currency.count()) === 0) {
+    await db.currency.createMany({
+      data: CURRENCIES.map((c, sortOrder) => ({ ...c, sortOrder })),
+    });
+  } else if (!(await db.currency.findFirst({ where: { code: 'LAK' } }))) {
+    await db.currency.create({ data: { ...CURRENCIES[0], sortOrder: 0 } });
+  }
+
   for (const [currency, lakPerUnit] of Object.entries(INITIAL_RATES) as [
     keyof typeof INITIAL_RATES,
     string,
   ][]) {
-    if ((await db.exchangeRate.count({ where: { currency } })) === 0) {
+    if (
+      (await db.currency.findFirst({ where: { code: currency } })) &&
+      (await db.exchangeRate.count({ where: { currency } })) === 0
+    ) {
       await db.exchangeRate.create({ data: { currency, lakPerUnit } });
     }
   }

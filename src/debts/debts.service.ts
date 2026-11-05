@@ -11,7 +11,11 @@ import { startOfLocalDay } from '../common/time.js';
 import { openDebtWhere } from '../customers/customers.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ExchangeRatesService } from '../settings/exchange-rates.service.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
+import {
+  ExchangeRatesService,
+  rateOf,
+} from '../settings/exchange-rates.service.js';
 import { toLakAmount } from '../sales/sale-math.js';
 import type {
   ListDebtPaymentsQuery,
@@ -26,6 +30,7 @@ export class DebtsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rates: ExchangeRatesService,
+    private readonly currencies: CurrenciesService,
     private readonly docNumbers: DocNumberService,
     private readonly audit: AuditService,
   ) {}
@@ -82,6 +87,7 @@ export class DebtsService {
         if (input.currency === 'LAK' && !Number.isInteger(input.amount)) {
           throw new BadRequestException('LAK amounts are whole kip');
         }
+        await this.currencies.assertUsable(input.currency, input.amount);
         const shift = await tx.shift.findFirst({
           where: { userId: user.id, status: 'OPEN' },
           include: { register: { select: { branchId: true } } },
@@ -103,8 +109,10 @@ export class DebtsService {
         const dueLak = debts.reduce((s, d) => s.add(d.dueLak), new Decimal(0));
         if (dueLak.isZero()) throw new ConflictException('Nothing is owed');
 
-        const lakPerUnit = (await this.rates.current(tx))[input.currency]
-          .lakPerUnit;
+        const lakPerUnit = rateOf(
+          await this.rates.current(tx),
+          input.currency,
+        ).lakPerUnit;
         const amountLak = toLakAmount(input.amount, lakPerUnit);
         if (amountLak.gt(dueLak)) {
           throw new BadRequestException(

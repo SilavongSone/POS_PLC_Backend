@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 const isoDate = z.iso.date();
@@ -8,7 +9,7 @@ export const receiveDebtSchema = z.object({
   /** Pay one sale; without it the oldest debts are paid first. */
   saleId: z.uuid().optional(),
   paymentTypeId: z.uuid(),
-  currency: z.enum(['LAK', 'THB', 'USD']).default('LAK'),
+  currency: currencyCode.default('LAK'),
   amount: z.coerce.number().positive().max(1e15).multipleOf(0.01),
   reference: z.string().trim().max(100).optional(),
 });

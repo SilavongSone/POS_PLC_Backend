@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { pageQuerySchema } from '../common/pagination.js';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -28,7 +29,7 @@ export const saleItemSchema = z.object({
 
 export const paymentSchema = z.object({
   paymentTypeId: z.uuid(),
-  currency: z.enum(['LAK', 'THB', 'USD']).default('LAK'),
+  currency: currencyCode.default('LAK'),
   /** Amount tendered in `currency`. */
   amount: z.coerce.number().positive().max(1e15).multipleOf(0.01),
   reference: text(100).optional(),

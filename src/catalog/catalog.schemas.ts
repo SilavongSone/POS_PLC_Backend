@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
@@ -10,7 +11,7 @@ const slug = z
   .toLowerCase()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, digits and dashes');
 const money = z.coerce.number().min(0).max(1e15).multipleOf(0.01);
-export const currency = z.enum(['LAK', 'THB', 'USD']);
+export const currency = currencyCode;
 
 // ── Categories & brands ──
 export const createCategorySchema = z.object({

@@ -1,12 +1,15 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  type PipeTransform,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -14,6 +17,7 @@ import { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import { currencyCode } from '../common/currency.js';
 import { queryBoolean } from '../common/pagination.js';
 import {
   ApiErrors,
@@ -25,15 +29,23 @@ import {
 } from '../common/openapi.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import {
+  currenciesSchema,
+  currencyRowSchema,
   currentRatesSchema,
   paymentTypesSchema,
   registersSchema,
 } from './settings.responses.js';
+import { CurrenciesService } from './currencies.service.js';
 import { ExchangeRatesService } from './exchange-rates.service.js';
 import { PaymentTypesService } from './payment-types.service.js';
 import { RegistersService } from './registers.service.js';
 import {
+  createCurrencySchema,
   createExchangeRateSchema,
+  moveCurrencySchema,
+  updateCurrencySchema,
+  type CreateCurrencyInput,
+  type UpdateCurrencyInput,
   createPaymentTypeSchema,
   createRegisterSchema,
   createTaxRateSchema,
@@ -57,6 +69,20 @@ import { TaxRatesService } from './tax-rates.service.js';
 import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 
 const id = new ParseUUIDPipe();
+
+/** `:code` path parameter: an ISO 4217 code, upper-cased. */
+class ParseCurrencyPipe implements PipeTransform<string, string> {
+  transform(value: string): string {
+    const parsed = currencyCode.safeParse(value);
+    if (!parsed.success)
+      throw new BadRequestException({
+        message: 'Currency code must be 3 letters',
+        code: 'VALIDATION_FAILED',
+      });
+    return parsed.data;
+  }
+}
+const listCurrenciesSchema = z.object({ active: queryBoolean.optional() });
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -119,6 +145,93 @@ export class TaxRatesController {
   @ApiOperation({ summary: 'Make this the VAT rate for new sales' })
   makeDefault(@Param('id', id) rateId: string, @CurrentUser() actor: AuthUser) {
     return this.rates.makeDefault(rateId, actor.id);
+  }
+}
+
+const currencyParam = new ParseCurrencyPipe();
+
+@ApiTags('settings')
+@ApiBearerAuth()
+@Controller('currencies')
+export class CurrenciesController {
+  constructor(private readonly currencies: CurrenciesService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'The company currencies (?active=true for active only)',
+  })
+  @ApiZodQuery(listCurrenciesSchema)
+  @ApiZodResponse(currenciesSchema)
+  @ApiErrors(errors(SIGNED_IN, VALIDATION))
+  list(@Query(zod(listCurrenciesSchema)) query: { active?: boolean }) {
+    return query.active ? this.currencies.active() : this.currencies.list();
+  }
+
+  @Post()
+  @RequirePermissions('exchangeRate.manage')
+  @ApiOperation({ summary: 'Add a currency (optionally with its first rate)' })
+  @ApiZodBody(createCurrencySchema)
+  @ApiZodResponse(currencyRowSchema, { status: 201 })
+  @ApiErrors(errors(SIGNED_IN, VALIDATION, { 409: ['CURRENCY_EXISTS'] }))
+  create(
+    @Body(zod(createCurrencySchema)) body: CreateCurrencyInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.currencies.create(body, actor.id);
+  }
+
+  @Patch(':code')
+  @RequirePermissions('exchangeRate.manage')
+  @ApiOperation({
+    summary: 'Edit or disable a currency (LAK cannot be disabled)',
+  })
+  @ApiZodBody(updateCurrencySchema)
+  @ApiZodResponse(currencyRowSchema)
+  @ApiErrors(
+    errors(SIGNED_IN, VALIDATION, {
+      400: ['CURRENCY_BASE_LOCKED'],
+      404: ['NOT_FOUND'],
+    }),
+  )
+  update(
+    @Param('code', currencyParam) code: string,
+    @Body(zod(updateCurrencySchema)) body: UpdateCurrencyInput,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.currencies.update(code, body, actor.id);
+  }
+
+  @Post(':code/move')
+  @HttpCode(200)
+  @RequirePermissions('exchangeRate.manage')
+  @ApiOperation({ summary: 'Move a currency up or down in the list' })
+  @ApiZodBody(moveCurrencySchema)
+  @ApiZodResponse(currenciesSchema)
+  @ApiErrors(errors(SIGNED_IN, VALIDATION, { 404: ['NOT_FOUND'] }))
+  move(
+    @Param('code', currencyParam) code: string,
+    @Body(zod(moveCurrencySchema)) body: { direction: 'up' | 'down' },
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.currencies.move(code, body.direction, actor.id);
+  }
+
+  @Delete(':code')
+  @HttpCode(204)
+  @RequirePermissions('exchangeRate.manage')
+  @ApiOperation({ summary: 'Delete a currency that was never used' })
+  @ApiErrors(
+    errors(SIGNED_IN, {
+      400: ['CURRENCY_BASE_LOCKED'],
+      404: ['NOT_FOUND'],
+      409: ['CURRENCY_IN_USE'],
+    }),
+  )
+  async remove(
+    @Param('code', currencyParam) code: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.currencies.remove(code, actor.id);
   }
 }
 

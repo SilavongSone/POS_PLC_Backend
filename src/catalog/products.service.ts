@@ -7,12 +7,14 @@ import {
 import { AuditService } from '../common/audit.service.js';
 import { ImageStoreService } from '../common/image-store.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
-import { Prisma, type Currency } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SHARED_VARIANT_FIELDS } from './product-groups.shared.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
 import {
   ExchangeRatesService,
+  rateOf,
   type CurrentRates,
 } from '../settings/exchange-rates.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -94,6 +96,7 @@ export class ProductsService {
     private readonly brands: BrandsService,
     private readonly images: ImageStoreService,
     private readonly units: UnitsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   /** After a save: the brand belongs to the product's category; the unit is in the list. */
@@ -155,13 +158,13 @@ export class ProductsService {
 
   lakPrices(
     p: {
-      priceCurrency: Currency;
+      priceCurrency: string;
       retailPrice: Prisma.Decimal;
       wholesalePrice: Prisma.Decimal | null;
     },
     ctx: PricingContext,
   ) {
-    const rate = ctx.rates[p.priceCurrency].lakPerUnit;
+    const rate = rateOf(ctx.rates, p.priceCurrency, 'priceCurrency').lakPerUnit;
     return {
       retailPriceLak: priceToLak(
         p.retailPrice,
@@ -528,7 +531,7 @@ export class ProductsService {
         specs: input.specs ?? undefined,
         avgCostLak: costToLak(
           input.costPrice,
-          ctx.rates[input.costCurrency].lakPerUnit,
+          rateOf(ctx.rates, input.costCurrency, 'costCurrency').lakPerUnit,
         ),
       },
     });
@@ -612,7 +615,11 @@ export class ProductsService {
       const ctx = await this.pricingContext();
       data.avgCostLak = costToLak(
         input.costPrice ?? before.costPrice,
-        ctx.rates[input.costCurrency ?? before.costCurrency].lakPerUnit,
+        rateOf(
+          ctx.rates,
+          input.costCurrency ?? before.costCurrency,
+          'costCurrency',
+        ).lakPerUnit,
       );
     }
     const product = await this.prisma.product.update({ where: { id }, data });
@@ -663,7 +670,7 @@ export class ProductsService {
     };
     const lakRounding = await this.settings.get('pricing.lakRounding');
     const factor = new Prisma.Decimal(100 + input.percent).div(100);
-    const adjust = (price: Prisma.Decimal, currency: Currency) =>
+    const adjust = (price: Prisma.Decimal, currency: string) =>
       currency === 'LAK'
         ? roundUpLak(price.mul(factor), lakRounding)
         : price.mul(factor).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
@@ -906,6 +913,16 @@ export class ProductsService {
       (input.costCurrency && input.costCurrency !== 'LAK')
     ) {
       await this.entitlements.assertFeature('multiCurrency');
+    }
+    // A price or cost currency must be active and have a rate to convert to LAK.
+    const rates =
+      (input.priceCurrency || input.costCurrency) &&
+      (await this.rates.current());
+    for (const field of ['priceCurrency', 'costCurrency'] as const) {
+      const code = input[field];
+      if (!code || !rates) continue;
+      await this.currencies.assertUsable(code, undefined, field);
+      rateOf(rates, code, field);
     }
   }
 

@@ -13,12 +13,6 @@ datasource db {
 
 // ───────────────────────────── Enums ─────────────────────────────
 
-enum Currency {
-  LAK
-  THB
-  USD
-}
-
 /// Behaviour behind a configurable payment type.
 enum PaymentKind {
   CASH
@@ -319,11 +313,38 @@ model TaxRate {
   @@unique([tenantId, name])
 }
 
+/// Currencies a company accepts (ISO 4217 code). LAK is the base currency: always present
+/// and active. Other tables store the code (VarChar(3)) without a foreign key so a
+/// currency can be disabled while old bills still show it.
+model Currency {
+  id           String   @id @default(uuid())
+  tenantId     String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code         String   @db.VarChar(3)
+  name         String
+  /// {"lo": "...", "th": "...", "en": "..."}
+  nameI18n     Json?
+  symbol       String   @default("")
+  /// Decimal places for amounts (0–2; amount columns are Decimal(18, 2)).
+  decimals     Int      @default(2)
+  /// Cash in this currency is rounded to a multiple of this (0 = no rounding).
+  cashRounding Decimal  @default(0) @db.Decimal(18, 2)
+  isBase       Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
 /// Units of LAK per 1 unit of `currency` (e.g. USD → 21800). The latest row per currency is current.
 model ExchangeRate {
   id            String   @id @default(uuid())
   tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  currency      Currency
+  currency      String   @db.VarChar(3)
   lakPerUnit    Decimal  @db.Decimal(18, 4)
   effectiveFrom DateTime @default(now())
   createdById   String?
@@ -446,18 +467,18 @@ model Product {
   /// Category-specific specs, e.g. {"Size":"24\"","Resolution":"1920x1080"}.
   specs           Json?
 
-  /// Prices are kept in `priceCurrency`; when it is THB/USD the LAK price follows the current exchange rate.
-  priceCurrency   Currency @default(LAK)
+  /// Prices are kept in `priceCurrency`; when it is not LAK the LAK price follows the current exchange rate.
+  priceCurrency   String   @default("LAK") @db.VarChar(3)
   retailPrice     Decimal  @db.Decimal(18, 2)
   wholesalePrice  Decimal? @db.Decimal(18, 2)
   /// Minimum quantity for the wholesale price to apply automatically (null = wholesale customers only).
   wholesaleMinQty Int?
 
   /// Latest purchase cost as entered (any currency) …
-  costCurrency Currency @default(LAK)
-  costPrice    Decimal  @default(0) @db.Decimal(18, 2)
+  costCurrency String  @default("LAK") @db.VarChar(3)
+  costPrice    Decimal @default(0) @db.Decimal(18, 2)
   /// … and the moving-average cost in LAK used for profit reports.
-  avgCostLak   Decimal  @default(0) @db.Decimal(18, 0)
+  avgCostLak   Decimal @default(0) @db.Decimal(18, 0)
 
   /// false = "unspecified quantity" item (sold without counting stock).
   trackStock     Boolean  @default(true)
@@ -665,7 +686,7 @@ model StockDocument {
   /// Supplier invoice no. for RECEIVE, reason for ISSUE/ADJUST.
   reference   String?
   note        String?
-  currency    Currency     @default(LAK)
+  currency    String       @default("LAK") @db.VarChar(3)
   lakPerUnit  Decimal      @default(1) @db.Decimal(18, 4)
   totalLak    Decimal      @default(0) @db.Decimal(18, 0)
   createdById String
@@ -977,7 +998,7 @@ model Payment {
   id            String   @id @default(uuid())
   saleId        String
   paymentTypeId String
-  currency      Currency
+  currency      String   @db.VarChar(3)
   /// Amount tendered in `currency`.
   amount        Decimal  @db.Decimal(18, 2)
   /// Exchange-rate snapshot (1 for LAK).
@@ -1002,7 +1023,7 @@ model DebtPayment {
   customerId    String
   saleId        String
   paymentTypeId String
-  currency      Currency
+  currency      String   @db.VarChar(3)
   amount        Decimal  @db.Decimal(18, 2)
   lakPerUnit    Decimal  @db.Decimal(18, 4)
   amountLak     Decimal  @db.Decimal(18, 0)
@@ -1128,7 +1149,7 @@ model CashMovement {
   tenantId  String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   shiftId   String
   type      CashMoveType
-  currency  Currency
+  currency  String       @db.VarChar(3)
   amount    Decimal      @db.Decimal(18, 2)
   reason    String
   userId    String
@@ -1161,7 +1182,7 @@ model Expense {
   tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   categoryId    String
   description   String
-  currency      Currency
+  currency      String   @db.VarChar(3)
   amount        Decimal  @db.Decimal(18, 2)
   lakPerUnit    Decimal  @db.Decimal(18, 4)
   amountLak     Decimal  @db.Decimal(18, 0)
@@ -1313,6 +1334,7 @@ model Tenant {
   paymentTypes      PaymentType[]
   taxRates          TaxRate[]
   exchangeRates     ExchangeRate[]
+  currencies        Currency[]
   categories        Category[]
   brands            Brand[]
   units             Unit[]

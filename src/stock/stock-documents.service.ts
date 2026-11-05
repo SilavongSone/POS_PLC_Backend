@@ -14,7 +14,11 @@ import { hasPermission, type Permission } from '../common/permissions.js';
 import { costToLak } from '../catalog/pricing.js';
 import { Prisma, type StockDocType } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ExchangeRatesService } from '../settings/exchange-rates.service.js';
+import { CurrenciesService } from '../settings/currencies.service.js';
+import {
+  ExchangeRatesService,
+  rateOf,
+} from '../settings/exchange-rates.service.js';
 import {
   countsStock,
   StockLedgerService,
@@ -79,6 +83,7 @@ export class StockDocumentsService {
     private readonly ledger: StockLedgerService,
     private readonly docNumbers: DocNumberService,
     private readonly rates: ExchangeRatesService,
+    private readonly currencies: CurrenciesService,
     private readonly audit: AuditService,
     private readonly branches: BranchAccessService,
     private readonly entitlements: EntitlementsService,
@@ -542,8 +547,9 @@ export class StockDocumentsService {
 
   private async resolveRate(input: StockDocInput) {
     if (input.currency === 'LAK') return new Decimal(1);
+    await this.currencies.assertUsable(input.currency);
     if (input.lakPerUnit) return new Decimal(input.lakPerUnit);
-    return (await this.rates.current())[input.currency].lakPerUnit;
+    return rateOf(await this.rates.current(), input.currency).lakPerUnit;
   }
 
   /**

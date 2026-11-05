@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currencyCode } from '../common/currency.js';
 import { i18nText } from '../i18n/i18n.schemas.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema } from '../common/pagination.js';
@@ -14,7 +15,7 @@ export const createExpenseSchema = z
   .object({
     categoryId: z.uuid(),
     description: z.string().trim().min(1).max(300),
-    currency: z.enum(['LAK', 'THB', 'USD']).default('LAK'),
+    currency: currencyCode.default('LAK'),
     amount: z.coerce.number().positive().max(1e15).multipleOf(0.01),
     paymentTypeId: z.uuid(),
     /** Paid from the till: recorded in the user's open shift so the drawer balances. */

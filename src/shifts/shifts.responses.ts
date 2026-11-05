@@ -1,20 +1,17 @@
 import { z } from 'zod';
 import {
   apiSchema,
+  currencySchema,
   dateTimeString,
   decimalString,
   pageOf,
 } from '../common/openapi.js';
 import { registerFields } from '../settings/settings.responses.js';
 
-/** Cash per currency as decimal strings, e.g. { LAK: "500000", THB: "0", USD: "20" }. */
+/** Cash per currency code as decimal strings, e.g. { LAK: "500000", THB: "0", CNY: "20" }. */
 export const cashCountSchema = apiSchema(
   'CashCount',
-  z.strictObject({
-    LAK: decimalString,
-    THB: decimalString,
-    USD: decimalString,
-  }),
+  z.record(currencySchema, decimalString),
 );
 
 /** A shift with its register (POST /shifts/open, GET /shifts/current). */
@@ -72,7 +69,7 @@ const byPaymentType = z.strictObject({
   paymentTypeId: z.uuid(),
   name: z.string().optional(),
   kind: z.enum(['CASH', 'BANK_TRANSFER', 'QR', 'CARD', 'CREDIT']).optional(),
-  currency: z.enum(['LAK', 'THB', 'USD']),
+  currency: currencySchema,
   /** In `currency`. */
   amount: decimalString,
   amountLak: decimalString,
@@ -105,7 +102,7 @@ export const shiftReportSchema = apiSchema(
     cashMovements: z.array(
       z.strictObject({
         type: z.enum(['PAY_IN', 'PAY_OUT']),
-        currency: z.enum(['LAK', 'THB', 'USD']),
+        currency: currencySchema,
         amount: decimalString.nullable(),
       }),
     ),

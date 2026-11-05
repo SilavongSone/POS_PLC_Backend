@@ -365,29 +365,11 @@
         "type": "object"
       },
       "CashCount": {
-        "additionalProperties": false,
-        "properties": {
-          "LAK": {
-            "description": "Decimal number as a string",
-            "pattern": "^-?\\d+(\\.\\d+)?$",
-            "type": "string"
-          },
-          "THB": {
-            "description": "Decimal number as a string",
-            "pattern": "^-?\\d+(\\.\\d+)?$",
-            "type": "string"
-          },
-          "USD": {
-            "description": "Decimal number as a string",
-            "pattern": "^-?\\d+(\\.\\d+)?$",
-            "type": "string"
-          }
+        "additionalProperties": {
+          "description": "Decimal number as a string",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
         },
-        "required": [
-          "LAK",
-          "THB",
-          "USD"
-        ],
         "type": "object"
       },
       "Category": {
@@ -461,75 +443,111 @@
         ],
         "type": "object"
       },
-      "CurrentExchangeRates": {
+      "Currency": {
         "additionalProperties": false,
         "properties": {
-          "LAK": {
+          "cashRounding": {
+            "description": "Decimal number as a string",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[A-Z]{3}$",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decimals": {
+            "maximum": 2,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isBase": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameI18n": {
             "additionalProperties": false,
+            "nullable": true,
             "properties": {
-              "effectiveFrom": {
-                "enum": [
-                  null
-                ],
-                "nullable": true,
+              "en": {
                 "type": "string"
               },
-              "lakPerUnit": {
-                "description": "Decimal number as a string",
-                "pattern": "^-?\\d+(\\.\\d+)?$",
+              "lo": {
+                "type": "string"
+              },
+              "th": {
                 "type": "string"
               }
             },
-            "required": [
-              "lakPerUnit",
-              "effectiveFrom"
-            ],
             "type": "object"
           },
-          "THB": {
-            "additionalProperties": false,
-            "properties": {
-              "effectiveFrom": {
-                "format": "date-time",
-                "type": "string"
-              },
-              "lakPerUnit": {
-                "description": "Decimal number as a string",
-                "pattern": "^-?\\d+(\\.\\d+)?$",
-                "type": "string"
-              }
-            },
-            "required": [
-              "lakPerUnit",
-              "effectiveFrom"
-            ],
-            "type": "object"
+          "sortOrder": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
-          "USD": {
-            "additionalProperties": false,
-            "properties": {
-              "effectiveFrom": {
-                "format": "date-time",
-                "type": "string"
-              },
-              "lakPerUnit": {
-                "description": "Decimal number as a string",
-                "pattern": "^-?\\d+(\\.\\d+)?$",
-                "type": "string"
-              }
-            },
-            "required": [
-              "lakPerUnit",
-              "effectiveFrom"
-            ],
-            "type": "object"
+          "symbol": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
-          "LAK",
-          "THB",
-          "USD"
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "nameI18n",
+          "symbol",
+          "decimals",
+          "cashRounding",
+          "isBase",
+          "isActive",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
         ],
+        "type": "object"
+      },
+      "CurrentExchangeRates": {
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "effectiveFrom": {
+              "format": "date-time",
+              "nullable": true,
+              "type": "string"
+            },
+            "lakPerUnit": {
+              "description": "Decimal number as a string",
+              "pattern": "^-?\\d+(\\.\\d+)?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "lakPerUnit",
+            "effectiveFrom"
+          ],
+          "type": "object"
+        },
         "type": "object"
       },
       "CustomerDetail": {
@@ -1459,11 +1477,7 @@
             "type": "integer"
           },
           "currency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "key": {
@@ -1621,11 +1635,7 @@
             "type": "string"
           },
           "currency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "kind": {
@@ -2112,11 +2122,7 @@
           },
           "costCurrency": {
             "description": "Only with the product.viewCost permission",
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "costPrice": {
@@ -2295,11 +2301,7 @@
             "type": "object"
           },
           "priceCurrency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "retailPrice": {
@@ -2638,11 +2640,7 @@
                   "type": "object"
                 },
                 "priceCurrency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "retailPrice": {
@@ -2810,11 +2808,7 @@
           },
           "costCurrency": {
             "description": "Only with the product.viewCost permission",
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "costPrice": {
@@ -2961,11 +2955,7 @@
             "type": "object"
           },
           "priceCurrency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "retailPrice": {
@@ -4381,11 +4371,7 @@
             "type": "string"
           },
           "currency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "id": {
@@ -5211,11 +5197,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "type": {
@@ -5250,11 +5232,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -5300,11 +5278,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -5355,11 +5329,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -5809,11 +5779,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "type": {
@@ -5848,11 +5814,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -5898,11 +5860,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -5948,11 +5906,7 @@
                   "type": "string"
                 },
                 "currency": {
-                  "enum": [
-                    "LAK",
-                    "THB",
-                    "USD"
-                  ],
+                  "pattern": "^[A-Z]{3}$",
                   "type": "string"
                 },
                 "kind": {
@@ -6347,11 +6301,7 @@
             "type": "string"
           },
           "currency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "docNo": {
@@ -6711,11 +6661,7 @@
             "type": "string"
           },
           "currency": {
-            "enum": [
-              "LAK",
-              "THB",
-              "USD"
-            ],
+            "pattern": "^[A-Z]{3}$",
             "type": "string"
           },
           "docNo": {
@@ -7676,11 +7622,7 @@
                       "type": "string"
                     },
                     "currency": {
-                      "enum": [
-                        "LAK",
-                        "THB",
-                        "USD"
-                      ],
+                      "pattern": "^[A-Z]{3}$",
                       "type": "string"
                     },
                     "id": {
@@ -9985,6 +9927,569 @@
         ]
       }
     },
+    "/api/currencies": {
+      "get": {
+        "operationId": "CurrenciesController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Currency"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The company currencies (?active=true for active only)",
+        "tags": [
+          "settings"
+        ]
+      },
+      "post": {
+        "operationId": "CurrenciesController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "cashRounding": {
+                    "default": 0,
+                    "maximum": 1000000,
+                    "minimum": 0,
+                    "multipleOf": 0.01,
+                    "type": "number"
+                  },
+                  "code": {
+                    "pattern": "^[A-Z]{3}$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "default": 2,
+                    "maximum": 2,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "isActive": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "lakPerUnit": {
+                    "exclusiveMinimum": true,
+                    "maximum": 1000000,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "name": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 50,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 50,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 50,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "symbol": {
+                    "default": "",
+                    "maxLength": 5,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Currency"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: CURRENCY_EXISTS"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a currency (optionally with its first rate)",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/currencies/{code}": {
+      "delete": {
+        "operationId": "CurrenciesController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: CURRENCY_BASE_LOCKED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found. Codes: NOT_FOUND"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: CURRENCY_IN_USE"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a currency that was never used",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "operationId": "CurrenciesController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "cashRounding": {
+                    "maximum": 1000000,
+                    "minimum": 0,
+                    "multipleOf": 0.01,
+                    "type": "number"
+                  },
+                  "decimals": {
+                    "maximum": 2,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "nameI18n": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "en": {
+                        "maxLength": 50,
+                        "type": "string"
+                      },
+                      "lo": {
+                        "maxLength": 50,
+                        "type": "string"
+                      },
+                      "th": {
+                        "maxLength": 50,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "symbol": {
+                    "maxLength": 5,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Currency"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED, CURRENCY_BASE_LOCKED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found. Codes: NOT_FOUND"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Edit or disable a currency (LAK cannot be disabled)",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/currencies/{code}/move": {
+      "post": {
+        "operationId": "CurrenciesController_move",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "up",
+                      "down"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "direction"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Currency"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found. Codes: NOT_FOUND"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Move a currency up or down in the list",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/customers": {
       "get": {
         "operationId": "CustomersController_list",
@@ -10312,11 +10817,7 @@
                   },
                   "currency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "customerId": {
@@ -10394,10 +10895,7 @@
               "schema": {
                 "properties": {
                   "currency": {
-                    "enum": [
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "lakPerUnit": {
@@ -10694,11 +11192,7 @@
                   },
                   "currency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "description": {
@@ -13356,11 +13850,7 @@
                   },
                   "costCurrency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "costPrice": {
@@ -13438,11 +13928,7 @@
                   },
                   "priceCurrency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "retailPrice": {
@@ -13931,11 +14417,7 @@
                     "type": "string"
                   },
                   "costCurrency": {
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "costPrice": {
@@ -14009,11 +14491,7 @@
                     "type": "object"
                   },
                   "priceCurrency": {
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "retailPrice": {
@@ -15672,11 +16150,7 @@
                         },
                         "currency": {
                           "default": "LAK",
-                          "enum": [
-                            "LAK",
-                            "THB",
-                            "USD"
-                          ],
+                          "pattern": "^[A-Z]{3}$",
                           "type": "string"
                         },
                         "paymentTypeId": {
@@ -16645,11 +17119,7 @@
                         },
                         "currency": {
                           "default": "LAK",
-                          "enum": [
-                            "LAK",
-                            "THB",
-                            "USD"
-                          ],
+                          "pattern": "^[A-Z]{3}$",
                           "type": "string"
                         },
                         "paymentTypeId": {
@@ -16909,11 +17379,7 @@
                         },
                         "currency": {
                           "default": "LAK",
-                          "enum": [
-                            "LAK",
-                            "THB",
-                            "USD"
-                          ],
+                          "pattern": "^[A-Z]{3}$",
                           "type": "string"
                         },
                         "paymentTypeId": {
@@ -17746,11 +18212,7 @@
                         },
                         "currency": {
                           "default": "LAK",
-                          "enum": [
-                            "LAK",
-                            "THB",
-                            "USD"
-                          ],
+                          "pattern": "^[A-Z]{3}$",
                           "type": "string"
                         },
                         "paymentTypeId": {
@@ -18214,25 +18676,11 @@
               "schema": {
                 "properties": {
                   "openingCash": {
-                    "properties": {
-                      "LAK": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "integer"
-                      },
-                      "THB": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "number"
-                      },
-                      "USD": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "number"
-                      }
+                    "additionalProperties": {
+                      "maximum": 10000000000000,
+                      "minimum": 0,
+                      "multipleOf": 0.01,
+                      "type": "number"
                     },
                     "type": "object"
                   },
@@ -18397,11 +18845,7 @@
                     "type": "number"
                   },
                   "currency": {
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "reason": {
@@ -18464,25 +18908,11 @@
               "schema": {
                 "properties": {
                   "closingCash": {
-                    "properties": {
-                      "LAK": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "integer"
-                      },
-                      "THB": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "number"
-                      },
-                      "USD": {
-                        "maximum": 10000000000000,
-                        "minimum": 0,
-                        "multipleOf": 0.01,
-                        "type": "number"
-                      }
+                    "additionalProperties": {
+                      "maximum": 10000000000000,
+                      "minimum": 0,
+                      "multipleOf": 0.01,
+                      "type": "number"
                     },
                     "type": "object"
                   },
@@ -18695,11 +19125,7 @@
                   },
                   "currency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "items": {
@@ -18886,11 +19312,7 @@
                   },
                   "currency": {
                     "default": "LAK",
-                    "enum": [
-                      "LAK",
-                      "THB",
-                      "USD"
-                    ],
+                    "pattern": "^[A-Z]{3}$",
                     "type": "string"
                   },
                   "items": {

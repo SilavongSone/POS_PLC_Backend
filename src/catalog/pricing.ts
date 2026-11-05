@@ -1,4 +1,5 @@
-import { Prisma, type Currency } from '../generated/prisma/client.js';
+import { BASE_CURRENCY } from '../common/currency.js';
+import { Prisma } from '../generated/prisma/client.js';
 
 const Decimal = Prisma.Decimal;
 type Decimal = Prisma.Decimal;
@@ -18,11 +19,11 @@ export function roundUpLak(amount: DecimalLike, step = 1): Decimal {
  */
 export function priceToLak(
   amount: DecimalLike,
-  currency: Currency,
+  currency: string,
   lakPerUnit: DecimalLike,
   lakRounding: number,
 ): Decimal {
-  if (currency === 'LAK') return roundUpLak(amount, 1);
+  if (currency === BASE_CURRENCY) return roundUpLak(amount, 1);
   return roundUpLak(new Decimal(amount).mul(lakPerUnit), lakRounding);
 }
 
