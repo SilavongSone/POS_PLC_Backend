@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   UploadedFile,
   UseGuards,
@@ -20,6 +21,8 @@ import { Public } from '../auth/decorators/public.decorator.js';
 import {
   BankAccountsService,
   bankAccountSchema,
+  planQrSchema,
+  type PlanQrInput,
   updateBankAccountSchema,
   type BankAccountInput,
   type UpdateBankAccountInput,
@@ -77,6 +80,31 @@ export class PlatformBanksController {
   @HttpCode(204)
   async remove(@Param('id', id) accountId: string) {
     await this.banks.remove(accountId);
+  }
+
+  @Get('plan-qrs')
+  @ApiOperation({
+    summary:
+      'Plans with their price per period and the QR codes (amount included) saved for them',
+  })
+  planQrs() {
+    return this.banks.planQrs();
+  }
+
+  @Put('plan-qrs')
+  @ApiOperation({
+    summary:
+      'Save the QR of one plan, period and bank account; it records the current plan price',
+  })
+  @ApiZodBody(planQrSchema)
+  savePlanQr(@Body(zod(planQrSchema)) body: PlanQrInput) {
+    return this.banks.savePlanQr(body);
+  }
+
+  @Delete('plan-qrs/:id')
+  @HttpCode(204)
+  async removePlanQr(@Param('id', id) qrId: string) {
+    await this.banks.removePlanQr(qrId);
   }
 
   @Post('uploads/bank-qr')

@@ -12813,6 +12813,133 @@
         ]
       }
     },
+    "/api/platform/plan-qrs": {
+      "get": {
+        "operationId": "PlatformBanksController_planQrs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Plans with their price per period and the QR codes (amount included) saved for them",
+        "tags": [
+          "platform"
+        ]
+      },
+      "put": {
+        "operationId": "PlatformBanksController_savePlanQr",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "bankAccountId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "months": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          1
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          3
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          6
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          12
+                        ],
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "planId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "qrImageUrl": {
+                    "maxLength": 300,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "planId",
+                  "months",
+                  "bankAccountId",
+                  "qrImageUrl"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Save the QR of one plan, period and bank account; it records the current plan price",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/platform/plan-qrs/{id}": {
+      "delete": {
+        "operationId": "PlatformBanksController_removePlanQr",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "platform"
+        ]
+      }
+    },
     "/api/platform/plans": {
       "get": {
         "operationId": "PlatformController_listPlans",

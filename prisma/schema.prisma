@@ -1452,6 +1452,7 @@ model Plan {
 
   subscriptions Subscription[]
   invoices      BillingInvoice[]
+  paymentQrs    PlatformPlanQr[]
 }
 
 model Subscription {
@@ -1509,6 +1510,30 @@ model PlatformBankAccount {
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  planQrs PlatformPlanQr[]
+}
+
+/// QR code with the amount already in it for one plan and period (made in the banking app).
+/// Shown only while the plan price still equals `amountLak`, so a price change never asks the
+/// customer to pay an old amount.
+model PlatformPlanQr {
+  id            String   @id @default(uuid())
+  planId        String
+  /// 1, 3, 6 or 12.
+  months        Int
+  bankAccountId String
+  /// Plan price for `months` when the QR was saved.
+  amountLak     Decimal  @db.Decimal(18, 0)
+  qrImageUrl    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  plan        Plan                @relation(fields: [planId], references: [id], onDelete: Cascade)
+  bankAccount PlatformBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, months, bankAccountId])
+  @@index([bankAccountId])
 }
 
 /// Replays the stored response when a client retries a request with the same Idempotency-Key.

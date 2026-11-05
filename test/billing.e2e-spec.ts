@@ -260,6 +260,40 @@ describe('Plan billing (e2e)', () => {
         .expect(201)
     ).body;
 
+    // A QR with the amount in it for BUSINESS × 1 month on that account.
+    const plans = (
+      await t.http().get('/platform/plan-qrs').set(platform).expect(200)
+    ).body;
+    const business = plans.find((p: { code: string }) => p.code === 'BUSINESS');
+    expect(business.periods.map((p: { months: number }) => p.months)).toEqual([
+      1, 3, 6, 12,
+    ]);
+    const planQr = (
+      await t
+        .http()
+        .put('/platform/plan-qrs')
+        .set(platform)
+        .send({
+          planId: business.id,
+          months: 1,
+          bankAccountId: bank.id,
+          qrImageUrl: qr,
+        })
+        .expect(200)
+    ).body;
+    expect(planQr.amountLak).toBe(business.periods[0].amountLak);
+    await t
+      .http()
+      .put('/platform/plan-qrs')
+      .set(platform)
+      .send({
+        planId: business.id,
+        months: 2,
+        bankAccountId: bank.id,
+        qrImageUrl: qr,
+      })
+      .expect(400);
+
     const c = await company();
     const inv = (
       await t
@@ -270,6 +304,24 @@ describe('Plan billing (e2e)', () => {
         .expect(201)
     ).body;
     expect(inv.review).toBe('UNPAID');
+    expect(inv.payment.planQrs).toEqual([
+      { id: planQr.id, bankAccountId: bank.id, qrImageUrl: qr },
+    ]);
+    // Other periods have no QR of their own.
+    const quarter = (
+      await t
+        .http()
+        .post('/billing/checkout')
+        .set(c.auth)
+        .send({ planCode: 'BUSINESS', months: 3 })
+        .expect(201)
+    ).body;
+    expect(quarter.payment.planQrs).toEqual([]);
+    await t
+      .http()
+      .post(`/billing/invoices/${quarter.id}/cancel`)
+      .set(c.auth)
+      .expect((r) => expect(r.status).toBeLessThan(300));
     expect(
       inv.payment.bankAccounts.some(
         (b: { id: string; qrImageUrl: string }) =>
@@ -366,5 +418,15 @@ describe('Plan billing (e2e)', () => {
       .delete(`/platform/bank-accounts/${bank.id}`)
       .set(platform)
       .expect(204);
+    // Deleting the account removed its plan QR codes too.
+    const after = (
+      await t.http().get('/platform/plan-qrs').set(platform).expect(200)
+    ).body;
+    expect(
+      after
+        .flatMap((p: { periods: { qrs: { id: string }[] }[] }) => p.periods)
+        .flatMap((p: { qrs: { id: string }[] }) => p.qrs)
+        .some((q: { id: string }) => q.id === planQr.id),
+    ).toBe(false);
   });
 });

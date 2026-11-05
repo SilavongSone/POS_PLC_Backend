@@ -21,7 +21,11 @@ import { mailTemplates } from '../mail/templates.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 import { ImageStoreService } from '../common/image-store.service.js';
-import { BankAccountsService } from './bank-accounts.service.js';
+import {
+  BankAccountsService,
+  planAmount,
+  type PayOptions,
+} from './bank-accounts.service.js';
 
 const notPending = () =>
   new ConflictException({
@@ -75,18 +79,35 @@ export class BillingService {
     private readonly images: ImageStoreService,
   ) {}
 
-  /** How to pay an invoice: bank accounts with QR codes and, if configured, an online link. */
+  /**
+   * How to pay an invoice: QR codes with the amount in them for this plan and period, bank
+   * accounts with their own QR codes and, if configured, an online link.
+   */
   private payment(
     inv: {
       id: string;
       number: string;
+      planId: string;
+      months: number;
       amountLak: Prisma.Decimal;
     },
     tenantCode: string,
-    bankAccounts: Awaited<ReturnType<BankAccountsService['listActive']>>,
+    { accounts: bankAccounts, planQrs }: PayOptions,
   ) {
     const url = this.config.get('BILLING_PAY_URL', { infer: true });
     return {
+      planQrs: planQrs
+        .filter(
+          (q) =>
+            q.planId === inv.planId &&
+            q.months === inv.months &&
+            q.amountLak.equals(inv.amountLak),
+        )
+        .map(({ id, bankAccountId, qrImageUrl }) => ({
+          id,
+          bankAccountId,
+          qrImageUrl,
+        })),
       bankAccounts,
       bankInfo: this.config.get('BILLING_BANK_INFO', { infer: true }) ?? null,
       payUrl: url
@@ -111,8 +132,7 @@ export class BillingService {
     if (!plan?.isActive || (!plan.isPublic && plan.id !== current?.planId)) {
       throw new BadRequestException('Unknown plan');
     }
-    const amountLak =
-      months === 12 ? plan.priceYearlyLak : plan.priceMonthlyLak.mul(months);
+    const amountLak = planAmount(plan, months);
     if (amountLak.lte(0)) {
       throw new BadRequestException({
         message: 'This plan is free; ask support to switch to it',
@@ -143,7 +163,7 @@ export class BillingService {
       payment: this.payment(
         invoice,
         await this.tenantCode(),
-        await this.banks.listActive(),
+        await this.banks.payOptions(),
       ),
     };
   }
@@ -171,7 +191,7 @@ export class BillingService {
       }),
       this.prisma.billingInvoice.count({ where }),
       this.tenantCode(),
-      this.banks.listActive(),
+      this.banks.payOptions(),
     ]);
     return toPage(
       items.map((i) => ({
