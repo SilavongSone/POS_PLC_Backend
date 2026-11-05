@@ -38,7 +38,36 @@ const skuPart = (value: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 20) || 'V';
+    .slice(0, 30) || 'V';
+
+/**
+ * SKU of a new version copied from `source`: swap the part that differs instead of appending
+ * the whole value. XPR-T80Q-USB-WIFI ("USB+WiFi") + "USB+Bluetooth" → XPR-T80Q-USB-BLUETOOTH;
+ * values that repeat the model ("XP-T80Q USB+WiFi") only contribute the words that differ.
+ */
+export function variantSku(
+  sourceSku: string,
+  sourceValue: string | null,
+  value: string,
+) {
+  const words = skuPart(value).split('-');
+  const from = sourceValue ? skuPart(sourceValue).split('-') : [];
+  let same = 0;
+  while (
+    same < from.length &&
+    same < words.length - 1 &&
+    from[same] === words[same]
+  )
+    same++;
+  const oldTail = from.slice(same).join('-');
+  // The source SKU ends with what made it different: swap only that part.
+  if (oldTail && sourceSku.toUpperCase().endsWith(`-${oldTail}`))
+    return `${sourceSku.slice(0, -oldTail.length - 1)}-${words.slice(same).join('-')}`;
+  // Otherwise append the new value without the words already in the SKU.
+  const inSku = new Set(sourceSku.toUpperCase().split(/[^A-Z0-9]+/));
+  const rest = words.filter((w) => !inSku.has(w));
+  return `${sourceSku}-${(rest.length ? rest : words).join('-')}`;
+}
 
 /**
  * Versions of one model. Each version stays a full product (own SKU, barcode, price, stock,
@@ -186,7 +215,9 @@ export class ProductGroupsService {
     const data: CreateProductInput = {
       sku:
         input.sku ??
-        (await this.freeSku(`${source.sku}-${skuPart(input.value)}`)),
+        (await this.freeSku(
+          variantSku(source.sku, source.variantValue, input.value),
+        )),
       barcode: input.barcode ?? null,
       name: variantName(group.name, input.value),
       description: source.description,
