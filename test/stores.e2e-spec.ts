@@ -63,23 +63,48 @@ describe('Independent stores (e2e)', () => {
   });
   afterAll(() => t.close());
 
-  it('needs a confirmed e-mail and settings.manage', async () => {
-    const unverified = await company(`u-${uniq()}@test.local`, false);
-    const res = await t
-      .http()
-      .post('/stores')
-      .set(unverified.auth)
-      .send({ name: 'Second shop' })
-      .expect(403);
-    expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
-
-    const cashier = await t.userWith('Cashier');
+  it('is created by the Super Admin only', async () => {
+    const shop = await company(`a-${uniq()}@test.local`);
+    // Shop users have no way to create one.
     await t
       .http()
       .post('/stores')
-      .set(cashier.auth)
+      .set(shop.auth)
       .send({ name: 'Second shop' })
-      .expect(403);
+      .expect(404);
+    await t
+      .http()
+      .post(`/platform/tenants/${shop.id}/stores`)
+      .set(shop.auth)
+      .send({ name: 'Second shop' })
+      .expect(401);
+  });
+
+  it('creates a store for an owner without a confirmed e-mail, but no switching', async () => {
+    const shop = await company(`u-${uniq()}@test.local`, false);
+    const created = await t
+      .http()
+      .post(`/platform/tenants/${shop.id}/stores`)
+      .set(platform)
+      .send({ name: 'Unconfirmed owner shop', copy: { catalog: false } })
+      .expect(201);
+    expect(created.body).toMatchObject({
+      ownerCanSwitch: false,
+      owner: { username: 'owner' },
+    });
+    const listed = (await t.http().get('/stores').set(shop.auth).expect(200))
+      .body as { code: string }[];
+    expect(listed.map((s) => s.code)).toEqual([shop.code]);
+    // The owner can still sign in to the new store with the same password.
+    await t
+      .http()
+      .post('/auth/login')
+      .send({
+        tenantCode: created.body.code,
+        username: 'owner',
+        password: PASSWORD,
+      })
+      .expect(200);
   });
 
   it('copies the catalog once and keeps the stores apart', async () => {
@@ -127,10 +152,11 @@ describe('Independent stores (e2e)', () => {
       .expect(201);
 
     const created = await http
-      .post('/stores')
-      .set(shop.auth)
+      .post(`/platform/tenants/${shop.id}/stores`)
+      .set(platform)
       .send({ name: 'Second shop', branchName: 'Vientiane 2' })
       .expect(201);
+    expect(created.body.ownerCanSwitch).toBe(true);
     expect(created.body.copied).toMatchObject({ products: 1, customers: 0 });
     const code = created.body.code as string;
     expect(code).not.toBe(shop.code);
@@ -211,14 +237,23 @@ describe('Independent stores (e2e)', () => {
       .expect(201);
     const created = await t
       .http()
-      .post('/stores')
-      .set(shop.auth)
+      .post(`/platform/tenants/${shop.id}/stores`)
+      .set(platform)
       .send({
         name: 'Copy with customers',
+        planCode: 'STARTER',
+        status: 'ACTIVE',
         copy: { catalog: false, customers: true },
       })
       .expect(201);
     expect(created.body.copied).toMatchObject({ customers: 1, products: 0 });
+    const plan = await RequestContext.asPlatform(() =>
+      base().subscription.findFirst({
+        where: { tenant: { code: created.body.code as string } },
+        select: { status: true, plan: { select: { code: true } } },
+      }),
+    );
+    expect(plan).toMatchObject({ status: 'ACTIVE', plan: { code: 'STARTER' } });
   });
 
   it('switches only to stores of the same confirmed e-mail', async () => {

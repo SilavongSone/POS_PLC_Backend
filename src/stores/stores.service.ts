@@ -1,9 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { ImageStoreService } from '../common/image-store.service.js';
 import { RequestContext } from '../common/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -23,8 +19,6 @@ type Counts = {
   suppliers: number;
 };
 
-/** Stores one verified e-mail may own; stops runaway creation. */
-export const MAX_STORES_PER_OWNER = 20;
 /** Settings that name the business: the new store gets its own. */
 const OWN_SETTINGS = new Set([
   'store.name',
@@ -52,31 +46,23 @@ export class StoresService {
     private readonly images: ImageStoreService,
   ) {}
 
-  async create(userId: string, input: CreateStoreInput) {
-    const from = RequestContext.tenantId();
-    const me = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-    // The owner signs in to the new store with this e-mail and switches between stores by
-    // it, so it must be proven.
-    if (!me.email || !me.emailVerifiedAt)
-      throw new ForbiddenException({
-        message: 'Confirm your e-mail before creating another store',
-        code: 'EMAIL_NOT_VERIFIED',
-      });
-    const owned = await RequestContext.asPlatform(() =>
-      this.prisma.user.count({
-        where: {
-          email: me.email,
-          emailVerifiedAt: { not: null },
-          tenant: { isActive: true },
-        },
+  /**
+   * Super Admin: a new store for the owner of company `from`, with a one-time copy of the
+   * chosen data. The owner account (first Admin, preferring a confirmed e-mail) is copied
+   * with its password, so the owner signs in and switches between stores with it.
+   */
+  async create(from: string, input: CreateStoreInput) {
+    const admins = await RequestContext.asPlatform(() =>
+      this.prisma.user.findMany({
+        where: { tenantId: from, isActive: true, group: { name: 'Admin' } },
+        orderBy: { createdAt: 'asc' },
       }),
     );
-    if (owned >= MAX_STORES_PER_OWNER)
+    const me = admins.find((u) => u.email && u.emailVerifiedAt) ?? admins[0];
+    if (!me)
       throw new ConflictException({
-        message: `At most ${MAX_STORES_PER_OWNER} stores per owner`,
-        code: 'STORE_LIMIT_REACHED',
+        message: 'This company has no active Admin to own the new store',
+        code: 'STORE_NO_OWNER',
       });
 
     const source = await RequestContext.asPlatform(() =>
@@ -88,8 +74,13 @@ export class StoresService {
         },
       }),
     );
-    const plan = await this.planFor(source.subscription?.plan);
-    const code = await this.provisioning.freeCode(input.name, me.email);
+    const plan = input.planCode
+      ? { code: input.planCode, status: input.status ?? 'TRIAL' }
+      : await this.planFor(source.subscription?.plan);
+    const code = await this.provisioning.freeCode(
+      input.name,
+      me.email ?? me.username,
+    );
     const copied: Counts = {
       categories: 0,
       brands: 0,
@@ -117,7 +108,7 @@ export class StoresService {
             lastName: me.lastName,
             passwordHash: me.passwordHash,
             email: me.email,
-            emailVerified: true,
+            emailVerified: !!me.emailVerifiedAt,
             googleSub: me.googleSub ?? undefined,
           },
         },
@@ -138,7 +129,15 @@ export class StoresService {
           },
         },
       );
-      return { code: tenant.code, name: tenant.name, copied };
+      return {
+        id: tenant.id,
+        code: tenant.code,
+        name: tenant.name,
+        owner: { username: me.username, email: me.email },
+        // Switching between stores needs the same confirmed e-mail in both.
+        ownerCanSwitch: !!(me.email && me.emailVerifiedAt),
+        copied,
+      };
     } catch (error) {
       // Files copied before the transaction failed belong to a company that was never made.
       if (to) await this.images.removeTenantFiles(to);

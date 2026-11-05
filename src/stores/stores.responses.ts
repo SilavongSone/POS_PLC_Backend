@@ -12,12 +12,19 @@ export const myStoreSchema = z.strictObject({
 
 export const myStoresSchema = apiSchema('MyStores', z.array(myStoreSchema));
 
-/** What POST /stores created; sign in to it with POST /stores/switch. */
+/** What POST /platform/tenants/:id/stores created. */
 export const createdStoreSchema = apiSchema(
   'CreatedStore',
   z.strictObject({
+    id: z.uuid(),
     code: z.string(),
     name: z.string(),
+    owner: z.strictObject({
+      username: z.string(),
+      email: z.string().nullable(),
+    }),
+    /** False when the owner's e-mail is not confirmed: no store switching until it is. */
+    ownerCanSwitch: z.boolean(),
     copied: z.strictObject({
       categories: z.int(),
       brands: z.int(),

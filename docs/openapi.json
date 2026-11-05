@@ -499,13 +499,40 @@
             ],
             "type": "object"
           },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
           "name": {
             "type": "string"
+          },
+          "owner": {
+            "additionalProperties": false,
+            "properties": {
+              "email": {
+                "nullable": true,
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "username",
+              "email"
+            ],
+            "type": "object"
+          },
+          "ownerCanSwitch": {
+            "type": "boolean"
           }
         },
         "required": [
+          "id",
           "code",
           "name",
+          "owner",
+          "ownerCanSwitch",
           "copied"
         ],
         "type": "object"
@@ -13163,6 +13190,125 @@
         ]
       }
     },
+    "/api/platform/tenants/{id}/stores": {
+      "post": {
+        "operationId": "PlatformController_createStore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "branchName": {
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "copy": {
+                    "default": {},
+                    "properties": {
+                      "catalog": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "customers": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "settings": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "suppliers": {
+                        "default": false,
+                        "type": "boolean"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "name": {
+                    "maxLength": 150,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "planCode": {
+                    "maxLength": 30,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "TRIAL",
+                      "ACTIVE"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedStore"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: STORE_NO_OWNER"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a separate store (new company) for this company's owner, copying chosen data once",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
     "/api/platform/tenants/{id}/subscription": {
       "patch": {
         "operationId": "PlatformController_updateSubscription",
@@ -19972,112 +20118,6 @@
           }
         ],
         "summary": "Stores you have an account in (same confirmed e-mail)",
-        "tags": [
-          "stores"
-        ]
-      },
-      "post": {
-        "operationId": "StoresController_create",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "branchName": {
-                    "maxLength": 100,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "copy": {
-                    "default": {},
-                    "properties": {
-                      "catalog": {
-                        "default": true,
-                        "type": "boolean"
-                      },
-                      "customers": {
-                        "default": false,
-                        "type": "boolean"
-                      },
-                      "images": {
-                        "default": true,
-                        "type": "boolean"
-                      },
-                      "settings": {
-                        "default": true,
-                        "type": "boolean"
-                      },
-                      "suppliers": {
-                        "default": false,
-                        "type": "boolean"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "name": {
-                    "maxLength": 150,
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreatedStore"
-                }
-              }
-            },
-            "description": "Success"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid input. Codes: VALIDATION_FAILED"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed. Codes: EMAIL_NOT_VERIFIED"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict with the current state. Codes: STORE_LIMIT_REACHED"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a separate store (new company) and copy chosen data of this one into it once",
         "tags": [
           "stores"
         ]

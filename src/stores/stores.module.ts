@@ -7,5 +7,6 @@ import { StoresService } from './stores.service.js';
   imports: [AuthModule],
   controllers: [StoresController],
   providers: [StoresService],
+  exports: [StoresService],
 })
 export class StoresModule {}

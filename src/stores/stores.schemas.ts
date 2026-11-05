@@ -2,11 +2,14 @@ import { z } from 'zod';
 import { tenantCodeSchema } from '../tenancy/tenancy.schemas.js';
 
 /**
- * A new store separate from this one (its own company): what to copy from the current
- * store. Copies are made once; afterwards the stores never change each other.
+ * Super Admin: a new store separate from a company (its own company) for the same owner,
+ * and what to copy from it. Copies are made once; afterwards the stores never change each other.
  */
 export const createStoreSchema = z.object({
   name: z.string().trim().min(1).max(150),
+  /** Default: the source company's plan (trial if it has one). */
+  planCode: z.string().trim().toUpperCase().min(1).max(30).optional(),
+  status: z.enum(['TRIAL', 'ACTIVE']).optional(),
   /** First branch name; default "Main". */
   branchName: z.string().trim().min(1).max(100).optional(),
   copy: z

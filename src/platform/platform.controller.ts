@@ -73,6 +73,12 @@ import {
 } from './platform.schemas.js';
 import { PlatformService } from './platform.service.js';
 import { PlatformSettingsService } from './platform-settings.service.js';
+import { createdStoreSchema } from '../stores/stores.responses.js';
+import {
+  createStoreSchema,
+  type CreateStoreInput,
+} from '../stores/stores.schemas.js';
+import { StoresService } from '../stores/stores.service.js';
 
 const id = new ParseUUIDPipe();
 const platformInvoicesSchema = pageQuerySchema.extend({
@@ -134,6 +140,7 @@ export class PlatformController {
     private readonly account: AccountService,
     private readonly billing: BillingService,
     private readonly settings: PlatformSettingsService,
+    private readonly stores: StoresService,
   ) {}
 
   @Get('settings')
@@ -207,6 +214,21 @@ export class PlatformController {
       );
     }
     return result;
+  }
+
+  @Post('tenants/:id/stores')
+  @ApiOperation({
+    summary:
+      "Create a separate store (new company) for this company's owner, copying chosen data once",
+  })
+  @ApiZodBody(createStoreSchema)
+  @ApiZodResponse(createdStoreSchema)
+  @ApiErrors(errors(VALIDATION, { 409: ['STORE_NO_OWNER'] }))
+  createStore(
+    @Param('id', id) tenantId: string,
+    @Body(zod(createStoreSchema)) body: CreateStoreInput,
+  ) {
+    return this.stores.create(tenantId, body);
   }
 
   @Get('tenants/:id')

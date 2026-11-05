@@ -1,6 +1,6 @@
 # Independent stores (separate companies of one owner)
 
-Decided 2026-11-05. Status: built (`src/stores/`, frontend `/settings/stores`).
+Decided 2026-11-05. Status: built (`src/stores/`, platform console company page). Creation moved to the Super Admin the same day.
 
 ## Problem
 
@@ -26,7 +26,7 @@ the catalog, customers, suppliers, settings and users on purpose.
 | Stock transfer | yes | no (sell / receive) |
 | Company code, document numbers, subscription | same | own |
 
-## What is copied (`POST /stores`)
+## What is copied (`POST /platform/tenants/:id/stores`)
 
 Always (replacing the sign-up defaults): VAT rates, payment types, expense categories,
 currencies with the current rate of each.
@@ -47,31 +47,39 @@ quotations, repairs, expenses, held bills, audit log, staff accounts, branch pri
 Everything runs in one transaction (`ProvisioningService.provision(..., { extend })`); copied
 image files are deleted if it fails.
 
-## Owner and switching
+## Who creates it
 
-- Only users with `settings.manage` and a **confirmed e-mail** may create a store (403
-  `EMAIL_NOT_VERIFIED`). The owner account of the new store gets the same username, name,
-  e-mail (confirmed), password hash, Google link and photo, in the Admin group.
-- `GET /stores` lists the stores where an active account with the same confirmed e-mail
-  exists; `POST /stores/switch` issues tokens for that account without the password (403
+- **Only the Super Admin**, from the company page of the platform console (shop users have no
+  create endpoint or page). Reasons: every store is a new subscription billed by PLC (payments
+  are confirmed by hand), and it stops shops from creating stores to get repeated free trials.
+- The owner of the new store is the source company's first active Admin, preferring one with a
+  confirmed e-mail (409 `STORE_NO_OWNER` if there is none). The account is copied: username,
+  name, e-mail, password hash, Google link and photo, in the Admin group.
+
+## Switching
+
+- `GET /stores` lists the stores where an active account with the same confirmed e-mail exists;
+  `POST /stores/switch` issues tokens for that account without the password (403
   `STORE_NOT_YOURS` otherwise). An unconfirmed address in either store is never a way in.
-- At most 20 stores per owner e-mail (409 `STORE_LIMIT_REACHED`).
+- If the owner's e-mail is not confirmed, the store is still created (`ownerCanSwitch: false`):
+  the owner signs in to it with its company code, username and the same password, and can
+  switch after confirming the e-mail in both stores.
 - E-mail sign-in already asks which company when one address is in several.
 
 ## Subscription
 
-Each store has its own subscription on the current store's plan: a trial when the plan has
-trial days, active when the plan is free, otherwise the default sign-up plan with its trial.
-Pricing for several stores of one owner is a business decision still open.
+The Super Admin picks the plan and status, or leaves "same plan": the source company's plan as
+a trial when it has trial days, active when it is free, otherwise the default sign-up plan.
+Each store has its own subscription and invoices.
 
 ## Frontend
 
-- Settings → "My stores" (`features/settings/stores-screen.tsx`): list with switch buttons, and
-  the create form (name, first branch name, copy options); after creating, a summary of what
-  was copied and "Go to the new store".
-- Sidebar company menu: other stores to switch to and a link to create/manage.
-- Switching clears the query cache, cart, till and branch choice, revokes the old refresh
-  token and opens the dashboard.
+- Platform console, company page: "New separate store" dialog (name, first branch, plan and
+  status, copy options); afterwards a summary of what was copied, the owner, and a warning when
+  the owner cannot switch yet.
+- Shop side: the sidebar company menu lists the owner's other stores, only when there are any.
+  Switching clears the query cache, cart, till and branch choice, revokes the old refresh token
+  and opens the dashboard.
 
 ## Later
 

@@ -4,7 +4,6 @@ import { authTokensSchema } from '../auth/auth.responses.js';
 import { AuthService } from '../auth/auth.service.js';
 import type { AuthTokens, AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import {
   ApiErrors,
   ApiZodResponse,
@@ -15,27 +14,19 @@ import {
   openApiSchema,
   ZodValidationPipe,
 } from '../common/zod-validation.pipe.js';
-import { createdStoreSchema, myStoresSchema } from './stores.responses.js';
-import {
-  createStoreSchema,
-  switchStoreSchema,
-  type CreateStoreInput,
-  type SwitchStoreInput,
-} from './stores.schemas.js';
-import { StoresService } from './stores.service.js';
+import { myStoresSchema } from './stores.responses.js';
+import { switchStoreSchema, type SwitchStoreInput } from './stores.schemas.js';
 
 /**
  * Separate stores of one owner. Each store is its own company: no data is shared; the
  * owner's account (same confirmed e-mail) exists in each and can switch between them.
+ * Only the Super Admin creates stores (POST /platform/tenants/:id/stores).
  */
 @ApiTags('stores')
 @ApiBearerAuth()
 @Controller('stores')
 export class StoresController {
-  constructor(
-    private readonly stores: StoresService,
-    private readonly auth: AuthService,
-  ) {}
+  constructor(private readonly auth: AuthService) {}
 
   @Get()
   @ApiOperation({
@@ -44,27 +35,6 @@ export class StoresController {
   @ApiZodResponse(myStoresSchema)
   mine(@CurrentUser() user: AuthUser) {
     return this.auth.myStores(user.id);
-  }
-
-  @Post()
-  @RequirePermissions('settings.manage')
-  @ApiOperation({
-    summary:
-      'Create a separate store (new company) and copy chosen data of this one into it once',
-  })
-  @ApiBody({ schema: openApiSchema(createStoreSchema) })
-  @ApiZodResponse(createdStoreSchema)
-  @ApiErrors(
-    errors(VALIDATION, {
-      403: ['EMAIL_NOT_VERIFIED'],
-      409: ['STORE_LIMIT_REACHED'],
-    }),
-  )
-  create(
-    @CurrentUser() user: AuthUser,
-    @Body(new ZodValidationPipe(createStoreSchema)) body: CreateStoreInput,
-  ) {
-    return this.stores.create(user.id, body);
   }
 
   @Post('switch')
