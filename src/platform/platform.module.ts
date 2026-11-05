@@ -8,12 +8,18 @@ import {
   PlatformController,
   PublicController,
 } from './platform.controller.js';
+import { PlatformBanksController } from './platform-banks.controller.js';
 import { PlatformSettingsService } from './platform-settings.service.js';
 import { PlatformService } from './platform.service.js';
 
 @Module({
   imports: [AuthModule, BillingModule, StoresModule],
-  controllers: [PlatformAuthController, PlatformController, PublicController],
+  controllers: [
+    PlatformAuthController,
+    PlatformController,
+    PlatformBanksController,
+    PublicController,
+  ],
   providers: [
     PlatformAuthService,
     PlatformGuard,

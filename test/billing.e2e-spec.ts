@@ -4,6 +4,10 @@ import { createTestApp, type TestApp } from './helpers.js';
 
 const SECRET = 'test-webhook-secret-123456';
 const DAY = 86_400_000;
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 describe('Plan billing (e2e)', () => {
   let t: TestApp;
@@ -218,5 +222,149 @@ describe('Plan billing (e2e)', () => {
       .get(`/reports/sales-summary?branchId=${t.branchId}`)
       .set(admin.auth)
       .expect(200);
+  });
+
+  it('pays by QR: bank accounts in the pay dialog, slip review, reject, then confirm', async () => {
+    // Super Admin adds a bank account with its QR code.
+    const qr = (
+      await t
+        .http()
+        .post('/platform/uploads/bank-qr')
+        .set(platform)
+        .attach('file', PNG, { filename: 'qr.png', contentType: 'image/png' })
+        .expect(201)
+    ).body.url as string;
+    expect(qr).toMatch(/^\/api\/uploads\/platform\//);
+    await t
+      .http()
+      .post('/platform/bank-accounts')
+      .set(platform)
+      .send({
+        bankName: 'BCEL',
+        accountName: 'PLC',
+        accountNumber: '010-12-00-1',
+        qrImageUrl: '/api/uploads/products/x/evil.png',
+      })
+      .expect(400);
+    const bank = (
+      await t
+        .http()
+        .post('/platform/bank-accounts')
+        .set(platform)
+        .send({
+          bankName: `BCEL ${uniq()}`,
+          accountName: 'PLC POS',
+          accountNumber: '010-12-00-1',
+          qrImageUrl: qr,
+        })
+        .expect(201)
+    ).body;
+
+    const c = await company();
+    const inv = (
+      await t
+        .http()
+        .post('/billing/checkout')
+        .set(c.auth)
+        .send({ planCode: 'BUSINESS', months: 1 })
+        .expect(201)
+    ).body;
+    expect(inv.review).toBe('UNPAID');
+    expect(
+      inv.payment.bankAccounts.some(
+        (b: { id: string; qrImageUrl: string }) =>
+          b.id === bank.id && b.qrImageUrl === qr,
+      ),
+    ).toBe(true);
+
+    // Nothing to reject before a slip is sent; a shop token cannot use the platform route.
+    await t
+      .http()
+      .post(`/platform/invoices/${inv.id}/reject`)
+      .set(platform)
+      .send({ reason: 'x' })
+      .expect(409);
+    await t
+      .http()
+      .post(`/platform/invoices/${inv.id}/reject`)
+      .set(c.auth)
+      .send({ reason: 'x' })
+      .expect(401);
+
+    const sent = (
+      await t
+        .http()
+        .post(`/billing/invoices/${inv.id}/slip`)
+        .set(c.auth)
+        .attach('file', PNG, { filename: 'slip.png', contentType: 'image/png' })
+        .expect(201)
+    ).body;
+    expect(sent.review).toBe('IN_REVIEW');
+    expect(sent.slipUrl).toContain(`/slips/${c.id}/`);
+
+    const inReview = (
+      await t
+        .http()
+        .get(`/platform/invoices?inReview=true&tenantId=${c.id}`)
+        .set(platform)
+        .expect(200)
+    ).body;
+    expect(inReview.items.map((i: { id: string }) => i.id)).toEqual([inv.id]);
+
+    // Rejected: the company sees why, and the invoice leaves the review list.
+    await t
+      .http()
+      .post(`/platform/invoices/${inv.id}/reject`)
+      .set(platform)
+      .send({ reason: 'Amount not visible' })
+      .expect(200);
+    const list = (
+      await t.http().get('/billing/invoices').set(c.auth).expect(200)
+    ).body;
+    const mine = list.items.find((i: { id: string }) => i.id === inv.id);
+    expect(mine.review).toBe('REJECTED');
+    expect(mine.rejectReason).toBe('Amount not visible');
+    expect(
+      (
+        await t
+          .http()
+          .get(`/platform/invoices?inReview=true&tenantId=${c.id}`)
+          .set(platform)
+          .expect(200)
+      ).body.items,
+    ).toHaveLength(0);
+
+    // A new slip goes back to review; confirming it activates the plan.
+    await new Promise((r) => setTimeout(r, 5));
+    const again = (
+      await t
+        .http()
+        .post(`/billing/invoices/${inv.id}/slip`)
+        .set(c.auth)
+        .attach('file', PNG, {
+          filename: 'slip2.png',
+          contentType: 'image/png',
+        })
+        .expect(201)
+    ).body;
+    expect(again.review).toBe('IN_REVIEW');
+    await t
+      .http()
+      .post(`/platform/invoices/${inv.id}/mark-paid`)
+      .set(platform)
+      .send({ reference: 'slip checked' })
+      .expect(200);
+    await t
+      .http()
+      .post(`/billing/invoices/${inv.id}/slip`)
+      .set(c.auth)
+      .attach('file', PNG, { filename: 'late.png', contentType: 'image/png' })
+      .expect(409);
+
+    await t
+      .http()
+      .delete(`/platform/bank-accounts/${bank.id}`)
+      .set(platform)
+      .expect(204);
   });
 });

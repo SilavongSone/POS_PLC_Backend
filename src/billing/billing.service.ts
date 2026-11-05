@@ -20,6 +20,8 @@ import { MailService } from '../mail/mail.service.js';
 import { mailTemplates } from '../mail/templates.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
+import { ImageStoreService } from '../common/image-store.service.js';
+import { BankAccountsService } from './bank-accounts.service.js';
 
 const notPending = () =>
   new ConflictException({
@@ -43,6 +45,23 @@ export function transferReference(tenantCode: string, invoiceNumber: string) {
   return `${tenantCode.toUpperCase()}-${invoiceNumber}`;
 }
 
+/**
+ * Where a pending invoice stands: UNPAID (no slip yet), IN_REVIEW (slip sent, a platform admin
+ * has to check it) or REJECTED (slip turned down: send a new one). Paid/cancelled: null.
+ */
+export type SlipReview = 'UNPAID' | 'IN_REVIEW' | 'REJECTED';
+export function slipReview(inv: {
+  status: InvoiceStatus;
+  slipAt: Date | null;
+  rejectedAt: Date | null;
+}): SlipReview | null {
+  if (inv.status !== 'PENDING') return null;
+  if (!inv.slipAt) return 'UNPAID';
+  return inv.rejectedAt && inv.rejectedAt >= inv.slipAt
+    ? 'REJECTED'
+    : 'IN_REVIEW';
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -52,9 +71,11 @@ export class BillingService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly config: ConfigService<Env, true>,
+    private readonly banks: BankAccountsService,
+    private readonly images: ImageStoreService,
   ) {}
 
-  /** How to pay an invoice: bank details and, if configured, an online payment link. */
+  /** How to pay an invoice: bank accounts with QR codes and, if configured, an online link. */
   private payment(
     inv: {
       id: string;
@@ -62,9 +83,11 @@ export class BillingService {
       amountLak: Prisma.Decimal;
     },
     tenantCode: string,
+    bankAccounts: Awaited<ReturnType<BankAccountsService['listActive']>>,
   ) {
     const url = this.config.get('BILLING_PAY_URL', { infer: true });
     return {
+      bankAccounts,
       bankInfo: this.config.get('BILLING_BANK_INFO', { infer: true }) ?? null,
       payUrl: url
         ? url
@@ -116,7 +139,12 @@ export class BillingService {
     });
     return {
       ...invoice,
-      payment: this.payment(invoice, await this.tenantCode()),
+      review: slipReview(invoice),
+      payment: this.payment(
+        invoice,
+        await this.tenantCode(),
+        await this.banks.listActive(),
+      ),
     };
   }
 
@@ -134,7 +162,7 @@ export class BillingService {
 
   async list(q: PageQuery & { status?: InvoiceStatus }) {
     const where = { status: q.status };
-    const [items, total, code] = await Promise.all([
+    const [items, total, code, banks] = await Promise.all([
       this.prisma.billingInvoice.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -143,11 +171,13 @@ export class BillingService {
       }),
       this.prisma.billingInvoice.count({ where }),
       this.tenantCode(),
+      this.banks.listActive(),
     ]);
     return toPage(
       items.map((i) => ({
         ...i,
-        payment: i.status === 'PENDING' ? this.payment(i, code) : null,
+        review: slipReview(i),
+        payment: i.status === 'PENDING' ? this.payment(i, code, banks) : null,
       })),
       total,
       q,
@@ -173,9 +203,26 @@ export class BillingService {
   }
 
   /** Platform: invoices of every company. */
-  listAll(q: PageQuery & { status?: InvoiceStatus; tenantId?: string }) {
+  listAll(
+    q: PageQuery & {
+      status?: InvoiceStatus;
+      tenantId?: string;
+      inReview?: boolean;
+    },
+  ) {
     return RequestContext.asPlatform(async () => {
-      const where = { status: q.status, tenantId: q.tenantId };
+      // In review: pending, with a slip sent after the last rejection.
+      const where: Prisma.BillingInvoiceWhereInput = q.inReview
+        ? {
+            tenantId: q.tenantId,
+            status: 'PENDING',
+            slipAt: { not: null },
+            OR: [
+              { rejectedAt: null },
+              { rejectedAt: { lt: this.prisma.billingInvoice.fields.slipAt } },
+            ],
+          }
+        : { status: q.status, tenantId: q.tenantId };
       const [items, total] = await Promise.all([
         this.prisma.billingInvoice.findMany({
           where,
@@ -191,11 +238,69 @@ export class BillingService {
       return toPage(
         items.map((i) => ({
           ...i,
+          review: slipReview(i),
           transferReference: transferReference(i.tenant.code, i.number),
         })),
         total,
         q,
       );
+    });
+  }
+
+  /**
+   * Current company: a screenshot of the transfer for a pending invoice. A platform admin
+   * checks it, then confirms (mark-paid) or rejects it with a reason; a new slip can follow.
+   */
+  async uploadSlip(
+    invoiceId: string,
+    file: { buffer: Buffer; mimetype: string; size: number },
+    userId: string,
+  ) {
+    const inv = await this.prisma.billingInvoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+    });
+    if (inv.status !== 'PENDING') throw notPending();
+    const slipUrl = await this.images.save('slips', file);
+    const updated = await this.prisma.billingInvoice.update({
+      where: { id: invoiceId },
+      data: { slipUrl, slipAt: new Date() },
+      include: { plan: { select: { code: true, name: true } } },
+    });
+    await this.audit.log({
+      userId,
+      action: 'BILLING_SLIP',
+      entity: 'BillingInvoice',
+      entityId: invoiceId,
+      after: { slipUrl },
+    });
+    return { ...updated, review: slipReview(updated) };
+  }
+
+  /** Platform: the slip does not show the payment; the company is asked for a new one. */
+  async rejectSlip(invoiceId: string, reason: string, platformAdminId: string) {
+    const inv = await RequestContext.asPlatform(() =>
+      this.prisma.billingInvoice.findUniqueOrThrow({
+        where: { id: invoiceId },
+      }),
+    );
+    if (slipReview(inv) !== 'IN_REVIEW')
+      throw new ConflictException({
+        message: 'This invoice has no slip waiting for review',
+        code: 'SLIP_NOT_IN_REVIEW',
+      });
+    return RequestContext.withTenant(inv.tenantId, async () => {
+      const updated = await this.prisma.billingInvoice.update({
+        where: { id: invoiceId },
+        data: { rejectReason: reason, rejectedAt: new Date() },
+      });
+      await this.audit.log({
+        userId: null,
+        action: 'BILLING_SLIP_REJECT',
+        entity: 'BillingInvoice',
+        entityId: invoiceId,
+        after: { reason, platformAdminId },
+      });
+      return { ...updated, review: slipReview(updated) };
     });
   }
 

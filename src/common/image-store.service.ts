@@ -15,14 +15,17 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Folders under UPLOAD_DIR; each holds one sub-folder per company. */
 export type ImageFolder =
-  'products' | 'branding' | 'repairs' | 'expenses' | 'avatars';
+  'products' | 'branding' | 'repairs' | 'expenses' | 'avatars' | 'slips';
 const FOLDERS: ImageFolder[] = [
   'products',
   'branding',
   'repairs',
   'expenses',
   'avatars',
+  'slips',
 ];
+/** Platform files (bank QR codes): not owned by any company. */
+const PLATFORM_DIR = 'platform';
 
 const PREFIX = '/api/uploads/';
 
@@ -59,6 +62,28 @@ export class ImageStoreService {
     folder: ImageFolder,
     file: { buffer: Buffer; mimetype: string; size: number },
   ): Promise<string> {
+    return this.write(`${folder}/${RequestContext.tenantId()}`, file);
+  }
+
+  /** Validates and stores a platform image (bank QR codes); returns its URL. */
+  savePlatform(file: {
+    buffer: Buffer;
+    mimetype: string;
+    size: number;
+  }): Promise<string> {
+    return this.write(PLATFORM_DIR, file);
+  }
+
+  /** True for a URL that `savePlatform()` returned. */
+  isPlatform(url: string): boolean {
+    const rest = url.startsWith(PREFIX) ? url.slice(PREFIX.length) : '';
+    return /^platform\/[\w-]+\.(jpg|png|webp)$/.test(rest);
+  }
+
+  private async write(
+    dir: string,
+    file: { buffer: Buffer; mimetype: string; size: number },
+  ): Promise<string> {
     const ext = ALLOWED_IMAGE_TYPES[file.mimetype];
     // Check the file's own signature too: the declared type comes from the client.
     if (!ext || !hasImageSignature(file.buffer, ext)) {
@@ -66,7 +91,6 @@ export class ImageStoreService {
     }
     if (file.size > MAX_IMAGE_BYTES)
       throw new BadRequestException('Image must be 5 MB or less');
-    const dir = `${folder}/${RequestContext.tenantId()}`;
     const name = `${randomUUID()}.${ext}`;
     await mkdir(path.join(this.root(), dir), { recursive: true });
     await writeFile(path.join(this.root(), dir, name), file.buffer);

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,6 +10,7 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RawBodyRequest } from '@nestjs/common';
@@ -19,6 +21,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
 import { pageQuerySchema } from '../common/pagination.js';
+import { ImageUpload } from '../common/uploads.controller.js';
 import { ApiZodBody, zod } from '../common/zod-validation.pipe.js';
 import { BillingService, webhookBodySchema } from './billing.service.js';
 
@@ -54,6 +57,21 @@ export class BillingController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.billing.checkout(body.planCode, body.months, user.id);
+  }
+
+  @Post('invoices/:id/slip')
+  @ImageUpload(
+    'Screenshot of the bank transfer for a pending invoice; a platform admin checks it before confirming',
+    false,
+  )
+  uploadSlip(
+    @Param('id', id) invoiceId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!file)
+      throw new BadRequestException('Send the image as form field "file"');
+    return this.billing.uploadSlip(invoiceId, file, user.id);
   }
 
   @Post('invoices/:id/cancel')

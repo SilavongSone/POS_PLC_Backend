@@ -31,8 +31,11 @@ export const uploadedImageSchema = apiSchema(
   z.object({ url: z.string() }),
 );
 
-/** Multipart image upload (form field "file") answering `{ url }`. */
-const ImageUpload = (summary: string) =>
+/**
+ * Multipart image upload (form field "file") answering `{ url }`; with `answersUrl` false the
+ * endpoint answers with its own record instead.
+ */
+export const ImageUpload = (summary: string, answersUrl = true) =>
   applyDecorators(
     UseInterceptors(
       FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
@@ -45,7 +48,9 @@ const ImageUpload = (summary: string) =>
       },
     }),
     ApiOperation({ summary }),
-    ApiZodResponse(uploadedImageSchema, { status: 201 }),
+    ...(answersUrl
+      ? [ApiZodResponse(uploadedImageSchema, { status: 201 })]
+      : []),
   );
 
 /**

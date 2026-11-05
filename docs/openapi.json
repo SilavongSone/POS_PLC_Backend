@@ -9258,6 +9258,51 @@
         ]
       }
     },
+    "/api/billing/invoices/{id}/slip": {
+      "post": {
+        "operationId": "BillingController_uploadSlip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Screenshot of the bank transfer for a pending invoice; a platform admin checks it before confirming",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/api/branches": {
       "get": {
         "operationId": "BranchesController_list",
@@ -12456,6 +12501,194 @@
         ]
       }
     },
+    "/api/platform/bank-accounts": {
+      "get": {
+        "operationId": "PlatformBanksController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bank accounts shown in the company pay dialog",
+        "tags": [
+          "platform"
+        ]
+      },
+      "post": {
+        "operationId": "PlatformBanksController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "accountName": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "accountNumber": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "bankName": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "note": {
+                    "maxLength": 300,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "qrImageUrl": {
+                    "maxLength": 300,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "sortOrder": {
+                    "default": 0,
+                    "maximum": 1000,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "bankName",
+                  "accountName",
+                  "accountNumber"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/platform/bank-accounts/{id}": {
+      "delete": {
+        "operationId": "PlatformBanksController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "platform"
+        ]
+      },
+      "patch": {
+        "operationId": "PlatformBanksController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "accountName": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "accountNumber": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "bankName": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "note": {
+                    "maxLength": 300,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "qrImageUrl": {
+                    "maxLength": 300,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "sortOrder": {
+                    "maximum": 1000,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "platform"
+        ]
+      }
+    },
     "/api/platform/invoices": {
       "get": {
         "operationId": "PlatformController_listInvoices",
@@ -12526,6 +12759,55 @@
           }
         ],
         "summary": "Record a payment seen in the bank; extends the subscription",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/platform/invoices/{id}/reject": {
+      "post": {
+        "operationId": "PlatformBanksController_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "reason": {
+                    "maxLength": 300,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn down the transfer slip of a pending invoice; the company sees the reason and sends a new one",
         "tags": [
           "platform"
         ]
@@ -13513,6 +13795,49 @@
           }
         ],
         "summary": "Change plan, status, trial/period end or per-company overrides",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/api/platform/uploads/bank-qr": {
+      "post": {
+        "operationId": "PlatformBanksController_uploadQr",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "QR code image of a bank account (JPEG/PNG/WebP ≤ 5 MB)",
         "tags": [
           "platform"
         ]

@@ -35,7 +35,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
 import { SignupService } from '../tenancy/signup.service.js';
 import { BillingService } from '../billing/billing.service.js';
-import { pageQuerySchema } from '../common/pagination.js';
+import { pageQuerySchema, queryBoolean } from '../common/pagination.js';
 import { AccountService } from '../account/account.service.js';
 import { GoogleIdentityService } from '../account/google-identity.service.js';
 import { RequestContext } from '../common/request-context.js';
@@ -84,6 +84,8 @@ const id = new ParseUUIDPipe();
 const platformInvoicesSchema = pageQuerySchema.extend({
   status: z.enum(['PENDING', 'PAID', 'CANCELLED']).optional(),
   tenantId: z.uuid().optional(),
+  /** Only pending invoices whose slip waits for review. */
+  inReview: queryBoolean.optional(),
 });
 const markPaidSchema = z.object({
   method: z

@@ -73,6 +73,7 @@ export const th: Record<string, string> = {
   GOOGLE_EMAIL_UNVERIFIED: 'Google ยังไม่ได้ยืนยันอีเมลนี้',
   TENANT_REQUIRED: 'กรุณาเลือกบริษัท',
   INVOICE_NOT_PENDING: 'ใบแจ้งหนี้นี้ชำระแล้วหรือถูกยกเลิก',
+  SLIP_NOT_IN_REVIEW: 'ใบแจ้งหนี้นี้ไม่มีหลักฐานการโอนที่รอตรวจ',
   WEBHOOK_DISABLED: 'ยังไม่ได้ตั้งค่าการยืนยันการชำระออนไลน์',
   WEBHOOK_SIGNATURE_INVALID: 'ลายเซ็นไม่ถูกต้อง',
   AMOUNT_MISMATCH: 'ยอดเงินไม่ตรงกับใบแจ้งหนี้',

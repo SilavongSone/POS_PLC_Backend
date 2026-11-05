@@ -77,6 +77,7 @@ export const en: Record<string, string> = {
   GOOGLE_EMAIL_UNVERIFIED: 'Google has not confirmed this e-mail',
   TENANT_REQUIRED: 'Choose your company',
   INVOICE_NOT_PENDING: 'This invoice is already paid or cancelled',
+  SLIP_NOT_IN_REVIEW: 'This invoice has no transfer slip waiting for review',
   WEBHOOK_DISABLED: 'Online payment confirmation is not set up',
   WEBHOOK_SIGNATURE_INVALID: 'Invalid signature',
   AMOUNT_MISMATCH: 'The amount does not match the invoice',

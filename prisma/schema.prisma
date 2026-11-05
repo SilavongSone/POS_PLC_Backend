@@ -1495,6 +1495,22 @@ model PlatformSetting {
   updatedAt   DateTime @updatedAt
 }
 
+/// Bank accounts companies pay their plan into (platform-wide, set by the Super Admin): shown
+/// with their QR code in the company's pay dialog.
+model PlatformBankAccount {
+  id            String   @id @default(uuid())
+  bankName      String
+  accountName   String
+  accountNumber String
+  /// QR image the customer scans in the banking app (uploaded file URL).
+  qrImageUrl    String?
+  note          String?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 /// Replays the stored response when a client retries a request with the same Idempotency-Key.
 model IdempotencyKey {
   tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
@@ -1583,19 +1599,25 @@ enum InvoiceStatus {
 
 /// Invoice for a plan period, paid by bank transfer or an online gateway.
 model BillingInvoice {
-  id        String        @id @default(uuid())
-  tenantId  String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  number    String
-  planId    String
-  months    Int
-  amountLak Decimal       @db.Decimal(18, 0)
-  status    InvoiceStatus @default(PENDING)
+  id           String        @id @default(uuid())
+  tenantId     String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  number       String
+  planId       String
+  months       Int
+  amountLak    Decimal       @db.Decimal(18, 0)
+  status       InvoiceStatus @default(PENDING)
   /// BANK_TRANSFER, ONLINE, MANUAL …
-  method    String?
-  reference String?
-  paidAt    DateTime?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  method       String?
+  reference    String?
+  paidAt       DateTime?
+  /// Screenshot of the transfer sent by the company; a platform admin checks it before confirming.
+  slipUrl      String?
+  slipAt       DateTime?
+  /// Set when a platform admin turns the slip down (the company sends a new one).
+  rejectReason String?
+  rejectedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   plan   Plan   @relation(fields: [planId], references: [id])

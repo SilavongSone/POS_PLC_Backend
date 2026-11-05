@@ -77,6 +77,7 @@ export const lo: Record<string, string> = {
   GOOGLE_EMAIL_UNVERIFIED: 'Google ຍັງບໍ່ໄດ້ຢືນຢັນອີເມວນີ້',
   TENANT_REQUIRED: 'ກະລຸນາເລືອກບໍລິສັດ',
   INVOICE_NOT_PENDING: 'ໃບແຈ້ງໜີ້ນີ້ຈ່າຍແລ້ວ ຫຼື ຖືກຍົກເລີກ',
+  SLIP_NOT_IN_REVIEW: 'ໃບແຈ້ງໜີ້ນີ້ບໍ່ມີຫຼັກຖານການໂອນທີ່ລໍຖ້າກວດ',
   WEBHOOK_DISABLED: 'ຍັງບໍ່ໄດ້ຕັ້ງຄ່າການຢືນຢັນການຈ່າຍອອນລາຍ',
   WEBHOOK_SIGNATURE_INVALID: 'ລາຍເຊັນບໍ່ຖືກຕ້ອງ',
   AMOUNT_MISMATCH: 'ຈຳນວນເງິນບໍ່ກົງກັບໃບແຈ້ງໜີ້',
