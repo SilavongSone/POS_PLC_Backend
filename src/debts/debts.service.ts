@@ -22,6 +22,7 @@ import type {
   ReceiveDebtInput,
 } from './debts.schemas.js';
 import { RequestContext } from '../common/request-context.js';
+import { branchLimit } from '../branches/branch-access.service.js';
 
 const Decimal = Prisma.Decimal;
 
@@ -192,7 +193,10 @@ export class DebtsService {
   }
 
   async list(query: ListDebtPaymentsQuery) {
+    // A user limited to some branches sees payments taken at those branches only.
+    const limit = branchLimit();
     const where: Prisma.DebtPaymentWhereInput = {
+      ...(limit && { branchId: { in: limit } }),
       customerId: query.customerId,
       createdAt: {
         gte: query.from && startOfLocalDay(query.from),

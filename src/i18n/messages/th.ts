@@ -40,6 +40,7 @@ export const th: Record<string, string> = {
   INSUFFICIENT_STOCK: 'สินค้าไม่พอ',
   BRANCH_REQUIRED: 'กรุณาเลือกสาขา',
   BRANCH_FORBIDDEN: 'คุณไม่มีสิทธิ์ใช้สาขานี้',
+  BRANCH_LIMITED_ACTOR: 'เฉพาะผู้ใช้ที่ใช้ได้ทุกสาขาเท่านั้นที่ทำสิ่งนี้ได้',
   TAX_RATE_INVALID: 'กรุณาเลือกอัตรา VAT ที่เปิดใช้งานอยู่',
   FEATURE_NOT_IN_PLAN: 'แพ็กเกจของคุณไม่มี{feature}',
   PLAN_LIMIT_REACHED: 'แพ็กเกจของคุณใช้{limit}ได้สูงสุด {max} (ใช้แล้ว {used})',

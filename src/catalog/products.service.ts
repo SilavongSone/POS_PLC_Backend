@@ -9,6 +9,7 @@ import { ImageStoreService } from '../common/image-store.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { RequestContext } from '../common/request-context.js';
+import { branchLimit } from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SHARED_VARIANT_FIELDS } from './product-groups.shared.js';
 import { CurrenciesService } from '../settings/currencies.service.js';
@@ -119,25 +120,29 @@ export class ProductsService {
     return { rates, lakRounding };
   }
 
-  /** Counted products at or below their alert level at one branch (no stock row = 0). */
-  private async lowAtBranch(branchId: string) {
+  /** Counted products at or below their alert level over these branches (no stock row = 0). */
+  private async lowAtBranches(branchIds: string[]) {
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT p.id FROM "Product" p
-      LEFT JOIN "BranchStock" bs ON bs."productId" = p.id AND bs."branchId" = ${branchId}
+      LEFT JOIN "BranchStock" bs ON bs."productId" = p.id
+        AND bs."branchId" IN (${Prisma.join(branchIds)})
       WHERE p."tenantId" = ${RequestContext.tenantId()}
         AND p."trackStock" AND p.type = 'STANDARD'
-        AND COALESCE(bs.qty, 0) <= p."lowStockAlert"`;
+      GROUP BY p.id, p."lowStockAlert"
+      HAVING COALESCE(SUM(bs.qty), 0) <= p."lowStockAlert"`;
     return rows.map((r) => r.id);
   }
 
-  /** On hand at one branch for these products (empty without a branch). */
-  private async branchQtyMap(productIds: string[], branchId?: string) {
-    if (!branchId || !productIds.length) return new Map<string, number>();
-    const rows = await this.prisma.branchStock.findMany({
-      where: { branchId, productId: { in: productIds } },
-      select: { productId: true, qty: true },
+  /** On hand over these branches for these products (empty without branches). */
+  private async branchQtyMap(productIds: string[], branchIds?: string[]) {
+    if (!branchIds?.length || !productIds.length)
+      return new Map<string, number>();
+    const rows = await this.prisma.branchStock.groupBy({
+      by: ['productId'],
+      where: { branchId: { in: branchIds }, productId: { in: productIds } },
+      _sum: { qty: true },
     });
-    return new Map(rows.map((r) => [r.productId, r.qty]));
+    return new Map(rows.map((r) => [r.productId, r._sum.qty ?? 0]));
   }
 
   /** Current selling prices in LAK for a product row. */
@@ -205,6 +210,9 @@ export class ProductsService {
     query: ListProductsQuery,
     canViewCost: boolean,
   ): Promise<Page<unknown>> {
+    // A user limited to some branches sees stock as the sum over those branches only.
+    const limit = branchLimit(query.branchId);
+    const stockAt = query.branchId ? [query.branchId] : (limit ?? undefined);
     const where: Prisma.ProductWhereInput = {
       brandId: query.brandId,
       groupId: query.groupId,
@@ -217,19 +225,19 @@ export class ProductsService {
       }),
       // With a branch, "low" and "in stock" mean that branch's own stock.
       ...(query.lowStock &&
-        (query.branchId
-          ? { id: { in: await this.lowAtBranch(query.branchId) } }
+        (stockAt
+          ? { id: { in: await this.lowAtBranches(stockAt) } }
           : {
               trackStock: true,
               type: 'STANDARD',
               stockQty: { lte: this.prisma.product.fields.lowStockAlert },
             })),
       ...(query.inStock !== undefined &&
-        (query.branchId
+        (stockAt
           ? {
               branchStock: query.inStock
-                ? { some: { branchId: query.branchId, qty: { gt: 0 } } }
-                : { none: { branchId: query.branchId, qty: { gt: 0 } } },
+                ? { some: { branchId: { in: stockAt }, qty: { gt: 0 } } }
+                : { none: { branchId: { in: stockAt }, qty: { gt: 0 } } },
             }
           : { stockQty: query.inStock ? { gt: 0 } : { lte: 0 } })),
       ...(query.q && {
@@ -257,11 +265,18 @@ export class ProductsService {
     );
     const branchQty = await this.branchQtyMap(
       rows.map((r) => r.id),
-      query.branchId,
+      query.branchId ? [query.branchId] : undefined,
     );
+    const ownQty = limit
+      ? await this.branchQtyMap(
+          rows.map((r) => r.id),
+          limit,
+        )
+      : undefined;
     return toPage(
       rows.map((r) => ({
         ...this.present(atBranch(r, prices.get(r.id)), ctx, canViewCost),
+        ...(ownQty && { stockQty: ownQty.get(r.id) ?? 0 }),
         ...(query.branchId && { branchStockQty: branchQty.get(r.id) ?? 0 }),
       })),
       total,
@@ -283,16 +298,22 @@ export class ProductsService {
   ) {
     await this.prisma.product.findUniqueOrThrow({ where: { id } });
     const branchIds = input.items.map((i) => i.branchId);
+    // A user limited to some branches sets (and replaces) prices of those branches only.
+    for (const branchId of branchIds) branchLimit(branchId);
+    const limit = branchLimit();
+    const inLimit = limit ? { branchId: { in: limit } } : {};
     const known = await this.prisma.branch.count({
       where: { id: { in: branchIds } },
     });
     if (known !== branchIds.length)
       throw new BadRequestException('Unknown branch');
     const before = await this.prisma.branchPrice.findMany({
-      where: { productId: id },
+      where: { productId: id, ...inLimit },
     });
     await this.prisma.$transaction([
-      this.prisma.branchPrice.deleteMany({ where: { productId: id } }),
+      this.prisma.branchPrice.deleteMany({
+        where: { productId: id, ...inLimit },
+      }),
       this.prisma.branchPrice.createMany({
         data: input.items.map((i) => ({
           productId: id,
@@ -315,6 +336,9 @@ export class ProductsService {
 
   /** A product; with `branchId`, priced as at that branch. */
   async get(id: string, canViewCost: boolean, branchId?: string) {
+    // A user limited to some branches sees stock, units and prices of those branches only.
+    const limit = branchLimit(branchId);
+    const inLimit = limit ? { branchId: { in: limit } } : {};
     const [row, ctx, serialCounts] = await Promise.all([
       this.prisma.product.findUniqueOrThrow({
         where: { id },
@@ -323,17 +347,22 @@ export class ProductsService {
       this.pricingContext(),
       this.prisma.serialNumber.groupBy({
         by: ['condition'],
-        where: { productId: id, status: 'IN_STOCK' },
+        where: { productId: id, status: 'IN_STOCK', ...inLimit },
         _count: true,
       }),
     ]);
     const [demoUnits, branchStock, branchPrices, prices] = await Promise.all([
       this.prisma.serialNumber.findMany({
-        where: { productId: id, status: 'IN_STOCK', condition: 'DEMO' },
+        where: {
+          productId: id,
+          status: 'IN_STOCK',
+          condition: 'DEMO',
+          ...inLimit,
+        },
         select: { id: true, serial: true, priceLak: true, branchId: true },
       }),
       this.prisma.branchStock.findMany({
-        where: { productId: id },
+        where: { productId: id, ...inLimit },
         select: {
           qty: true,
           branch: { select: { id: true, code: true, name: true } },
@@ -341,7 +370,7 @@ export class ProductsService {
         orderBy: { branch: { code: 'asc' } },
       }),
       this.prisma.branchPrice.findMany({
-        where: { productId: id },
+        where: { productId: id, ...inLimit },
         select: {
           retailPrice: true,
           wholesalePrice: true,
@@ -353,6 +382,9 @@ export class ProductsService {
     ]);
     return {
       ...this.present(atBranch(row, prices.get(id)), ctx, canViewCost),
+      ...(limit && {
+        stockQty: branchStock.reduce((sum, b) => sum + b.qty, 0),
+      }),
       /** Prices that differ by branch (in the product's price currency). */
       branchPrices: branchPrices.map(({ branch, ...p }) => ({
         branchId: branch.id,

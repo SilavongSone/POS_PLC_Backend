@@ -19,11 +19,24 @@ export class BranchesService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
-  list(includeInactive = false) {
+  /** Branches; `only` = the user's assigned branches (null = every branch). */
+  list(includeInactive = false, only: string[] | null = null) {
     return this.prisma.branch.findMany({
-      where: includeInactive ? {} : { isActive: true },
+      where: {
+        ...(!includeInactive && { isActive: true }),
+        ...(only && { id: { in: only } }),
+      },
       orderBy: { code: 'asc' },
       include: { _count: { select: { registers: true } } },
+    });
+  }
+
+  /** Every active branch with just its name: where a transfer can be sent. */
+  targets() {
+    return this.prisma.branch.findMany({
+      where: { isActive: true },
+      orderBy: { code: 'asc' },
+      select: { id: true, code: true, name: true },
     });
   }
 

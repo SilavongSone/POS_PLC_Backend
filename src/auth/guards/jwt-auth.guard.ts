@@ -56,6 +56,7 @@ export class JwtAuthGuard implements CanActivate {
     request.user = user;
     const store = RequestContext.get();
     if (store && isLang(user.language)) store.userLang = user.language;
+    if (store) store.branchIds = user.branchIds;
     return true;
   }
 }

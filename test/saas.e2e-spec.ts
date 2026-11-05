@@ -619,6 +619,119 @@ describe('SaaS (e2e)', () => {
         .expect(403);
       expect(res.body.code).toBe('BRANCH_FORBIDDEN');
     });
+
+    it('keeps an Admin assigned to one branch out of the other branches', async () => {
+      // Stock: 4 at the main branch, 2 at the second.
+      const p = await product(c);
+      for (const [branchId, quantity] of [
+        [main, 4],
+        [second, 2],
+      ] as const) {
+        const doc = (
+          await api(c)
+            .post('/stock-documents', {
+              type: 'RECEIVE',
+              branchId,
+              items: [{ productId: p.id, quantity, unitCost: 1000 }],
+            })
+            .expect(201)
+        ).body;
+        await api(c).post(`/stock-documents/${doc.id}/post`).expect(200);
+      }
+      const owner = (await api(c).get('/auth/me').expect(200)).body;
+      const groups = (await api(c).get('/user-groups').expect(200)).body as {
+        id: string;
+        name: string;
+      }[];
+      const adminGroup = groups.find((g) => g.name === 'Admin')!.id;
+      const username = `b2admin-${uniq()}`;
+      await api(c)
+        .post('/users', {
+          username,
+          fullName: 'Branch 2 admin',
+          password: OWNER_PASSWORD,
+          groupId: adminGroup,
+          branchIds: [second],
+        })
+        .expect(201);
+      const login2 = (await login(c.code, username)).body;
+      expect(login2.user.branchIds).toEqual([second]);
+      const auth = { Authorization: `Bearer ${login2.accessToken}` };
+      const get = (url: string) => t.http().get(url).set(auth);
+      const forbidden = async (res: { body: { code: string } }) =>
+        expect(res.body.code).toBe('BRANCH_FORBIDDEN');
+
+      // Branch lists: only their branch; any branch only as a transfer target.
+      const branches = (await get('/branches?all=true').expect(200)).body;
+      expect(branches.map((b: { id: string }) => b.id)).toEqual([second]);
+      const targets = (await get('/branches/targets').expect(200)).body;
+      expect(targets.map((b: { id: string }) => b.id)).toEqual(
+        expect.arrayContaining([main, second]),
+      );
+      await forbidden(await get(`/branches/${main}`).expect(403));
+      const registers = (await get('/registers').expect(200)).body;
+      expect(
+        registers.every((r: { branchId: string }) => r.branchId === second),
+      ).toBe(true);
+
+      // Branch-bound data of the main branch is refused.
+      for (const url of [
+        `/sales?branchId=${main}`,
+        `/shifts?branchId=${main}`,
+        `/stock-documents?branchId=${main}`,
+        `/reports/dashboard?branchId=${main}`,
+        `/reports/sales-summary?branchId=${main}`,
+        `/products?branchId=${main}`,
+        `/products/${p.id}?branchId=${main}`,
+      ])
+        await forbidden(await get(url).expect(403));
+
+      // Shared catalog, but stock counts only their branch.
+      const detail = (await get(`/products/${p.id}`).expect(200)).body;
+      expect(detail.stockQty).toBe(2);
+      expect(detail.branchStock.map((b: { id: string }) => b.id)).toEqual([
+        second,
+      ]);
+      const listed = (
+        await get(`/products?q=${encodeURIComponent(p.sku)}`).expect(200)
+      ).body.items[0];
+      expect(listed.stockQty).toBe(2);
+
+      // Cannot widen their own access or touch users of other branches.
+      const me = (await get('/auth/me').expect(200)).body;
+      for (const branchIds of [[main, second], []])
+        await t
+          .http()
+          .patch(`/users/${me.id}`)
+          .set(auth)
+          .send({ branchIds })
+          .expect(403);
+      await t
+        .http()
+        .post('/users')
+        .set(auth)
+        .send({
+          username: `all-${uniq()}`,
+          fullName: 'Everywhere',
+          password: OWNER_PASSWORD,
+          groupId: adminGroup,
+        })
+        .expect(403);
+      await t
+        .http()
+        .post(`/users/${owner.id}/reset-password`)
+        .set(auth)
+        .send({ newPassword: 'another-password-1' })
+        .expect(403);
+      const users = (await get('/users').expect(200)).body.items;
+      expect(users.map((u: { id: string }) => u.id)).not.toContain(owner.id);
+      await t
+        .http()
+        .post('/branches')
+        .set(auth)
+        .send({ code: `X${Date.now() % 1000}`, name: 'Not mine' })
+        .expect(403);
+    });
   });
 
   describe('plans and subscriptions', () => {

@@ -41,6 +41,7 @@ export const en: Record<string, string> = {
   INSUFFICIENT_STOCK: 'Not enough stock',
   BRANCH_REQUIRED: 'Choose a branch',
   BRANCH_FORBIDDEN: 'You do not have access to this branch',
+  BRANCH_LIMITED_ACTOR: 'Only users who can use every branch can do this',
   TAX_RATE_INVALID: 'Choose an active VAT rate',
   FEATURE_NOT_IN_PLAN: 'Your plan does not include {feature}',
   PLAN_LIMIT_REACHED: 'Your plan allows at most {max} ({limit}); {used} in use',

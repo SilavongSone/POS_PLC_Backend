@@ -8,6 +8,7 @@ import { RequireFeature } from '../tenancy/require-feature.decorator.js';
 import { pageArgs, pageQuerySchema, toPage } from './pagination.js';
 import { startOfLocalDay } from './time.js';
 import { zod } from './zod-validation.pipe.js';
+import { branchLimit } from '../branches/branch-access.service.js';
 
 const isoDate = z.iso.date();
 const listAuditLogsSchema = pageQuerySchema.extend({
@@ -36,7 +37,12 @@ export class AuditLogsController {
       'Audit trail, newest first (?action, entity, entityId, userId, from, to)',
   })
   async list(@Query(zod(listAuditLogsSchema)) q: ListAuditLogsQuery) {
+    // A user limited to some branches sees what users of those branches did, only.
+    const limit = branchLimit();
     const where: Prisma.AuditLogWhereInput = {
+      ...(limit && {
+        user: { branches: { some: {}, every: { branchId: { in: limit } } } },
+      }),
       action: q.action,
       entity: q.entity,
       entityId: q.entityId,

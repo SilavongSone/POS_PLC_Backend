@@ -12,6 +12,8 @@ export type RequestStore = {
   userLang?: 'lo' | 'th' | 'en';
   headerLang?: 'lo' | 'th' | 'en';
   tenantLang?: 'lo' | 'th' | 'en';
+  /** Branches the signed-in user is limited to; null/undefined = every branch. */
+  branchIds?: string[] | null;
 };
 
 const storage = new AsyncLocalStorage<RequestStore>();

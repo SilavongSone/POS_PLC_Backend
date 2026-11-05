@@ -41,6 +41,7 @@ export const lo: Record<string, string> = {
   INSUFFICIENT_STOCK: 'ສິນຄ້າບໍ່ພໍ',
   BRANCH_REQUIRED: 'ກະລຸນາເລືອກສາຂາ',
   BRANCH_FORBIDDEN: 'ທ່ານບໍ່ມີສິດໃຊ້ສາຂານີ້',
+  BRANCH_LIMITED_ACTOR: 'ສະເພາະຜູ້ໃຊ້ທີ່ໃຊ້ໄດ້ທຸກສາຂາເທົ່ານັ້ນທີ່ເຮັດອັນນີ້ໄດ້',
   TAX_RATE_INVALID: 'ກະລຸນາເລືອກອັດຕາ VAT ທີ່ເປີດໃຊ້ຢູ່',
   FEATURE_NOT_IN_PLAN: 'ແພັກເກດຂອງທ່ານບໍ່ມີ{feature}',
   PLAN_LIMIT_REACHED:
@@ -48,7 +49,8 @@ export const lo: Record<string, string> = {
   SUBSCRIPTION_INACTIVE: 'ແພັກເກດໝົດອາຍຸແລ້ວ ກະລຸນາຕໍ່ອາຍຸເພື່ອແກ້ໄຂຂໍ້ມູນ',
   TENANT_SUSPENDED: 'ບັນຊີບໍລິສັດນີ້ຖືກລະງັບ',
   TENANT_CODE_TAKEN: 'ລະຫັດບໍລິສັດນີ້ມີຜູ້ໃຊ້ແລ້ວ',
-  STORE_NO_OWNER: 'ບໍລິສັດນີ້ບໍ່ມີ Admin ທີ່ເປີດໃຊ້ຢູ່ ເພື່ອເປັນເຈົ້າຂອງຮ້ານໃໝ່',
+  STORE_NO_OWNER:
+    'ບໍລິສັດນີ້ບໍ່ມີ Admin ທີ່ເປີດໃຊ້ຢູ່ ເພື່ອເປັນເຈົ້າຂອງຮ້ານໃໝ່',
   STORE_NOT_YOURS: 'ທ່ານບໍ່ມີບັນຊີໃນຮ້ານນີ້',
   SIGNUP_DISABLED: 'ປິດຮັບສະໝັກຊົ່ວຄາວ',
   UNIT_EXISTS: 'ມີຫົວໜ່ວຍນີ້ແລ້ວ',

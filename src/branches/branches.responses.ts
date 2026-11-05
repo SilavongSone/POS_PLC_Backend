@@ -27,3 +27,11 @@ export const branchListItemSchema = apiSchema(
   }),
 );
 export const branchesSchema = z.array(branchListItemSchema);
+
+/** GET /branches/targets: where stock can be transferred to (any active branch). */
+export const branchTargetsSchema = z.array(
+  apiSchema(
+    'BranchTarget',
+    z.strictObject({ id: z.uuid(), code: z.string(), name: z.string() }),
+  ),
+);

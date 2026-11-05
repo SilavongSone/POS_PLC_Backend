@@ -6,7 +6,26 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { RequestContext } from '../common/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+
+function branchForbidden() {
+  return new ForbiddenException({
+    message: 'You do not have access to this branch',
+    code: 'BRANCH_FORBIDDEN',
+  });
+}
+
+/**
+ * Branches the signed-in user is limited to (set by the auth guard); null = every branch.
+ * With `branchId`, that branch must be one of them. For code without an AuthUser at hand
+ * (catalog stock, branch prices).
+ */
+export function branchLimit(branchId?: string | null): string[] | null {
+  const own = RequestContext.get()?.branchIds ?? null;
+  if (branchId && own && !own.includes(branchId)) throw branchForbidden();
+  return own;
+}
 
 /**
  * Which branches a user may work in. A user with no UserBranch rows (branchIds = null)
@@ -18,10 +37,7 @@ export class BranchAccessService {
 
   assertAccess(user: AuthUser, branchId: string): void {
     if (user.branchIds && !user.branchIds.includes(branchId)) {
-      throw new ForbiddenException({
-        message: 'You do not have access to this branch',
-        code: 'BRANCH_FORBIDDEN',
-      });
+      throw branchForbidden();
     }
   }
 

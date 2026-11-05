@@ -2,7 +2,10 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types.js';
 import { hasPermission } from '../common/permissions.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { BranchAccessService } from '../branches/branch-access.service.js';
+import {
+  BranchAccessService,
+  branchLimit,
+} from '../branches/branch-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { HeldBillInput } from './sales.schemas.js';
 
@@ -28,8 +31,15 @@ export class HeldBillsService {
   }
 
   get(id: string) {
-    return this.prisma.heldBill.findUniqueOrThrow({
-      where: { id },
+    // Bills of the user's branches (and older ones saved without a branch).
+    const limit = branchLimit();
+    return this.prisma.heldBill.findFirstOrThrow({
+      where: {
+        id,
+        ...(limit && {
+          OR: [{ branchId: { in: limit } }, { branchId: null }],
+        }),
+      },
       include: { customer: { select: { id: true, name: true } } },
     });
   }
@@ -51,9 +61,7 @@ export class HeldBillsService {
   }
 
   async remove(id: string, user: AuthUser) {
-    const bill = await this.prisma.heldBill.findUniqueOrThrow({
-      where: { id },
-    });
+    const bill = await this.get(id);
     if (
       bill.cashierId !== user.id &&
       !hasPermission(user.permissions, 'sale.void')

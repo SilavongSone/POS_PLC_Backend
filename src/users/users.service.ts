@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { branchLimit } from '../branches/branch-access.service.js';
 import argon2 from 'argon2';
 import { AuditService } from '../common/audit.service.js';
 import { pageArgs, toPage, type Page } from '../common/pagination.js';
@@ -57,6 +59,30 @@ function toView({ pinHash, branches, ...user }: UserRow): UserView {
   };
 }
 
+/**
+ * A user limited to some branches manages only users limited to (some of) the same
+ * branches: never the owner or anyone who can use another branch.
+ */
+function manageableWhere(): Prisma.UserWhereInput {
+  const limit = branchLimit();
+  return limit
+    ? { branches: { some: {}, every: { branchId: { in: limit } } } }
+    : {};
+}
+
+/** A limited user may only give branches of their own, and must give at least one. */
+function assertGivenBranches(ids: string[] | undefined) {
+  const limit = branchLimit();
+  if (!limit) return;
+  if (!ids?.length)
+    throw new ForbiddenException({
+      message: 'Only users who can use every branch can do this',
+      code: 'BRANCH_LIMITED_ACTOR',
+      field: 'branchIds',
+    });
+  for (const id of ids) branchLimit(id);
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -69,6 +95,7 @@ export class UsersService {
 
   async list(query: ListUsersQuery): Promise<Page<UserView>> {
     const where: Prisma.UserWhereInput = {
+      ...manageableWhere(),
       groupId: query.groupId,
       isActive: query.isActive,
       ...(query.q && {
@@ -91,7 +118,21 @@ export class UsersService {
     return toPage(rows.map(toView), total, query);
   }
 
+  /** Throws unless the signed-in user may see and manage this user. */
+  private async assertManageable(id: string) {
+    if (!branchLimit()) return;
+    const ok = await this.prisma.user.count({
+      where: { id, ...manageableWhere() },
+    });
+    if (!ok)
+      throw new ForbiddenException({
+        message: 'You do not have access to this branch',
+        code: 'BRANCH_FORBIDDEN',
+      });
+  }
+
   async get(id: string): Promise<UserView> {
+    await this.assertManageable(id);
     return toView(
       await this.prisma.user.findUniqueOrThrow({
         where: { id },
@@ -104,6 +145,7 @@ export class UsersService {
     await this.prisma.userGroup.findUniqueOrThrow({
       where: { id: input.groupId },
     });
+    assertGivenBranches(input.branchIds);
     await this.assertBranches(input.branchIds);
     await this.entitlements.assertLimit('maxUsers');
     this.images.assertOwn([input.avatarUrl], 'avatars');
@@ -164,6 +206,7 @@ export class UsersService {
       await this.assertNotLastAdmin(id, input.groupId);
     }
 
+    if (input.branchIds !== undefined) assertGivenBranches(input.branchIds);
     await this.assertBranches(input.branchIds);
     this.images.assertOwn([input.avatarUrl], 'avatars');
     const { branchIds, firstName, lastName, fullName, ...fields } = input;
@@ -188,10 +231,7 @@ export class UsersService {
       if (input.isActive === false) await this.revokeSessions(tx, id);
       return updated;
     });
-    if (
-      input.avatarUrl !== undefined &&
-      input.avatarUrl !== before.avatarUrl
-    )
+    if (input.avatarUrl !== undefined && input.avatarUrl !== before.avatarUrl)
       await this.images.remove(before.avatarUrl);
     if (user.email && user.email !== before.email) {
       await this.account.sendVerification({ ...user, email: user.email });
@@ -217,6 +257,7 @@ export class UsersService {
 
   /** Sets a new password, clears any lock and signs the user out everywhere. */
   async resetPassword(id: string, newPassword: string, actorId: string) {
+    await this.assertManageable(id);
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id },
@@ -237,6 +278,7 @@ export class UsersService {
   }
 
   async setPin(id: string, pin: string | null, actorId: string) {
+    await this.assertManageable(id);
     await this.prisma.user.update({
       where: { id },
       data: { pinHash: pin ? await argon2.hash(pin) : null },
@@ -250,6 +292,7 @@ export class UsersService {
   }
 
   async unlock(id: string, actorId: string): Promise<UserView> {
+    await this.assertManageable(id);
     const user = await this.prisma.user.update({
       where: { id },
       data: { failedLoginCount: 0, lockedUntil: null },

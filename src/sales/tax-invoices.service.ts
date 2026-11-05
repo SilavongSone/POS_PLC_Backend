@@ -16,6 +16,7 @@ import type {
   IssueTaxInvoiceInput,
   ListTaxInvoicesQuery,
 } from './sales.schemas.js';
+import { branchLimit } from '../branches/branch-access.service.js';
 
 @Injectable()
 export class TaxInvoicesService {
@@ -76,9 +77,11 @@ export class TaxInvoicesService {
 
   /** Invoice with its sale and the seller's details, ready to print on A4. */
   async get(id: string) {
+    // A user limited to some branches sees invoices of those branches' sales only.
+    const limit = branchLimit();
     const [invoice, store] = await Promise.all([
-      this.prisma.taxInvoice.findUniqueOrThrow({
-        where: { id },
+      this.prisma.taxInvoice.findFirstOrThrow({
+        where: { id, ...(limit && { sale: { branchId: { in: limit } } }) },
         include: {
           issuedBy: { select: { id: true, fullName: true } },
           sale: {
@@ -129,7 +132,9 @@ export class TaxInvoicesService {
   }
 
   async list(query: ListTaxInvoicesQuery) {
+    const limit = branchLimit();
     const where: Prisma.TaxInvoiceWhereInput = {
+      ...(limit && { sale: { branchId: { in: limit } } }),
       issuedAt: {
         gte: query.from && startOfLocalDay(query.from),
         lt:

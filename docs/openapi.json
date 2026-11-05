@@ -323,6 +323,27 @@
         ],
         "type": "object"
       },
+      "BranchTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
       "Brand": {
         "additionalProperties": false,
         "properties": {
@@ -6467,6 +6488,12 @@
                   "nullable": true,
                   "type": "string"
                 },
+                "packCost": {
+                  "description": "Decimal number as a string",
+                  "nullable": true,
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "type": "string"
+                },
                 "product": {
                   "additionalProperties": false,
                   "properties": {
@@ -6488,12 +6515,6 @@
                     },
                     "unit": {
                       "type": "string"
-                "packCost": {
-                  "description": "Decimal number as a string",
-                  "nullable": true,
-                  "pattern": "^-?\\d+(\\.\\d+)?$",
-                  "type": "string"
-                },
                     }
                   },
                   "required": [
@@ -6594,6 +6615,7 @@
                 "productUnitId",
                 "unitName",
                 "unitFactor",
+                "packCost",
                 "product",
                 "serials"
               ],
@@ -6615,7 +6637,6 @@
             "nullable": true,
             "type": "string"
           },
-                "packCost",
           "reference": {
             "nullable": true,
             "type": "string"
@@ -9270,6 +9291,7 @@
             "bearer": []
           }
         ],
+        "summary": "Branches the user may use (users assigned to some branches see only those)",
         "tags": [
           "branches"
         ]
@@ -9337,6 +9359,36 @@
             "bearer": []
           }
         ],
+        "tags": [
+          "branches"
+        ]
+      }
+    },
+    "/api/branches/targets": {
+      "get": {
+        "operationId": "BranchesController_targets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BranchTarget"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Every active branch (id, code, name): where stock can be sent",
         "tags": [
           "branches"
         ]
