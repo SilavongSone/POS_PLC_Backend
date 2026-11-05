@@ -30,6 +30,7 @@ import { SalesModule } from './sales/sales.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { ShiftsModule } from './shifts/shifts.module.js';
 import { StockModule } from './stock/stock.module.js';
+import { StoresModule } from './stores/stores.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -64,6 +65,7 @@ import { UsersModule } from './users/users.module.js';
     MailModule,
     AccountModule,
     TenancyModule,
+    StoresModule,
     BillingModule,
     PlatformModule,
     BranchesModule,

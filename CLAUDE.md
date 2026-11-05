@@ -14,6 +14,7 @@ NestJS 12 + Prisma 7 + PostgreSQL REST API for the PLC POS (a shop selling POS e
 
 - Every company table has `tenantId`; the Prisma extension (`src/prisma/tenant-extension.ts`) scopes all queries from the request context and throws without one. Scripts/tests run inside `RequestContext.run({ tenantId }, …)`; platform code uses `RequestContext.asPlatform()` and sets `tenantId` itself.
 - Raw SQL is not scoped automatically: always filter `"tenantId" = ${RequestContext.tenantId()}` (and the branch scope for reports).
+- Separate stores of one owner are separate companies (`src/stores/`, spec `docs/specs/independent-stores.md`): `POST /stores` provisions a tenant and copies the chosen data once with new ids (`StoresService.copy`, inside `provision(..., { extend })`); `POST /stores/switch` signs in to an account with the same confirmed e-mail. When a new company table is added, decide whether a new store should copy it and update `StoresService`.
 - Child tables without `tenantId` (items, payments, images …) are reached only through a parent loaded with a scoped query. Ids sent by clients must be looked up through a scoped query before being stored.
 - Unique keys are per company: use `findFirst({ where: { sku } })`, not `findUnique`, for business keys.
 - Stock changes go through `StockLedgerService` with `ref.branchId`: it keeps `BranchStock` (per branch) and `Product.stockQty` (total) in step.

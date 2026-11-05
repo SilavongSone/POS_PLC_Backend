@@ -89,7 +89,17 @@ export class ProvisioningService {
 
   async provision(
     input: Omit<ProvisionTenantInput, 'owner'> & { owner: OwnerInput },
-    options: { publicOnly?: boolean } = {},
+    options: {
+      publicOnly?: boolean;
+      /**
+       * Runs in the same transaction after the starter data and owner exist (scoped to the
+       * new company), e.g. copying another store's catalog. A failure undoes everything.
+       */
+      extend?: (
+        tx: Prisma.TransactionClient,
+        created: { tenantId: string; ownerId: string },
+      ) => Promise<void>;
+    } = {},
   ) {
     const plan = await this.planFor(input.planCode, options);
     const now = Date.now();
@@ -128,14 +138,19 @@ export class ProvisioningService {
               where: { key: 'store.companyName' },
               data: { value: input.legalName ?? input.name },
             });
-            return createOwner(tx, input.owner);
+            const created = await createOwner(tx, input.owner);
+            await options.extend?.(tx, {
+              tenantId: tenant.id,
+              ownerId: created.id,
+            });
+            return created;
           });
           return {
             tenant,
             owner: { id: owner.id, username: owner.username },
           };
         },
-        { timeout: 30_000 },
+        { timeout: options.extend ? 180_000 : 30_000 },
       );
     } catch (error) {
       if (

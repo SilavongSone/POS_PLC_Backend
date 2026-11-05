@@ -48,6 +48,9 @@ export const en: Record<string, string> = {
     'The subscription has expired; renew it to make changes',
   TENANT_SUSPENDED: 'This company account is suspended',
   TENANT_CODE_TAKEN: 'This company code is already taken',
+  EMAIL_NOT_VERIFIED: 'Confirm your e-mail first (Account page), then create another store',
+  STORE_LIMIT_REACHED: 'You already have the most stores allowed for one owner',
+  STORE_NOT_YOURS: 'You have no account in this store',
   SIGNUP_DISABLED: 'Sign-up is closed',
   UNIT_EXISTS: 'This unit already exists',
   UNIT_IN_USE:

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rm, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,11 +15,7 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Folders under UPLOAD_DIR; each holds one sub-folder per company. */
 export type ImageFolder =
-  | 'products'
-  | 'branding'
-  | 'repairs'
-  | 'expenses'
-  | 'avatars';
+  'products' | 'branding' | 'repairs' | 'expenses' | 'avatars';
 const FOLDERS: ImageFolder[] = [
   'products',
   'branding',
@@ -98,6 +94,55 @@ export class ImageStoreService {
         message: 'Upload the image first',
         code: 'IMAGE_NOT_UPLOADED',
       });
+  }
+
+  /**
+   * Copies an image of company `fromTenantId` into company `toTenantId` (new file, new URL),
+   * for a store created as a copy of another. Outside links and unknown files give null.
+   */
+  async copyToTenant(
+    url: string | null | undefined,
+    fromTenantId: string,
+    toTenantId: string,
+  ): Promise<string | null> {
+    if (!url?.startsWith(PREFIX)) return null;
+    const [folder, tenantId, name, ...rest] = url
+      .slice(PREFIX.length)
+      .split('/');
+    if (
+      !FOLDERS.includes(folder as ImageFolder) ||
+      tenantId !== fromTenantId ||
+      !name ||
+      rest.length ||
+      !/^[\w-]+\.(jpg|png|webp)$/.test(name)
+    )
+      return null;
+    const ext = name.split('.').pop()!;
+    const dir = `${folder}/${toTenantId}`;
+    const copy = `${randomUUID()}.${ext}`;
+    try {
+      await mkdir(path.join(this.root(), dir), { recursive: true });
+      await copyFile(
+        path.join(this.root(), folder, tenantId, name),
+        path.join(this.root(), dir, copy),
+      );
+    } catch {
+      return null;
+    }
+    return `${PREFIX}${dir}/${copy}`;
+  }
+
+  /** Removes every file of a company (a store whose creation failed half way). */
+  async removeTenantFiles(tenantId: string): Promise<void> {
+    if (!/^[\w-]+$/.test(tenantId)) return;
+    await Promise.all(
+      FOLDERS.map((f) =>
+        rm(path.join(this.root(), f, tenantId), {
+          recursive: true,
+          force: true,
+        }),
+      ),
+    );
   }
 
   /**

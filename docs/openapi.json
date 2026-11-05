@@ -443,6 +443,73 @@
         ],
         "type": "object"
       },
+      "CreatedStore": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "copied": {
+            "additionalProperties": false,
+            "properties": {
+              "brands": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "categories": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "customers": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "images": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "products": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "suppliers": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "units": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "categories",
+              "brands",
+              "units",
+              "products",
+              "images",
+              "customers",
+              "suppliers"
+            ],
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "copied"
+        ],
+        "type": "object"
+      },
       "Currency": {
         "additionalProperties": false,
         "properties": {
@@ -1398,6 +1465,34 @@
           "updatedAt"
         ],
         "type": "object"
+      },
+      "MyStores": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "current": {
+              "type": "boolean"
+            },
+            "logoUrl": {
+              "nullable": true,
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "name",
+            "logoUrl",
+            "current"
+          ],
+          "type": "object"
+        },
+        "type": "array"
       },
       "OpenDebt": {
         "additionalProperties": false,
@@ -19852,6 +19947,205 @@
         "summary": "Warranty lookup: supplier, sale, customer, warranty left, repairs",
         "tags": [
           "stock"
+        ]
+      }
+    },
+    "/api/stores": {
+      "get": {
+        "operationId": "StoresController_mine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyStores"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Stores you have an account in (same confirmed e-mail)",
+        "tags": [
+          "stores"
+        ]
+      },
+      "post": {
+        "operationId": "StoresController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "branchName": {
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "copy": {
+                    "default": {},
+                    "properties": {
+                      "catalog": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "customers": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "settings": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "suppliers": {
+                        "default": false,
+                        "type": "boolean"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "name": {
+                    "maxLength": 150,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedStore"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: EMAIL_NOT_VERIFIED"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with the current state. Codes: STORE_LIMIT_REACHED"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a separate store (new company) and copy chosen data of this one into it once",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/stores/switch": {
+      "post": {
+        "operationId": "StoresController_switch",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "tenantCode": {
+                    "pattern": "^[a-z0-9][a-z0-9-]{1,30}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tenantCode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokens"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: STORE_NOT_YOURS, TENANT_SUSPENDED"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign in to another of your stores without the password",
+        "tags": [
+          "stores"
         ]
       }
     },

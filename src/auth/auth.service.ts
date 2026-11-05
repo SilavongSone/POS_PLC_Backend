@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
   ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -466,6 +467,87 @@ export class AuthService {
       });
     }
     return user;
+  }
+
+  /**
+   * Accounts of this user in other stores: same confirmed e-mail, active, in an active
+   * company. A user without a confirmed e-mail has only the store they are in.
+   */
+  private async sameOwnerAccounts(userId: string) {
+    const me = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true, emailVerifiedAt: true },
+    });
+    if (!me.email || !me.emailVerifiedAt) return [];
+    return RequestContext.asPlatform(() =>
+      this.prisma.user.findMany({
+        where: {
+          email: me.email,
+          emailVerifiedAt: { not: null },
+          isActive: true,
+          tenant: { isActive: true },
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          tenant: { select: { code: true, name: true, createdAt: true } },
+        },
+        orderBy: { tenant: { createdAt: 'asc' } },
+      }),
+    );
+  }
+
+  /** Stores this user can switch to (always includes the current one). */
+  async myStores(userId: string) {
+    const current = RequestContext.tenantId();
+    const accounts = await this.sameOwnerAccounts(userId);
+    if (!accounts.some((a) => a.tenantId === current)) {
+      const tenant = await RequestContext.asPlatform(() =>
+        this.prisma.tenant.findUniqueOrThrow({
+          where: { id: current },
+          select: { code: true, name: true, createdAt: true },
+        }),
+      );
+      accounts.unshift({ id: userId, tenantId: current, tenant });
+    }
+    const logos = await RequestContext.asPlatform(() =>
+      this.prisma.setting.findMany({
+        where: {
+          key: 'store.logoUrl',
+          tenantId: { in: accounts.map((a) => a.tenantId) },
+        },
+        select: { tenantId: true, value: true },
+      }),
+    );
+    return accounts.map((a) => {
+      const logo = logos.find((l) => l.tenantId === a.tenantId)?.value;
+      return {
+        code: a.tenant.code,
+        name: a.tenant.name,
+        logoUrl: typeof logo === 'string' && logo ? logo : null,
+        current: a.tenantId === current,
+      };
+    });
+  }
+
+  /**
+   * Signs in to another store of the same owner without asking the password again: allowed
+   * only to an account there with the same confirmed e-mail.
+   */
+  async switchStore(userId: string, tenantCode: string): Promise<AuthTokens> {
+    const target = (await this.sameOwnerAccounts(userId)).find(
+      (a) => a.tenant.code === tenantCode,
+    );
+    if (!target)
+      throw new ForbiddenException({
+        message: 'You have no account in this store',
+        code: 'STORE_NOT_YOURS',
+      });
+    await this.enterTenant(tenantCode);
+    return this.issueTokens(
+      target.id,
+      this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true }) * 24,
+    );
   }
 
   private async issueTokens(
