@@ -315,3 +315,8 @@ export const labelTemplateSchema = apiSchema(
   }),
 );
 export const labelTemplatesSchema = z.array(labelTemplateSchema);
+
+export const storeBarcodesSchema = apiSchema(
+  'StoreBarcodes',
+  z.strictObject({ barcodes: z.array(z.string()) }),
+);

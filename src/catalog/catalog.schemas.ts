@@ -152,6 +152,10 @@ export const listProductsSchema = pageQuerySchema.extend({
   branchId: z.uuid().optional(),
 });
 
+export const storeBarcodesQuery = z.object({
+  count: z.coerce.number().int().min(1).max(20).default(1),
+});
+
 export const lookupSchema = z.object({
   code: z.string().trim().min(1).max(100),
   /** Price as at this branch (the till's). */

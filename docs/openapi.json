@@ -7173,6 +7173,21 @@
         ],
         "type": "object"
       },
+      "StoreBarcodes": {
+        "additionalProperties": false,
+        "properties": {
+          "barcodes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "barcodes"
+        ],
+        "type": "object"
+      },
       "Subscription": {
         "additionalProperties": false,
         "properties": {
@@ -15008,6 +15023,85 @@
           }
         ],
         "summary": "Set explicit prices for many products",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/products/store-barcodes": {
+      "get": {
+        "operationId": "ProductsController_storeBarcodes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreBarcodes"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input. Codes: VALIDATION_FAILED"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not signed in, or the credentials/token are invalid. Codes: UNAUTHORIZED"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed. Codes: TENANT_SUSPENDED, MISSING_PERMISSION"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too many requests. Codes: TOO_MANY_REQUESTS"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Next free in-store barcodes (EAN-13, prefix 20) for goods or packs without one (?count 1-20)",
         "tags": [
           "catalog"
         ]

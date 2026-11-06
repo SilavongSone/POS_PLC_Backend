@@ -43,6 +43,7 @@ import {
   unitsSchema,
   productLookupSchema,
   productPageSchema,
+  storeBarcodesSchema,
 } from './catalog.responses.js';
 import { BrandsService } from './brands.service.js';
 import { brandsSchema } from '../stock/stock.responses.js';
@@ -57,6 +58,7 @@ import {
   listCategoriesSchema,
   listProductsSchema,
   lookupSchema,
+  storeBarcodesQuery,
   reorderImagesSchema,
   reorderSchema,
   type ReorderInput,
@@ -309,6 +311,21 @@ export class ProductsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.products.lookup(query.code, canViewCost(user), query.branchId);
+  }
+
+  @Get('store-barcodes')
+  @RequirePermissions('product.manage')
+  @ApiOperation({
+    summary:
+      'Next free in-store barcodes (EAN-13, prefix 20) for goods or packs without one (?count 1-20)',
+  })
+  @ApiZodQuery(storeBarcodesQuery)
+  @ApiZodResponse(storeBarcodesSchema)
+  @ApiErrors(READ_ERRORS)
+  async storeBarcodes(
+    @Query(zod(storeBarcodesQuery)) query: { count: number },
+  ) {
+    return { barcodes: await this.products.nextStoreBarcodes(query.count) };
   }
 
   @Get(':id')

@@ -32,6 +32,11 @@ import { BrandsService } from './brands.service.js';
 import { CategoriesService } from './categories.service.js';
 import { UnitsService } from './units.service.js';
 import { costToLak, priceToLak, roundUpLak } from './pricing.js';
+import {
+  STORE_BARCODE_PREFIX,
+  storeBarcode,
+  storeBarcodeNumber,
+} from './store-barcode.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 type BranchPriceRow = {
@@ -956,6 +961,39 @@ export class ProductsService {
       await this.currencies.assertUsable(code, undefined, field);
       rateOf(rates, code, field);
     }
+  }
+
+  /**
+   * The next `count` free in-store barcodes (EAN-13, prefix 20) for goods
+   * and packs that have none. Not reserved: the unique check on save stops
+   * a code another user saved meanwhile.
+   */
+  async nextStoreBarcodes(count: number): Promise<string[]> {
+    const where = { barcode: { startsWith: STORE_BARCODE_PREFIX } };
+    const [products, packs] = await Promise.all([
+      this.prisma.product.findMany({ where, select: { barcode: true } }),
+      this.prisma.productUnit.findMany({ where, select: { barcode: true } }),
+    ]);
+    let n = Math.max(
+      0,
+      ...[...products, ...packs].map((r) => storeBarcodeNumber(r.barcode)),
+    );
+    const codes: string[] = [];
+    while (codes.length < count) {
+      const code = storeBarcode(++n);
+      // Skip a number someone typed in by hand as a SKU or serial number.
+      const taken =
+        (await this.prisma.product.findFirst({
+          where: { OR: [{ barcode: code }, { sku: code }] },
+          select: { id: true },
+        })) ??
+        (await this.prisma.serialNumber.findFirst({
+          where: { serial: code },
+          select: { id: true },
+        }));
+      if (!taken) codes.push(code);
+    }
+    return codes;
   }
 
   /** A barcode/SKU equal to a serial number would hide that unit from the scanner. */
