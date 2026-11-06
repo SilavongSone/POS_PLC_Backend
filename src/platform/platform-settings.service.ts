@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { RequestContext } from '../common/request-context.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  EntitlementsService,
+  GRACE_DAYS,
+  GRACE_DAYS_KEY,
+} from '../tenancy/entitlements.service.js';
 
 const SIGNUP_KEY = 'signup.enabled';
 
@@ -17,6 +22,7 @@ export class PlatformSettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService<Env, true>,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Whether shops may sign up themselves at /public/signup. */
@@ -30,11 +36,18 @@ export class PlatformSettingsService {
   }
 
   async get() {
-    const row = await RequestContext.asPlatform(() =>
-      this.prisma.platformSetting.findUnique({ where: { key: SIGNUP_KEY } }),
+    const [row, grace] = await RequestContext.asPlatform(() =>
+      Promise.all([
+        this.prisma.platformSetting.findUnique({ where: { key: SIGNUP_KEY } }),
+        this.prisma.platformSetting.findUnique({
+          where: { key: GRACE_DAYS_KEY },
+        }),
+      ]),
     );
     const fromSetting = typeof row?.value === 'boolean';
     return {
+      /** Days a company keeps full use after its trial/paid period ends; then read-only. */
+      graceDays: typeof grace?.value === 'number' ? grace.value : GRACE_DAYS,
       signupEnabled: fromSetting
         ? (row.value as boolean)
         : this.config.get('SIGNUP_ENABLED', { infer: true }),
@@ -44,6 +57,21 @@ export class PlatformSettingsService {
         : ('env' as const),
       signupUpdatedAt: row?.updatedAt ?? null,
     };
+  }
+
+  /** Applies at once: cached entitlements of every company are dropped. */
+  async setGraceDays(days: number, adminId: string) {
+    await RequestContext.asPlatform(() =>
+      this.prisma.platformSetting.upsert({
+        where: { key: GRACE_DAYS_KEY },
+        create: { key: GRACE_DAYS_KEY, value: days, updatedById: adminId },
+        update: { value: days, updatedById: adminId },
+      }),
+    );
+    this.entitlements.invalidateAll();
+    this.logger.log(
+      `Grace period set to ${days} days by platform admin ${adminId}`,
+    );
   }
 
   async setSignupEnabled(enabled: boolean, adminId: string) {

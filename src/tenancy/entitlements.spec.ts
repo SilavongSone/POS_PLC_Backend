@@ -70,6 +70,24 @@ describe('resolveEntitlements', () => {
     expect(trial.readOnly).toBe(true);
   });
 
+  it('flags the grace days and follows the grace days the Super Admin set', () => {
+    const now = new Date('2026-11-06T00:00:00Z');
+    const yesterday = sub({ currentPeriodEnd: new Date(now.getTime() - DAY) });
+    const grace7 = resolveEntitlements(tenant, yesterday, now);
+    expect(grace7).toMatchObject({ inGrace: true, readOnly: false });
+    expect(grace7.graceEndsAt).toEqual(new Date(now.getTime() + 6 * DAY));
+    // 0 days: read-only as soon as the period ends.
+    expect(resolveEntitlements(tenant, yesterday, now, 0)).toMatchObject({
+      inGrace: false,
+      readOnly: true,
+    });
+    const paid = sub({ currentPeriodEnd: new Date(now.getTime() + DAY) });
+    expect(resolveEntitlements(tenant, paid, now, 0)).toMatchObject({
+      inGrace: false,
+      readOnly: false,
+    });
+  });
+
   it('blocks suspended, cancelled and deactivated companies, and those without a subscription', () => {
     expect(
       resolveEntitlements(tenant, sub({ status: 'SUSPENDED' })).blocked,

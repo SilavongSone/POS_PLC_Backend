@@ -105,7 +105,7 @@ status: TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
   - `@RequireFeature('repairs')` ที่ controller → ถ้าไม่มีฟีเจอร์ตอบ `403 FEATURE_NOT_IN_PLAN`
   - limit ตรวจตอนสร้าง (สาขา, เครื่องขาย, ผู้ใช้, สินค้า, บิลต่อเดือน) → เกินตอบ `403 PLAN_LIMIT_REACHED` พร้อม `limit` และ `used`
 - **หมดอายุ:**
-  - trial หมด หรือเลย `currentPeriodEnd` → ยังใช้ได้อีก 7 วัน (grace period)
+  - trial หมด หรือเลย `currentPeriodEnd` → ยังใช้ได้อีก N วัน (grace period, ค่าเริ่มต้น 7 · Super Admin ตั้งได้ 0–60 ที่ `PATCH /platform/settings` `graceDays`, เก็บใน PlatformSetting `subscription.graceDays`, มีผลทุกบริษัททันที) · ช่วงนี้ `/subscription` ส่ง `inGrace: true` → หน้าร้านแสดงแถบให้ต่ออายุ
   - หลังจากนั้นเป็น **อ่านอย่างเดียว**: GET ได้, เขียนไม่ได้ (`402 SUBSCRIPTION_INACTIVE`)
   - `SUSPENDED` / `CANCELLED` → ล็อกอินไม่ได้ (`403 TENANT_SUSPENDED`)
 - **ผู้ดูแลของบริษัทดูได้เอง:** `GET /subscription` แสดงแพ็กเกจ, สถานะ, ฟีเจอร์ และการใช้งานเทียบกับ limit

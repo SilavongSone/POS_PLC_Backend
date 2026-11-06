@@ -16,8 +16,10 @@ import {
   type PlanLimits,
 } from './plan-features.js';
 
-/** After the trial or paid period ends the company keeps full use this long. */
+/** After the trial or paid period ends the company keeps full use this long (default). */
 export const GRACE_DAYS = 7;
+/** PlatformSetting key: grace days the Super Admin chose (0-60). */
+export const GRACE_DAYS_KEY = 'subscription.graceDays';
 const CACHE_MS = 30_000;
 const DAY = 86_400_000;
 
@@ -44,6 +46,8 @@ export type Entitlements = {
   blocked: boolean;
   /** Past the grace period: reading only. */
   readOnly: boolean;
+  /** Period over, still in the grace days: full use, but the shop must renew. */
+  inGrace: boolean;
 };
 
 const UNLIMITED: PlanLimits = Object.fromEntries(
@@ -67,6 +71,7 @@ export function resolveEntitlements(
     };
   } | null,
   now = new Date(),
+  graceDays = GRACE_DAYS,
 ): Entitlements {
   if (!sub) {
     return {
@@ -81,6 +86,7 @@ export function resolveEntitlements(
       limits: UNLIMITED,
       blocked: true,
       readOnly: true,
+      inGrace: false,
     };
   }
   const o = (sub.overrides ?? {}) as SubscriptionOverrides;
@@ -103,8 +109,9 @@ export function resolveEntitlements(
   const periodEnd =
     sub.status === 'TRIAL' ? sub.trialEndsAt : sub.currentPeriodEnd;
   const graceEndsAt = periodEnd
-    ? new Date(periodEnd.getTime() + GRACE_DAYS * DAY)
+    ? new Date(periodEnd.getTime() + graceDays * DAY)
     : null;
+  const readOnly = Boolean(graceEndsAt && now > graceEndsAt);
   return {
     tenantId: tenant.id,
     defaultLanguage: tenant.defaultLanguage ?? 'lo',
@@ -119,7 +126,8 @@ export function resolveEntitlements(
       !tenant.isActive ||
       sub.status === 'SUSPENDED' ||
       sub.status === 'CANCELLED',
-    readOnly: Boolean(graceEndsAt && now > graceEndsAt),
+    readOnly,
+    inGrace: Boolean(periodEnd && now > periodEnd && !readOnly),
   };
 }
 
@@ -149,14 +157,29 @@ export class EntitlementsService {
     this.cache.delete(tenantId);
   }
 
+  /** A platform-wide change (grace days): every company is read again. */
+  invalidateAll(): void {
+    this.cache.clear();
+  }
+
   private async load(tenantId: string): Promise<Entitlements> {
-    const tenant = await RequestContext.asPlatform(() =>
-      this.prisma.tenant.findUniqueOrThrow({
-        where: { id: tenantId },
-        include: { subscription: { include: { plan: true } } },
-      }),
+    const [tenant, grace] = await RequestContext.asPlatform(() =>
+      Promise.all([
+        this.prisma.tenant.findUniqueOrThrow({
+          where: { id: tenantId },
+          include: { subscription: { include: { plan: true } } },
+        }),
+        this.prisma.platformSetting.findUnique({
+          where: { key: GRACE_DAYS_KEY },
+        }),
+      ]),
     );
-    return resolveEntitlements(tenant, tenant.subscription);
+    return resolveEntitlements(
+      tenant,
+      tenant.subscription,
+      new Date(),
+      typeof grace?.value === 'number' ? grace.value : GRACE_DAYS,
+    );
   }
 
   /** Throws 403 TENANT_SUSPENDED when the company may not use the system. */

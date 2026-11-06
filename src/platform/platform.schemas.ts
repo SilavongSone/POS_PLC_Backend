@@ -90,9 +90,13 @@ export const updateSubscriptionSchema = z
   .partial();
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>;
 
-export const updatePlatformSettingsSchema = z.object({
-  signupEnabled: z.boolean(),
-});
+export const updatePlatformSettingsSchema = z
+  .object({
+    signupEnabled: z.boolean(),
+    /** Days of full use after a trial/paid period ends (0 = read-only the moment it ends). */
+    graceDays: z.number().int().min(0).max(60),
+  })
+  .partial();
 export type UpdatePlatformSettingsInput = z.infer<
   typeof updatePlatformSettingsSchema
 >;

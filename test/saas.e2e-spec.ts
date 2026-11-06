@@ -809,5 +809,43 @@ describe('SaaS (e2e)', () => {
         .post('/brands', { name: `Brand ${uniq()}` })
         .expect(201);
     });
+
+    it('follows the grace days the Super Admin sets', async () => {
+      const c = await company();
+      const settings = (graceDays: number) =>
+        t
+          .http()
+          .patch('/platform/settings')
+          .set(platform)
+          .send({ graceDays })
+          .expect(200);
+      await t
+        .http()
+        .patch(`/platform/tenants/${c.id}/subscription`)
+        .set(platform)
+        .send({
+          status: 'ACTIVE',
+          currentPeriodEnd: new Date(Date.now() - 86_400_000).toISOString(),
+        })
+        .expect(200);
+      try {
+        // Default 7 days: ended yesterday = still full use, flagged as grace.
+        const inGrace = (await api(c).get('/subscription').expect(200)).body;
+        expect(inGrace).toMatchObject({ inGrace: true, readOnly: false });
+        await api(c)
+          .post('/brands', { name: `Brand ${uniq()}` })
+          .expect(201);
+
+        // 0 days: read-only at once, no restart.
+        expect((await settings(0)).body.graceDays).toBe(0);
+        const res = await api(c)
+          .post('/brands', { name: `Brand ${uniq()}` })
+          .expect(402);
+        expect(res.body.code).toBe('SUBSCRIPTION_INACTIVE');
+        await api(c).get('/products').expect(200);
+      } finally {
+        await settings(7);
+      }
+    });
   });
 });

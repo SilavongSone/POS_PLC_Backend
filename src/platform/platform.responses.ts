@@ -59,6 +59,8 @@ export const signupCompletedSchema = apiSchema(
 export const platformSettingsSchema = apiSchema(
   'PlatformSettings',
   z.strictObject({
+    /** Days of full use after a trial/paid period ends; then read-only. */
+    graceDays: z.number().int(),
     signupEnabled: z.boolean(),
     /** "setting" = chosen in the console; "env" = still the SIGNUP_ENABLED default. */
     signupEnabledSource: z.enum(['setting', 'env']),

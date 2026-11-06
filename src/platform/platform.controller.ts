@@ -154,18 +154,23 @@ export class PlatformController {
 
   @Patch('settings')
   @ApiOperation({
-    summary: 'Open or close self-service sign-up (takes effect immediately)',
+    summary:
+      'Open or close self-service sign-up and set the grace days after a plan ends (take effect immediately)',
   })
   @ApiZodBody(updatePlatformSettingsSchema)
   @ApiZodResponse(platformSettingsSchema)
-  updateSettings(
+  async updateSettings(
     @Body(zod(updatePlatformSettingsSchema)) body: UpdatePlatformSettingsInput,
     @Req() req: PlatformRequest,
   ) {
-    return this.settings.setSignupEnabled(
-      body.signupEnabled,
-      req.platformAdmin.id,
-    );
+    if (body.graceDays !== undefined)
+      await this.settings.setGraceDays(body.graceDays, req.platformAdmin.id);
+    if (body.signupEnabled !== undefined)
+      return this.settings.setSignupEnabled(
+        body.signupEnabled,
+        req.platformAdmin.id,
+      );
+    return this.settings.get();
   }
 
   @Get('plans')

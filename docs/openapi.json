@@ -1823,6 +1823,11 @@
       "PlatformSettings": {
         "additionalProperties": false,
         "properties": {
+          "graceDays": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
           "signupEnabled": {
             "type": "boolean"
           },
@@ -1840,6 +1845,7 @@
           }
         },
         "required": [
+          "graceDays",
           "signupEnabled",
           "signupEnabledSource",
           "signupUpdatedAt"
@@ -7252,6 +7258,9 @@
             "nullable": true,
             "type": "string"
           },
+          "inGrace": {
+            "type": "boolean"
+          },
           "limits": {
             "additionalProperties": false,
             "properties": {
@@ -7392,6 +7401,7 @@
           "limits",
           "blocked",
           "readOnly",
+          "inGrace",
           "usage"
         ],
         "type": "object"
@@ -13353,13 +13363,15 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "graceDays": {
+                    "maximum": 60,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
                   "signupEnabled": {
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "signupEnabled"
-                ],
                 "type": "object"
               }
             }
@@ -13383,7 +13395,7 @@
             "bearer": []
           }
         ],
-        "summary": "Open or close self-service sign-up (takes effect immediately)",
+        "summary": "Open or close self-service sign-up and set the grace days after a plan ends (take effect immediately)",
         "tags": [
           "platform"
         ]

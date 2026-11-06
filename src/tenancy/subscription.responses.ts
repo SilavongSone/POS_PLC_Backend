@@ -37,6 +37,8 @@ export const subscriptionSchema = apiSchema(
     blocked: z.boolean(),
     /** Grace period over: reads only. */
     readOnly: z.boolean(),
+    /** Period over, still in the grace days. */
+    inGrace: z.boolean(),
     usage: z.strictObject(usageShape),
   }),
 );
