@@ -69,9 +69,17 @@ export class StockLedgerService {
         data: { qty: { increment: quantity } },
       });
       if (updated.count === 0) {
+        // Another till may have just sold it: say which product and how many are left.
+        const left = await tx.branchStock.findFirst({
+          where: key,
+          select: { qty: true },
+        });
         throw new ConflictException({
           message: `Not enough stock for ${product.sku} at this branch`,
           code: 'INSUFFICIENT_STOCK',
+          productId: product.id,
+          name: product.name,
+          available: Math.max(0, left?.qty ?? 0),
         });
       }
       balance = (
@@ -277,6 +285,9 @@ export class StockLedgerService {
         throw new ConflictException({
           message: `Not in stock at this branch for ${product.sku}: ${serials.filter((s) => !ok.has(s)).join(', ')}`,
           code: 'INSUFFICIENT_STOCK',
+          productId: product.id,
+          name: product.name,
+          serials: serials.filter((s) => !ok.has(s)),
         });
       }
       let cost = new Decimal(0);

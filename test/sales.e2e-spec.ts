@@ -881,6 +881,29 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
       }).expect(400);
     });
 
+    it('sells the last stock to only one of two counters selling at once', async () => {
+      const p = await product({ name: 'Last rolls' }, { quantity: 3 });
+      const bill = () =>
+        sell({
+          items: [{ productId: p.id, quantity: 2 }],
+          payments: [cash(200_000)],
+        });
+      // Two tills press "pay" together for 2 + 2 of the last 3.
+      const results = await Promise.all([bill(), bill()]);
+      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+      const refused = results.find((r) => r.status === 409)!;
+      expect(refused.body).toMatchObject({
+        code: 'INSUFFICIENT_STOCK',
+        productId: p.id,
+        name: 'Last rolls',
+        available: 1,
+      });
+      const after = await t.prisma.product.findUniqueOrThrow({
+        where: { id: p.id },
+      });
+      expect(after.stockQty).toBe(1);
+    });
+
     it('keeps packs off serial products', async () => {
       const p = await product({ trackSerial: true }, { quantity: 0 });
       const res = await t
