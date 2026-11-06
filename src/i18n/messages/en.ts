@@ -38,6 +38,8 @@ export const en: Record<string, string> = {
   APPROVAL_REQUIRED: 'A manager must approve this ({permission})',
   NO_OPEN_SHIFT: 'Open a shift first',
   CREDIT_LIMIT: 'This exceeds the customer’s credit limit',
+  GIFT_NOT_RETURNED:
+    'Take the free gift back too: the refund cannot cover its value ({valueLak} LAK)',
   INSUFFICIENT_STOCK: 'Not enough stock',
   BRANCH_REQUIRED: 'Choose a branch',
   BRANCH_FORBIDDEN: 'You do not have access to this branch',

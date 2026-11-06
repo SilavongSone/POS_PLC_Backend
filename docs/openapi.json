@@ -1962,6 +1962,9 @@
             "pattern": "^-?\\d+(\\.\\d+)?$",
             "type": "string"
           },
+          "isGift": {
+            "type": "boolean"
+          },
           "lineTotalLak": {
             "description": "Decimal number as a string",
             "pattern": "^-?\\d+(\\.\\d+)?$",
@@ -1999,6 +2002,10 @@
           },
           "promotionId": {
             "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "promotionName": {
             "nullable": true,
             "type": "string"
           },
@@ -2053,7 +2060,9 @@
           "unitPriceLak",
           "overridden",
           "promotionId",
+          "promotionName",
           "promotionDiscountLak",
+          "isGift",
           "manualDiscountLak",
           "discountLak",
           "lineTotalLak",
@@ -3918,6 +3927,91 @@
             "nullable": true,
             "type": "string"
           },
+          "giftRules": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "buyQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "getQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "gifts": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "saleItemId": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "units": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "valueLak": {
+                        "description": "Decimal number as a string",
+                        "pattern": "^-?\\d+(\\.\\d+)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "saleItemId",
+                      "units",
+                      "valueLak"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "promotionId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qualifying": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "saleItemId": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "unitsPerItem": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "saleItemId",
+                      "unitsPerItem"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "promotionId",
+                "name",
+                "buyQty",
+                "getQty",
+                "qualifying",
+                "gifts"
+              ],
+              "type": "object"
+            },
+            "nullable": true,
+            "type": "array"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -4118,6 +4212,7 @@
           "paidLak",
           "changeLak",
           "dueDate",
+          "giftRules",
           "note",
           "printCount",
           "voidedById",
@@ -4145,6 +4240,9 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "isGift": {
+            "type": "boolean"
           },
           "lineTotalLak": {
             "description": "Decimal number as a string",
@@ -4279,6 +4377,7 @@
           "unitPriceLak",
           "priceOverriddenById",
           "promotionId",
+          "isGift",
           "discountLak",
           "lineTotalLak",
           "warrantyMonths",
@@ -4373,6 +4472,91 @@
             "format": "date-time",
             "nullable": true,
             "type": "string"
+          },
+          "giftRules": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "buyQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "getQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "gifts": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "saleItemId": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "units": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "valueLak": {
+                        "description": "Decimal number as a string",
+                        "pattern": "^-?\\d+(\\.\\d+)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "saleItemId",
+                      "units",
+                      "valueLak"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "promotionId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qualifying": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "saleItemId": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "unitsPerItem": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "saleItemId",
+                      "unitsPerItem"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "promotionId",
+                "name",
+                "buyQty",
+                "getQty",
+                "qualifying",
+                "gifts"
+              ],
+              "type": "object"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "id": {
             "format": "uuid",
@@ -4520,6 +4704,7 @@
           "paidLak",
           "changeLak",
           "dueDate",
+          "giftRules",
           "note",
           "printCount",
           "voidedById",
@@ -4700,6 +4885,157 @@
             "pattern": "^-?\\d+(\\.\\d+)?$",
             "type": "string"
           },
+          "giftOffers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "earned": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "given": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "productIds": {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "products": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "sku": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "sku"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "promotionId": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "promotionId",
+                "name",
+                "productIds",
+                "products",
+                "earned",
+                "given"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "giftRules": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "buyQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "getQty": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "gifts": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "line": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "units": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "valueLak": {
+                        "description": "Decimal number as a string",
+                        "pattern": "^-?\\d+(\\.\\d+)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "line",
+                      "units",
+                      "valueLak"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "promotionId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qualifying": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "line": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "unitsPerItem": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "line",
+                      "unitsPerItem"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "promotionId",
+                "name",
+                "buyQty",
+                "getQty",
+                "qualifying",
+                "gifts"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/PricedLine"
@@ -4784,6 +5120,8 @@
           "vatLak",
           "totalLak",
           "needsApproval",
+          "giftOffers",
+          "giftRules",
           "payment"
         ],
         "type": "object"
@@ -7721,6 +8059,91 @@
                 "nullable": true,
                 "type": "string"
               },
+              "giftRules": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "buyQty": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "getQty": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "gifts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "saleItemId": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "units": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "valueLak": {
+                            "description": "Decimal number as a string",
+                            "pattern": "^-?\\d+(\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "saleItemId",
+                          "units",
+                          "valueLak"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "promotionId": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "qualifying": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "saleItemId": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "unitsPerItem": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "saleItemId",
+                          "unitsPerItem"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "promotionId",
+                    "name",
+                    "buyQty",
+                    "getQty",
+                    "qualifying",
+                    "gifts"
+                  ],
+                  "type": "object"
+                },
+                "nullable": true,
+                "type": "array"
+              },
               "id": {
                 "format": "uuid",
                 "type": "string"
@@ -7737,6 +8160,9 @@
                     "id": {
                       "format": "uuid",
                       "type": "string"
+                    },
+                    "isGift": {
+                      "type": "boolean"
                     },
                     "lineTotalLak": {
                       "description": "Decimal number as a string",
@@ -7829,6 +8255,7 @@
                     "unitPriceLak",
                     "priceOverriddenById",
                     "promotionId",
+                    "isGift",
                     "discountLak",
                     "lineTotalLak",
                     "warrantyMonths",
@@ -8065,6 +8492,7 @@
               "paidLak",
               "changeLak",
               "dueDate",
+              "giftRules",
               "note",
               "printCount",
               "voidedById",
@@ -16010,6 +16438,21 @@
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   },
+                  "getQty": {
+                    "maximum": 1000,
+                    "minimum": 1,
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "gifts": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
                   "isActive": {
                     "default": true,
                     "type": "boolean"
@@ -16084,6 +16527,15 @@
                     },
                     "maxItems": 500,
                     "type": "array"
+                  },
+                  "type": {
+                    "default": "DISCOUNT",
+                    "enum": [
+                      "DISCOUNT",
+                      "BUY_X_GET_Y",
+                      "GIFT"
+                    ],
+                    "type": "string"
                   },
                   "value": {
                     "exclusiveMinimum": true,
@@ -16177,6 +16629,21 @@
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   },
+                  "getQty": {
+                    "maximum": 1000,
+                    "minimum": 1,
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "gifts": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
                   "isActive": {
                     "type": "boolean"
                   },
@@ -16248,6 +16715,14 @@
                     },
                     "maxItems": 500,
                     "type": "array"
+                  },
+                  "type": {
+                    "enum": [
+                      "DISCOUNT",
+                      "BUY_X_GET_Y",
+                      "GIFT"
+                    ],
+                    "type": "string"
                   },
                   "value": {
                     "exclusiveMinimum": true,

@@ -43,7 +43,10 @@ export const pricedLineSchema = apiSchema(
     /** The unit price was set by hand (needs price.override). */
     overridden: z.boolean(),
     promotionId: z.uuid().nullable(),
+    promotionName: z.string().nullable(),
     promotionDiscountLak: decimalString,
+    /** Given free (or reduced) by a GIFT promotion. */
+    isGift: z.boolean(),
     manualDiscountLak: decimalString,
     discountLak: decimalString,
     lineTotalLak: decimalString,
@@ -106,6 +109,37 @@ export const saleQuoteSchema = apiSchema(
     totalLak: decimalString,
     /** Permissions the cart needs from the user or a manager approval. */
     needsApproval: z.array(z.enum(['price.override', 'sale.discount'])),
+    /** GIFT promotions earned; the till offers gifts not in the cart yet (earned − given). */
+    giftOffers: z.array(
+      z.strictObject({
+        promotionId: z.uuid(),
+        name: z.string(),
+        productIds: z.array(z.uuid()),
+        products: z.array(
+          z.strictObject({ id: z.uuid(), name: z.string(), sku: z.string() }),
+        ),
+        earned: z.int(),
+        given: z.int(),
+      }),
+    ),
+    giftRules: z.array(
+      z.strictObject({
+        promotionId: z.uuid(),
+        name: z.string(),
+        buyQty: z.int(),
+        getQty: z.int(),
+        qualifying: z.array(
+          z.strictObject({ line: z.int(), unitsPerItem: z.int() }),
+        ),
+        gifts: z.array(
+          z.strictObject({
+            line: z.int(),
+            units: z.int(),
+            valueLak: decimalString,
+          }),
+        ),
+      }),
+    ),
     /**
      * null without payments; `{ error }` when the payments do not cover the cart
      * (the message a sale would fail with).
@@ -132,6 +166,7 @@ export const saleItemSchema = apiSchema(
     unitPriceLak: decimalString,
     priceOverriddenById: z.uuid().nullable(),
     promotionId: z.uuid().nullable(),
+    isGift: z.boolean(),
     discountLak: decimalString,
     lineTotalLak: decimalString,
     /** Cost snapshot (average cost at sale time). */
@@ -204,6 +239,27 @@ const saleFields = {
   paidLak: decimalString,
   changeLak: decimalString,
   dueDate: dateTimeString.nullable(),
+  /** GIFT promotions used (for returns); null when none. */
+  giftRules: z
+    .array(
+      z.strictObject({
+        promotionId: z.uuid(),
+        name: z.string(),
+        buyQty: z.int(),
+        getQty: z.int(),
+        qualifying: z.array(
+          z.strictObject({ saleItemId: z.uuid(), unitsPerItem: z.int() }),
+        ),
+        gifts: z.array(
+          z.strictObject({
+            saleItemId: z.uuid(),
+            units: z.int(),
+            valueLak: decimalString,
+          }),
+        ),
+      }),
+    )
+    .nullable(),
   note: z.string().nullable(),
   printCount: z.int().min(0),
   voidedById: z.uuid().nullable(),

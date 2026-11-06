@@ -13,6 +13,7 @@ import { startOfLocalDay } from '../common/time.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lak } from '../sales/sale-math.js';
+import { excessGifts, type GiftRule } from '../sales/promotion-math.js';
 import { StockLedgerService } from '../stock/stock-ledger.service.js';
 import type { CreateReturnInput, ListReturnsQuery } from './returns.schemas.js';
 import { RequestContext } from '../common/request-context.js';
@@ -56,6 +57,54 @@ export class ReturnsService {
   ) {}
 
   /**
+   * Value of gifts kept beyond what the items still bought earn, minus what earlier returns
+   * already took (negative when a kept gift comes back after a charge).
+   */
+  private giftCharge(
+    rules: GiftRule[],
+    items: {
+      id: string;
+      quantity: number;
+      returnItems: { quantity: number }[];
+    }[],
+    returning: Map<string, number>,
+  ) {
+    const before = (id: string) =>
+      items
+        .find((i) => i.id === id)
+        ?.returnItems.reduce((n, r) => n + r.quantity, 0) ?? 0;
+    const sold = (id: string) => items.find((i) => i.id === id)?.quantity ?? 0;
+    let charge = new Decimal(0);
+    for (const rule of rules) {
+      const bought = (withNow: boolean) =>
+        rule.qualifying.reduce(
+          (n, q) =>
+            n +
+            (sold(q.saleItemId) -
+              before(q.saleItemId) -
+              (withNow ? (returning.get(q.saleItemId) ?? 0) : 0)) *
+              q.unitsPerItem,
+          0,
+        );
+      for (const g of rule.gifts) {
+        // Units of the gift line that come back count against its free units first.
+        const kept = (withNow: boolean) =>
+          Math.max(
+            0,
+            g.units -
+              before(g.saleItemId) -
+              (withNow ? (returning.get(g.saleItemId) ?? 0) : 0),
+          );
+        const extra =
+          excessGifts(rule, bought(true), kept(true)) -
+          excessGifts(rule, bought(false), kept(false));
+        charge = charge.add(new Decimal(g.valueLak).mul(extra));
+      }
+    }
+    return charge;
+  }
+
+  /**
    * Returns items of a completed sale. The refund is the share of what the customer
    * actually paid for those units (bill discount and added VAT included). Cash refunds
    * come out of the user's open shift; a CREDIT refund lowers the customer's debt.
@@ -89,6 +138,11 @@ export class ReturnsService {
           throw new ConflictException('Only completed sales can be returned');
 
         const items = new Map(sale.items.map((i) => [i.id, i]));
+        const rules = (sale.giftRules ?? []) as unknown as GiftRule[];
+        // Free units of each gift line: they come back first and refund nothing.
+        const freeOf = new Map(
+          rules.flatMap((r) => r.gifts.map((g) => [g.saleItemId, g.units])),
+        );
         let refundLak = new Decimal(0);
         const lines = input.items.map((line, index) => {
           const at = `items[${index}]`;
@@ -128,18 +182,39 @@ export class ReturnsService {
               );
             }
           }
-          const amountLak = sale.subtotalLak.isZero()
-            ? new Decimal(0)
-            : lak(
-                sale.totalLak
-                  .mul(item.lineTotalLak)
-                  .mul(line.quantity)
-                  .div(item.quantity)
-                  .div(sale.subtotalLak),
-              );
+          const free = freeOf.get(item.id) ?? 0;
+          const freeBack = Math.min(line.quantity, Math.max(0, free - already));
+          const paidUnits = item.quantity - free;
+          const paidBack = line.quantity - freeBack;
+          const amountLak =
+            sale.subtotalLak.isZero() || paidBack === 0 || paidUnits <= 0
+              ? new Decimal(0)
+              : lak(
+                  sale.totalLak
+                    .mul(item.lineTotalLak)
+                    .mul(paidBack)
+                    .div(paidUnits)
+                    .div(sale.subtotalLak),
+                );
           refundLak = refundLak.add(amountLak);
           return { line, item, serials, amountLak };
         });
+
+        // Gifts (GIFT promotions): bought items coming back while their gift stays with the
+        // customer → the gift's value comes off the refund; given back later when it returns.
+        const giftChargeLak = this.giftCharge(
+          rules,
+          sale.items,
+          new Map(input.items.map((l) => [l.saleItemId, l.quantity])),
+        );
+        if (giftChargeLak.gt(refundLak)) {
+          throw new ConflictException({
+            message: `Return the free gift too, or the refund cannot cover its value (${giftChargeLak.toString()} LAK)`,
+            code: 'GIFT_NOT_RETURNED',
+            valueLak: giftChargeLak.toString(),
+          });
+        }
+        refundLak = refundLak.sub(giftChargeLak);
 
         const type = await tx.paymentType.findUniqueOrThrow({
           where: { id: input.paymentTypeId },
@@ -200,6 +275,7 @@ export class ReturnsService {
             saleId,
             reason: input.reason,
             refundLak,
+            giftChargeLak,
             paymentTypeId: type.id,
             shiftId: shift?.id,
             createdById: user.id,

@@ -881,6 +881,225 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
       }).expect(400);
     });
 
+    const promotion = async (body: object) =>
+      (
+        await t
+          .http()
+          .post('/promotions')
+          .set(manager.auth)
+          .send({
+            discountType: 'PERCENT',
+            value: 100,
+            startsAt: new Date(Date.now() - 60_000).toISOString(),
+            ...body,
+          })
+          .expect(201)
+      ).body as { id: string };
+    const stop = (id: string) =>
+      t.prisma.promotion.update({ where: { id }, data: { isActive: false } });
+    const quote = (items: object[]) =>
+      t
+        .http()
+        .post('/sales/quote')
+        .set(cashier.auth)
+        .send({ registerId, items })
+        .expect(200);
+
+    it('buy 2 get 1: one unit in every three is free', async () => {
+      const p = await product({ retailPrice: 42_000 }, { quantity: 20 });
+      const promo = await promotion({
+        name: 'Buy 2 get 1',
+        type: 'BUY_X_GET_Y',
+        minQty: 2,
+        getQty: 1,
+        targets: [{ productId: p.id }],
+      });
+      try {
+        const totals: string[] = [];
+        for (const quantity of [1, 2, 3, 5, 6, 7]) {
+          const line = (await quote([{ productId: p.id, quantity }])).body
+            .lines[0];
+          totals.push(line.lineTotalLak);
+        }
+        // 1, 2 pay all; 3 → 2 paid; 5 → 4 paid; 6 → 4 paid; 7 → 5 paid.
+        expect(totals).toEqual([
+          '42000',
+          '84000',
+          '84000',
+          '168000',
+          '168000',
+          '210000',
+        ]);
+        const third = (await quote([{ productId: p.id, quantity: 3 }])).body
+          .lines[0];
+        expect(third).toMatchObject({
+          promotionId: promo.id,
+          promotionName: 'Buy 2 get 1',
+          isGift: false,
+        });
+      } finally {
+        await stop(promo.id);
+      }
+    });
+
+    it('half price on the second unit (buy 1 get 1 at 50%)', async () => {
+      const p = await product({ retailPrice: 42_000 }, { quantity: 20 });
+      const promo = await promotion({
+        name: '2nd half price',
+        type: 'BUY_X_GET_Y',
+        minQty: 1,
+        getQty: 1,
+        value: 50,
+        targets: [{ productId: p.id }],
+      });
+      try {
+        const line = (await quote([{ productId: p.id, quantity: 4 }])).body
+          .lines[0];
+        expect(line.lineTotalLak).toBe('126000');
+      } finally {
+        await stop(promo.id);
+      }
+    });
+
+    it('gives a gift product, offers what is not taken and charges a kept gift on return', async () => {
+      const computer = await product(
+        { retailPrice: 1_000_000 },
+        { quantity: 10 },
+      );
+      const mouse = await product({ retailPrice: 100_000 }, { quantity: 10 });
+      const promo = await promotion({
+        name: 'Computer + free mouse',
+        type: 'GIFT',
+        minQty: 1,
+        getQty: 1,
+        targets: [{ productId: computer.id }],
+        gifts: [mouse.id],
+      });
+      try {
+        // 2 computers earn 2 mice; with none in the cart the till is offered them.
+        const offered = (await quote([{ productId: computer.id, quantity: 2 }]))
+          .body;
+        expect(offered.giftOffers).toEqual([
+          expect.objectContaining({
+            promotionId: promo.id,
+            productIds: [mouse.id],
+            earned: 2,
+            given: 0,
+          }),
+        ]);
+        // 3 mice in the cart: 2 free, the third at full price.
+        const q = (
+          await quote([
+            { productId: computer.id, quantity: 2 },
+            { productId: mouse.id, quantity: 3 },
+          ])
+        ).body;
+        expect(q.lines[1]).toMatchObject({
+          isGift: true,
+          promotionId: promo.id,
+          promotionDiscountLak: '200000',
+          lineTotalLak: '100000',
+        });
+        expect(q.giftOffers[0]).toMatchObject({ earned: 2, given: 2 });
+
+        // Sell 2 computers + 2 free mice.
+        const sale = (
+          await sell({
+            items: [
+              { productId: computer.id, quantity: 2 },
+              { productId: mouse.id, quantity: 2 },
+            ],
+            payments: [cash(2_000_000)],
+          }).expect(201)
+        ).body;
+        const [pcLine, mouseLine] = sale.items as { id: string }[];
+        expect(sale.giftRules).toHaveLength(1);
+
+        const giveBack = async (saleItemId: string) => {
+          const approvalToken = await approval('return.create');
+          return (
+            await t
+              .http()
+              .post(`/sales/${sale.id}/returns`)
+              .set(cashier.auth)
+              .send({
+                reason: 'changed mind',
+                paymentTypeId: pay.CASH,
+                approvalToken,
+                items: [{ saleItemId, quantity: 1 }],
+              })
+              .expect(201)
+          ).body;
+        };
+        // One computer back, both mice kept: the second mouse is no longer earned.
+        const r1 = await giveBack(pcLine.id);
+        expect(r1).toMatchObject({
+          refundLak: '900000',
+          giftChargeLak: '100000',
+        });
+        // The mouse comes back later: its value is refunded.
+        const r2 = await giveBack(mouseLine.id);
+        expect(r2).toMatchObject({
+          refundLak: '100000',
+          giftChargeLak: '-100000',
+        });
+      } finally {
+        await stop(promo.id);
+      }
+    });
+
+    it('a category promotion leaves bundles at their own price', async () => {
+      const category = (
+        await t
+          .http()
+          .post('/categories')
+          .set(manager.auth)
+          .send({ name: `Bundle cat ${uniq()}` })
+          .expect(201)
+      ).body;
+      const part = await product(
+        { retailPrice: 100_000, categoryId: category.id },
+        { quantity: 10 },
+      );
+      const bundle = (
+        await t
+          .http()
+          .post('/products')
+          .set(manager.auth)
+          .send({
+            sku: `BN-${uniq()}`,
+            name: 'Set',
+            type: 'BUNDLE',
+            retailPrice: 150_000,
+            categoryId: category.id,
+          })
+          .expect(201)
+      ).body;
+      await t
+        .http()
+        .put(`/products/${bundle.id}/bundle-items`)
+        .set(manager.auth)
+        .send({ items: [{ componentId: part.id, quantity: 2 }] })
+        .expect(200);
+      const promo = await promotion({
+        name: 'Category 10%',
+        value: 10,
+        targets: [{ categoryId: category.id }],
+      });
+      try {
+        const q = (
+          await quote([
+            { productId: part.id, quantity: 1 },
+            { productId: bundle.id, quantity: 1 },
+          ])
+        ).body;
+        expect(q.lines[0].promotionDiscountLak).toBe('10000');
+        expect(q.lines[1].promotionDiscountLak).toBe('0');
+      } finally {
+        await stop(promo.id);
+      }
+    });
+
     it('sells the last stock to only one of two counters selling at once', async () => {
       const p = await product({ name: 'Last rolls' }, { quantity: 3 });
       const bill = () =>
@@ -890,7 +1109,9 @@ describe('Sales, shifts, held bills, tax invoices (e2e)', () => {
         });
       // Two tills press "pay" together for 2 + 2 of the last 3.
       const results = await Promise.all([bill(), bill()]);
-      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409]);
+      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
+        201, 409,
+      ]);
       const refused = results.find((r) => r.status === 409)!;
       expect(refused.body).toMatchObject({
         code: 'INSUFFICIENT_STOCK',

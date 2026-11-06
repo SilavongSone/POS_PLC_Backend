@@ -18,6 +18,7 @@ import {
   toLakAmount,
 } from './sale-math.js';
 import type { PaymentInput, QuoteSaleInput } from './sales.schemas.js';
+import { freeUnits, giftsEarned } from './promotion-math.js';
 import { EntitlementsService } from '../tenancy/entitlements.service.js';
 
 type Db = Prisma.TransactionClient;
@@ -45,7 +46,11 @@ export type PricedLine = {
   unitPriceLak: Decimal;
   overridden: boolean;
   promotionId: string | null;
+  /** Name of the promotion used (for the cart and receipt). */
+  promotionName: string | null;
   promotionDiscountLak: Decimal;
+  /** Given free (or reduced) by a GIFT promotion. */
+  isGift: boolean;
   manualDiscountLak: Decimal;
   discountLak: Decimal;
   lineTotalLak: Decimal;
@@ -83,6 +88,24 @@ export type PricedCart = {
   totalLak: Decimal;
   /** Permissions the cart needs from the user or a manager approval. */
   needsApproval: ('price.override' | 'sale.discount')[];
+  /** GIFT promotions the cart earned: the till offers the gifts not taken yet. */
+  giftOffers: {
+    promotionId: string;
+    name: string;
+    productIds: string[];
+    products: { id: string; name: string; sku: string }[];
+    earned: number;
+    given: number;
+  }[];
+  /** GIFT promotions used, by line index (sales store them for returns). */
+  giftRules: {
+    promotionId: string;
+    name: string;
+    buyQty: number;
+    getQty: number;
+    qualifying: { line: number; unitsPerItem: number }[];
+    gifts: { line: number; units: number; valueLak: string }[];
+  }[];
 };
 
 export type PlannedPayment = {
@@ -156,7 +179,14 @@ export class SalePricingService {
             startsAt: { lte: new Date() },
             OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
           },
-          include: { items: true },
+          include: {
+            items: true,
+            gifts: {
+              include: {
+                product: { select: { id: true, name: true, sku: true } },
+              },
+            },
+          },
         }),
         db.category.findMany({ select: { id: true, parentId: true } }),
         this.taxRates.forBranch(input.branchId, db),
@@ -176,6 +206,27 @@ export class SalePricingService {
     };
 
     const lines: PricedLine[] = [];
+    const meta: {
+      eligible: boolean;
+      cats: string[];
+      product: (typeof products)[number];
+      at: string;
+    }[] = [];
+    // Targets: none = every product except bundles; a category never reaches a bundle.
+    const targets = (
+      promo: (typeof promotions)[number],
+      p: (typeof products)[number],
+      cats: string[],
+    ) =>
+      promo.items.length === 0
+        ? p.type !== 'BUNDLE'
+        : promo.items.some(
+            (t) =>
+              t.productId === p.id ||
+              (p.type !== 'BUNDLE' &&
+                t.categoryId !== null &&
+                cats.includes(t.categoryId)),
+          );
     const needs = new Set<PricedCart['needsApproval'][number]>();
     for (const [index, item] of input.items.entries()) {
       const at = `items[${index}]`;
@@ -264,40 +315,43 @@ export class SalePricingService {
         : listPriceLak;
       if (overridden) needs.add('price.override');
 
-      // Best promotion, only on regular list prices.
+      // Best promotion, only on regular list prices. Bundles have their own set price:
+      // only a promotion that names the bundle itself applies to them.
+      const eligible =
+        options.applyPromotions !== false && !overridden && !unitOwnPrice;
+      const cats = ancestors(p.categoryId);
       let promotionId: string | null = null;
-      let promoPerUnit = new Decimal(0);
-      if (options.applyPromotions !== false && !overridden && !unitOwnPrice) {
-        const cats = ancestors(p.categoryId);
+      let promotionName: string | null = null;
+      let promotionDiscountLak = new Decimal(0);
+      if (eligible) {
         for (const promo of promotions) {
-          if (item.quantity < promo.minQty) continue;
-          const applies =
-            promo.items.length === 0 ||
-            promo.items.some(
-              (t) =>
-                t.productId === p.id ||
-                (t.categoryId !== null && cats.includes(t.categoryId)),
+          if (promo.type === 'GIFT' || !targets(promo, p, cats)) continue;
+          let d: Decimal;
+          if (promo.type === 'BUY_X_GET_Y') {
+            const free = freeUnits(
+              item.quantity,
+              promo.minQty,
+              promo.getQty ?? 0,
             );
-          if (!applies) continue;
-          const d = promotionDiscount(unitPriceLak, promo);
-          if (d.gt(promoPerUnit)) {
-            promoPerUnit = d;
+            d = promotionDiscount(unitPriceLak, {
+              discountType: 'PERCENT',
+              value: promo.value,
+            }).mul(free);
+          } else {
+            if (item.quantity < promo.minQty) continue;
+            d = promotionDiscount(unitPriceLak, promo).mul(item.quantity);
+          }
+          if (d.gt(promotionDiscountLak)) {
+            promotionDiscountLak = d;
             promotionId = promo.id;
+            promotionName = promo.name;
           }
         }
       }
 
-      const gross = unitPriceLak.mul(item.quantity);
-      const promotionDiscountLak = promoPerUnit.mul(item.quantity);
       const manualDiscountLak = new Decimal(item.discountLak ?? 0);
       if (manualDiscountLak.gt(0)) needs.add('sale.discount');
-      const discountLak = promotionDiscountLak.add(manualDiscountLak);
-      if (discountLak.gt(gross)) {
-        throw new BadRequestException(
-          `${at}: discount is larger than the line amount`,
-        );
-      }
-
+      meta.push({ eligible, cats, product: p, at });
       lines.push({
         productId: p.id,
         productName: item.description ?? p.name,
@@ -312,14 +366,89 @@ export class SalePricingService {
         unitPriceLak,
         overridden,
         promotionId,
+        promotionName,
         promotionDiscountLak,
+        isGift: false,
         manualDiscountLak,
-        discountLak,
-        lineTotalLak: gross.sub(discountLak),
+        // Set once gifts are known (below).
+        discountLak: new Decimal(0),
+        lineTotalLak: new Decimal(0),
         warrantyMonths: p.warrantyMonths,
         vatExempt: p.taxRate !== null && p.taxRate.percent.isZero(),
         countsStock: countsStock(p),
       });
+    }
+
+    // GIFT promotions: the bought items earn gifts; gift products already in the cart get
+    // them (better than their own promotion only), the rest is offered to the till.
+    const giftOffers: PricedCart['giftOffers'] = [];
+    const giftRules: PricedCart['giftRules'] = [];
+    if (options.applyPromotions !== false) {
+      for (const promo of promotions) {
+        if (promo.type !== 'GIFT' || !promo.gifts.length || !promo.getQty)
+          continue;
+        const giftIds = new Set(promo.gifts.map((g) => g.productId));
+        const qualifying = lines.flatMap((l, i) =>
+          meta[i].eligible &&
+          !giftIds.has(l.productId) &&
+          targets(promo, meta[i].product, meta[i].cats)
+            ? [{ line: i, unitsPerItem: l.unitFactor }]
+            : [],
+        );
+        const bought = qualifying.reduce(
+          (n, q) => n + lines[q.line].quantity * q.unitsPerItem,
+          0,
+        );
+        const earned = giftsEarned(bought, promo.minQty, promo.getQty);
+        if (!earned) continue;
+        let left = earned;
+        const gifts: PricedCart['giftRules'][number]['gifts'] = [];
+        for (const [i, l] of lines.entries()) {
+          if (!left || !giftIds.has(l.productId) || !meta[i].eligible) continue;
+          if (l.unitFactor !== 1) continue; // gifts are single units, not packs
+          const units = Math.min(left, l.quantity);
+          const perUnit = promotionDiscount(l.unitPriceLak, {
+            discountType: 'PERCENT',
+            value: promo.value,
+          });
+          const d = perUnit.mul(units);
+          if (!d.gt(l.promotionDiscountLak)) continue;
+          l.promotionId = promo.id;
+          l.promotionName = promo.name;
+          l.promotionDiscountLak = d;
+          l.isGift = true;
+          left -= units;
+          gifts.push({ line: i, units, valueLak: perUnit.toString() });
+        }
+        giftOffers.push({
+          promotionId: promo.id,
+          name: promo.name,
+          productIds: [...giftIds],
+          products: promo.gifts.map((g) => g.product),
+          earned,
+          given: earned - left,
+        });
+        if (gifts.length)
+          giftRules.push({
+            promotionId: promo.id,
+            name: promo.name,
+            buyQty: promo.minQty,
+            getQty: promo.getQty,
+            qualifying,
+            gifts,
+          });
+      }
+    }
+
+    for (const [i, l] of lines.entries()) {
+      const gross = l.unitPriceLak.mul(l.quantity);
+      l.discountLak = l.promotionDiscountLak.add(l.manualDiscountLak);
+      if (l.discountLak.gt(gross)) {
+        throw new BadRequestException(
+          `${meta[i].at}: discount is larger than the line amount`,
+        );
+      }
+      l.lineTotalLak = gross.sub(l.discountLak);
     }
 
     const subtotalLak = lines.reduce(
@@ -365,6 +494,8 @@ export class SalePricingService {
       vatLak,
       totalLak: subtotalLak.sub(discountLak).add(addedLak),
       needsApproval: [...needs],
+      giftOffers,
+      giftRules,
     };
   }
 

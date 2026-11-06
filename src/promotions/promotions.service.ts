@@ -14,6 +14,9 @@ const include = {
       category: { select: { id: true, name: true, slug: true } },
     },
   },
+  gifts: {
+    include: { product: { select: { id: true, sku: true, name: true } } },
+  },
 } satisfies Prisma.PromotionInclude;
 
 @Injectable()
@@ -45,9 +48,21 @@ export class PromotionsService {
 
   async create(input: CreatePromotionInput, actorId: string) {
     await this.assertTargets(input.targets);
-    const { targets, ...data } = input;
+    const { targets, gifts = [], ...data } = input;
+    if (data.type === 'GIFT' && !gifts.length)
+      throw new BadRequestException('Choose the gift product');
+    await this.assertGifts(gifts);
     const promo = await this.prisma.promotion.create({
-      data: { ...data, items: { create: targets } },
+      data: {
+        ...data,
+        getQty: data.type === 'DISCOUNT' ? null : data.getQty,
+        items: { create: targets },
+        gifts: {
+          create: (data.type === 'GIFT' ? gifts : []).map((productId) => ({
+            productId,
+          })),
+        },
+      },
       include,
     });
     await this.audit.log({
@@ -62,7 +77,21 @@ export class PromotionsService {
 
   async update(id: string, input: UpdatePromotionInput, actorId: string) {
     const before = await this.get(id);
-    const { targets, ...data } = input;
+    const { targets, gifts, ...data } = input;
+    const type = data.type ?? before.type;
+    if (type !== 'DISCOUNT') {
+      if ((data.discountType ?? before.discountType) !== 'PERCENT')
+        throw new BadRequestException('Free units are a percentage off');
+      if (!(data.getQty ?? before.getQty))
+        throw new BadRequestException('How many are given');
+    }
+    if (
+      type === 'GIFT' &&
+      !(gifts ?? before.gifts.map((g) => g.productId)).length
+    )
+      throw new BadRequestException('Choose the gift product');
+    if (gifts) await this.assertGifts(gifts);
+    if (type === 'DISCOUNT') data.getQty = null;
     const start = data.startsAt ?? before.startsAt;
     const end = data.endsAt === undefined ? before.endsAt : data.endsAt;
     if (end && end <= start)
@@ -81,6 +110,16 @@ export class PromotionsService {
           data: targets.map((t) => ({ ...t, promotionId: id })),
         });
       }
+      if (gifts || type !== 'GIFT') {
+        await tx.promotionGift.deleteMany({ where: { promotionId: id } });
+        if (type === 'GIFT')
+          await tx.promotionGift.createMany({
+            data: (gifts ?? []).map((productId) => ({
+              productId,
+              promotionId: id,
+            })),
+          });
+      }
       return tx.promotion.update({ where: { id }, data, include });
     });
     await this.audit.log({
@@ -92,6 +131,16 @@ export class PromotionsService {
       after: promo,
     });
     return promo;
+  }
+
+  /** Gift products must exist and be sold one by one (no services or bundles). */
+  private async assertGifts(ids: string[]) {
+    if (!ids.length) return;
+    const found = await this.prisma.product.count({
+      where: { id: { in: ids }, type: 'STANDARD' },
+    });
+    if (found !== new Set(ids).size)
+      throw new BadRequestException('A gift must be a regular product');
   }
 
   private async assertTargets(targets: CreatePromotionInput['targets']) {

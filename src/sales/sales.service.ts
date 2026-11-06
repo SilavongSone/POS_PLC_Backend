@@ -10,6 +10,7 @@ import { BranchAccessService } from '../branches/branch-access.service.js';
 import { AuditService } from '../common/audit.service.js';
 import { DocNumberService } from '../common/doc-number.service.js';
 import { pageArgs, toPage } from '../common/pagination.js';
+import type { GiftRule } from './promotion-math.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -220,6 +221,7 @@ export class SalesService {
       userId: user.id,
       branchId: sale.branchId,
     };
+    const itemIds: string[] = [];
     for (const line of cart.lines) {
       const item = await tx.saleItem.create({
         data: {
@@ -233,6 +235,7 @@ export class SalesService {
             ? approvedBy['price.override']
             : null,
           promotionId: line.promotionId,
+          isGift: line.isGift,
           discountLak: line.discountLak,
           lineTotalLak: line.lineTotalLak,
           unitCostLak: 0,
@@ -242,6 +245,7 @@ export class SalesService {
           unitFactor: line.unitFactor,
         },
       });
+      itemIds.push(item.id);
       // A bundle takes its components out of stock; each keeps its own warranty.
       const parts = line.components.length
         ? line.components
@@ -284,6 +288,26 @@ export class SalesService {
             .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP),
         },
       });
+    }
+
+    // Gifts used, by sale line: a return charges for gifts kept when the bought items come back.
+    if (cart.giftRules.length) {
+      const giftRules: GiftRule[] = cart.giftRules.map((r) => ({
+        promotionId: r.promotionId,
+        name: r.name,
+        buyQty: r.buyQty,
+        getQty: r.getQty,
+        qualifying: r.qualifying.map((q) => ({
+          saleItemId: itemIds[q.line],
+          unitsPerItem: q.unitsPerItem,
+        })),
+        gifts: r.gifts.map((g) => ({
+          saleItemId: itemIds[g.line],
+          units: g.units,
+          valueLak: g.valueLak,
+        })),
+      }));
+      await tx.sale.update({ where: { id: sale.id }, data: { giftRules } });
     }
 
     if (input.heldBillId) {

@@ -38,6 +38,8 @@ export const lo: Record<string, string> = {
   APPROVAL_REQUIRED: 'ຕ້ອງໃຫ້ຜູ້ຈັດການອະນຸມັດ ({permission})',
   NO_OPEN_SHIFT: 'ກະລຸນາເປີດກະກ່ອນ',
   CREDIT_LIMIT: 'ເກີນວົງເງິນຕິດໜີ້ຂອງລູກຄ້າ',
+  GIFT_NOT_RETURNED:
+    'ຕ້ອງຮັບຂອງແຖມຄືນນຳ: ເງິນຄືນບໍ່ພໍຫັກມູນຄ່າຂອງແຖມ ({valueLak} ກີບ)',
   INSUFFICIENT_STOCK: 'ສິນຄ້າບໍ່ພໍ',
   BRANCH_REQUIRED: 'ກະລຸນາເລືອກສາຂາ',
   BRANCH_FORBIDDEN: 'ທ່ານບໍ່ມີສິດໃຊ້ສາຂານີ້',

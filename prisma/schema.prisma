@@ -107,6 +107,15 @@ enum DiscountType {
   AMOUNT
 }
 
+/// DISCOUNT: buy at least minQty, every unit off by value (percent/amount).
+/// BUY_X_GET_Y: same product; in every minQty + getQty units, getQty are off by value percent (100 = free).
+/// GIFT: buy minQty of the targets, get getQty of the gift products off by value percent (100 = free).
+enum PromotionType {
+  DISCOUNT
+  BUY_X_GET_Y
+  GIFT
+}
+
 enum CustomerType {
   INDIVIDUAL
   BUSINESS
@@ -507,6 +516,7 @@ model Product {
   saleItems      SaleItem[]
   quotationItems QuotationItem[]
   promotions     PromotionItem[]
+  promotionGifts PromotionGift[]
   ticketLines    ServiceTicketLine[]
   tenant         Tenant              @relation(fields: [tenantId], references: [id])
   branchStock    BranchStock[]
@@ -557,26 +567,43 @@ model ProductBundleItem {
 }
 
 model Promotion {
-  id           String       @id @default(uuid())
+  id           String        @id @default(uuid())
   /// Translations of name, e.g. {"lo": "…", "th": "…", "en": "…"}.
   nameI18n     Json?
-  tenantId     String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId     String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   name         String
+  type         PromotionType @default(DISCOUNT)
   discountType DiscountType
-  /// Percent (0–100) or LAK amount per unit.
-  value        Decimal      @db.Decimal(18, 2)
-  minQty       Int          @default(1)
+  /// Percent (0–100) or LAK amount per unit; BUY_X_GET_Y / GIFT: percent off the free units.
+  value        Decimal       @db.Decimal(18, 2)
+  /// DISCOUNT: minimum quantity · BUY_X_GET_Y: "buy X" · GIFT: units to buy per gift set.
+  minQty       Int           @default(1)
+  /// BUY_X_GET_Y: "get Y" · GIFT: gift units per set.
+  getQty       Int?
   startsAt     DateTime
   endsAt       DateTime?
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
 
   /// No items = applies to every product.
   items     PromotionItem[]
+  /// GIFT: products given (any mix of them, getQty per set).
+  gifts     PromotionGift[]
   saleItems SaleItem[]
   tenant    Tenant          @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
+}
+
+/// A product a GIFT promotion gives away.
+model PromotionGift {
+  promotionId String
+  productId   String
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@id([promotionId, productId])
 }
 
 /// Promotion target: either one product or a whole category.
@@ -898,6 +925,9 @@ model Sale {
   paidLak          Decimal   @default(0) @db.Decimal(18, 0)
   changeLak        Decimal   @default(0) @db.Decimal(18, 0)
   dueDate          DateTime?
+  /// GIFT promotions used: [{ promotionId, name, buyQty, getQty, qualifying: [{ saleItemId, unitsPerItem }], gifts: [{ saleItemId, valueLak }] }].
+  /// Returns read it to charge for gifts kept when the bought items come back.
+  giftRules        Json?
 
   note       String?
   printCount Int       @default(0)
@@ -972,6 +1002,8 @@ model SaleItem {
   unitPriceLak        Decimal @db.Decimal(18, 0)
   priceOverriddenById String?
   promotionId         String?
+  /// Given free (or reduced) by a GIFT promotion.
+  isGift              Boolean @default(false)
   discountLak         Decimal @default(0) @db.Decimal(18, 0)
   lineTotalLak        Decimal @db.Decimal(18, 0)
   /// Cost snapshot for profit reports.
@@ -1056,6 +1088,8 @@ model SaleReturn {
   saleId        String
   reason        String
   refundLak     Decimal  @db.Decimal(18, 0)
+  /// Taken off the refund: gifts the customer keeps although the items that earned them came back.
+  giftChargeLak Decimal  @default(0) @db.Decimal(18, 0)
   paymentTypeId String
   /// Shift the refund was paid from (cash refunds lower the drawer's expected cash).
   shiftId       String?

@@ -37,6 +37,8 @@ export const th: Record<string, string> = {
   APPROVAL_REQUIRED: 'ต้องให้ผู้จัดการอนุมัติ ({permission})',
   NO_OPEN_SHIFT: 'กรุณาเปิดกะก่อน',
   CREDIT_LIMIT: 'เกินวงเงินเชื่อของลูกค้า',
+  GIFT_NOT_RETURNED:
+    'ต้องรับของแถมคืนด้วย: เงินคืนไม่พอหักมูลค่าของแถม ({valueLak} กีบ)',
   INSUFFICIENT_STOCK: 'สินค้าไม่พอ',
   BRANCH_REQUIRED: 'กรุณาเลือกสาขา',
   BRANCH_FORBIDDEN: 'คุณไม่มีสิทธิ์ใช้สาขานี้',
