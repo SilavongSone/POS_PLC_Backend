@@ -1820,9 +1820,72 @@
         ],
         "type": "object"
       },
+      "PlatformContact": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "facebookUrl": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "string"
+          },
+          "lineUrl": {
+            "type": "string"
+          },
+          "mapsUrl": {
+            "type": "string"
+          },
+          "messengerUrl": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "phone2": {
+            "type": "string"
+          },
+          "tiktokUrl": {
+            "type": "string"
+          },
+          "whatsapp": {
+            "type": "string"
+          },
+          "youtubeUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "phone2",
+          "whatsapp",
+          "facebookUrl",
+          "messengerUrl",
+          "lineUrl",
+          "tiktokUrl",
+          "youtubeUrl",
+          "email",
+          "address",
+          "mapsUrl",
+          "hours"
+        ],
+        "type": "object"
+      },
       "PlatformSettings": {
         "additionalProperties": false,
         "properties": {
+          "contact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformContact"
+              }
+            ]
+          },
           "graceDays": {
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
@@ -1845,6 +1908,7 @@
           }
         },
         "required": [
+          "contact",
           "graceDays",
           "signupEnabled",
           "signupEnabledSource",
@@ -13363,6 +13427,68 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "contact": {
+                    "properties": {
+                      "address": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "email": {
+                        "default": "",
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "facebookUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "hours": {
+                        "default": "",
+                        "maxLength": 150,
+                        "type": "string"
+                      },
+                      "lineUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "mapsUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "messengerUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "phone": {
+                        "maxLength": 30,
+                        "type": "string"
+                      },
+                      "phone2": {
+                        "maxLength": 30,
+                        "type": "string"
+                      },
+                      "tiktokUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "whatsapp": {
+                        "maxLength": 30,
+                        "type": "string"
+                      },
+                      "youtubeUrl": {
+                        "default": "",
+                        "maxLength": 300,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "graceDays": {
                     "maximum": 60,
                     "minimum": 0,
@@ -16179,6 +16305,28 @@
           }
         },
         "summary": "Payment confirmation: header X-Signature: sha256=<hex HMAC-SHA256 of the body with BILLING_WEBHOOK_SECRET>",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/api/public/contact": {
+      "get": {
+        "operationId": "PublicController_contact",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformContact"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "summary": "PLC's phone, WhatsApp, social links, e-mail and address",
         "tags": [
           "public"
         ]

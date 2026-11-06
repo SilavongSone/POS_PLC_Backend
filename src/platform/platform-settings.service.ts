@@ -8,6 +8,12 @@ import {
   GRACE_DAYS,
   GRACE_DAYS_KEY,
 } from '../tenancy/entitlements.service.js';
+import {
+  CONTACT_KEY,
+  contactSchema,
+  EMPTY_CONTACT,
+  type Contact,
+} from './contact.js';
 
 const SIGNUP_KEY = 'signup.enabled';
 
@@ -46,6 +52,7 @@ export class PlatformSettingsService {
     );
     const fromSetting = typeof row?.value === 'boolean';
     return {
+      contact: await this.contact(),
       /** Days a company keeps full use after its trial/paid period ends; then read-only. */
       graceDays: typeof grace?.value === 'number' ? grace.value : GRACE_DAYS,
       signupEnabled: fromSetting
@@ -57,6 +64,25 @@ export class PlatformSettingsService {
         : ('env' as const),
       signupUpdatedAt: row?.updatedAt ?? null,
     };
+  }
+
+  /** PLC's phone, chat and social links (empty fields are not shown). */
+  async contact(): Promise<Contact> {
+    const row = await RequestContext.asPlatform(() =>
+      this.prisma.platformSetting.findUnique({ where: { key: CONTACT_KEY } }),
+    );
+    const parsed = contactSchema.safeParse(row?.value ?? {});
+    return parsed.success ? parsed.data : EMPTY_CONTACT;
+  }
+
+  async setContact(contact: Contact, adminId: string) {
+    await RequestContext.asPlatform(() =>
+      this.prisma.platformSetting.upsert({
+        where: { key: CONTACT_KEY },
+        create: { key: CONTACT_KEY, value: contact, updatedById: adminId },
+        update: { value: contact, updatedById: adminId },
+      }),
+    );
   }
 
   /** Applies at once: cached entitlements of every company are dropped. */

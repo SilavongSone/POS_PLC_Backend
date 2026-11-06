@@ -65,6 +65,39 @@ describe('Platform settings (e2e)', () => {
     await signup().expect(201);
   });
 
+  it('keeps the PLC contact card and shows it publicly', async () => {
+    const saved = await t
+      .http()
+      .patch('/platform/settings')
+      .set(platform)
+      .send({
+        contact: {
+          phone: '020 5555 1234',
+          whatsapp: '20 5555 1234',
+          facebookUrl: 'https://www.facebook.com/plc.lao',
+          hours: 'Mon-Sat 8:00-17:00',
+        },
+      })
+      .expect(200);
+    expect(saved.body.contact).toMatchObject({
+      phone: '+8562055551234',
+      whatsapp: '+8562055551234',
+      email: '',
+    });
+    const pub = await t.http().get('/public/contact').expect(200);
+    expect(pub.body).toMatchObject({
+      phone: '+8562055551234',
+      facebookUrl: 'https://www.facebook.com/plc.lao',
+      hours: 'Mon-Sat 8:00-17:00',
+    });
+    await t
+      .http()
+      .patch('/platform/settings')
+      .set(platform)
+      .send({ contact: { facebookUrl: 'facebook.com/plc' } })
+      .expect(400);
+  });
+
   it('needs a platform token to change it', async () => {
     await t
       .http()

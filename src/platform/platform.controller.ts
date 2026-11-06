@@ -30,6 +30,7 @@ import {
   signupCompletedSchema,
   signupPendingSchema,
   signupStatusSchema,
+  contactResponseSchema,
 } from './platform.responses.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProvisioningService } from '../tenancy/provisioning.service.js';
@@ -165,6 +166,8 @@ export class PlatformController {
   ) {
     if (body.graceDays !== undefined)
       await this.settings.setGraceDays(body.graceDays, req.platformAdmin.id);
+    if (body.contact !== undefined)
+      await this.settings.setContact(body.contact, req.platformAdmin.id);
     if (body.signupEnabled !== undefined)
       return this.settings.setSignupEnabled(
         body.signupEnabled,
@@ -325,6 +328,15 @@ export class PublicController {
     private readonly google: GoogleIdentityService,
     private readonly settings: PlatformSettingsService,
   ) {}
+
+  @Get('contact')
+  @ApiOperation({
+    summary: "PLC's phone, WhatsApp, social links, e-mail and address",
+  })
+  @ApiZodResponse(contactResponseSchema)
+  contact() {
+    return this.settings.contact();
+  }
 
   @Get('signup/status')
   @ApiOperation({ summary: 'Whether self-service sign-up is open' })

@@ -59,12 +59,32 @@ export const signupCompletedSchema = apiSchema(
 export const platformSettingsSchema = apiSchema(
   'PlatformSettings',
   z.strictObject({
+    contact: z.lazy(() => contactResponseSchema),
     /** Days of full use after a trial/paid period ends; then read-only. */
     graceDays: z.number().int(),
     signupEnabled: z.boolean(),
     /** "setting" = chosen in the console; "env" = still the SIGNUP_ENABLED default. */
     signupEnabledSource: z.enum(['setting', 'env']),
     signupUpdatedAt: dateTimeString.nullable(),
+  }),
+);
+
+/** GET /public/contact: how to reach PLC; "" = channel not used. Phones are +<country><number>. */
+export const contactResponseSchema = apiSchema(
+  'PlatformContact',
+  z.strictObject({
+    phone: z.string(),
+    phone2: z.string(),
+    whatsapp: z.string(),
+    facebookUrl: z.string(),
+    messengerUrl: z.string(),
+    lineUrl: z.string(),
+    tiktokUrl: z.string(),
+    youtubeUrl: z.string(),
+    email: z.string(),
+    address: z.string(),
+    mapsUrl: z.string(),
+    hours: z.string(),
   }),
 );
 

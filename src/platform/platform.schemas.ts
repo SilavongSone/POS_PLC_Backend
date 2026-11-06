@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contactSchema } from './contact.js';
 import { patchOf } from '../common/zod-validation.pipe.js';
 import { pageQuerySchema } from '../common/pagination.js';
 import { FEATURES, LIMIT_KEYS } from '../tenancy/plan-features.js';
@@ -95,6 +96,8 @@ export const updatePlatformSettingsSchema = z
     signupEnabled: z.boolean(),
     /** Days of full use after a trial/paid period ends (0 = read-only the moment it ends). */
     graceDays: z.number().int().min(0).max(60),
+    /** Replaces the whole contact card. */
+    contact: contactSchema,
   })
   .partial();
 export type UpdatePlatformSettingsInput = z.infer<
