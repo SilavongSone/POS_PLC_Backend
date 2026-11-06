@@ -4842,7 +4842,16 @@
               "companyName": {
                 "type": "string"
               },
+              "email": {
+                "type": "string"
+              },
+              "facebook": {
+                "type": "string"
+              },
               "footer": {
+                "type": "string"
+              },
+              "line": {
                 "type": "string"
               },
               "logoUrl": {
@@ -4856,6 +4865,9 @@
               },
               "taxId": {
                 "type": "string"
+              },
+              "whatsapp": {
+                "type": "string"
               }
             },
             "required": [
@@ -4865,6 +4877,10 @@
               "phone",
               "address",
               "logoUrl",
+              "whatsapp",
+              "facebook",
+              "line",
+              "email",
               "footer"
             ],
             "type": "object"
@@ -8070,6 +8086,15 @@
               "address": {
                 "type": "string"
               },
+              "email": {
+                "type": "string"
+              },
+              "facebook": {
+                "type": "string"
+              },
+              "line": {
+                "type": "string"
+              },
               "logoUrl": {
                 "type": "string"
               },
@@ -8081,6 +8106,9 @@
               },
               "taxId": {
                 "type": "string"
+              },
+              "whatsapp": {
+                "type": "string"
               }
             },
             "required": [
@@ -8088,7 +8116,11 @@
               "taxId",
               "address",
               "phone",
-              "logoUrl"
+              "logoUrl",
+              "whatsapp",
+              "facebook",
+              "line",
+              "email"
             ],
             "type": "object"
           },
@@ -19477,6 +19509,18 @@
                     "maxLength": 150,
                     "type": "string"
                   },
+                  "store.email": {
+                    "maxLength": 150,
+                    "type": "string"
+                  },
+                  "store.facebook": {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "store.line": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
                   "store.logoUrl": {
                     "maxLength": 500,
                     "type": "string"
@@ -19491,6 +19535,10 @@
                   },
                   "store.taxId": {
                     "maxLength": 30,
+                    "type": "string"
+                  },
+                  "store.whatsapp": {
+                    "maxLength": 50,
                     "type": "string"
                   },
                   "tax.pricesIncludeVat": {

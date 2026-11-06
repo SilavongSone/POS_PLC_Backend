@@ -13,6 +13,12 @@ export const settingsShape = {
   'store.phone': text(50),
   'store.address': text(300),
   'store.logoUrl': text(500),
+  /** Shop channels printed on receipts, tax invoices and quotations ("" = not printed). */
+  'store.whatsapp': text(50),
+  /** Facebook page name or link, printed as typed (links shortened on paper). */
+  'store.facebook': text(200),
+  'store.line': text(100),
+  'store.email': text(150),
   'receipt.defaultSize': z.enum(['58mm', '80mm', 'A5', 'A4']),
   'receipt.footer': text(500),
   'repair.warrantyTerms': text(2000),
@@ -33,6 +39,10 @@ export const SETTING_DEFAULTS: Settings = {
   'store.phone': '',
   'store.address': '',
   'store.logoUrl': '',
+  'store.whatsapp': '',
+  'store.facebook': '',
+  'store.line': '',
+  'store.email': '',
   'receipt.defaultSize': '80mm',
   'receipt.footer': '',
   'repair.warrantyTerms': '',

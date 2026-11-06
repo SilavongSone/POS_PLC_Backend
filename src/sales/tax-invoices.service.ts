@@ -119,6 +119,10 @@ export class TaxInvoicesService {
         address: store['store.address'],
         phone: store['store.phone'],
         logoUrl: store['store.logoUrl'],
+        whatsapp: store['store.whatsapp'],
+        facebook: store['store.facebook'],
+        line: store['store.line'],
+        email: store['store.email'],
       },
       amounts: {
         beforeVatLak: amountBeforeVat,

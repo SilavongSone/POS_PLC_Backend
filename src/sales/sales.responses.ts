@@ -251,6 +251,10 @@ export const saleReceiptSchema = apiSchema(
       phone: z.string(),
       address: z.string(),
       logoUrl: z.string(),
+      whatsapp: z.string(),
+      facebook: z.string(),
+      line: z.string(),
+      email: z.string(),
       footer: z.string(),
     }),
     /** The selling branch; receiptHeader is its extra line under the shop name. */
@@ -374,6 +378,10 @@ export const taxInvoiceSchema = apiSchema(
       address: z.string(),
       phone: z.string(),
       logoUrl: z.string(),
+      whatsapp: z.string(),
+      facebook: z.string(),
+      line: z.string(),
+      email: z.string(),
     }),
     amounts: z.strictObject({
       beforeVatLak: decimalString,
