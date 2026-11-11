@@ -176,9 +176,12 @@ export class StockLedgerService {
         select: { serial: true },
       });
       if (existing.length) {
-        throw new ConflictException(
-          `Serial already exists: ${existing.map((s) => s.serial).join(', ')}`,
-        );
+        const value = existing.map((s) => s.serial).join(', ');
+        throw new ConflictException({
+          message: `Serial already exists: ${value}`,
+          code: 'SERIAL_EXISTS',
+          value,
+        });
       }
       // The till looks up barcodes/SKUs before serials, so such a serial could never be scanned.
       const clash = await tx.product.findFirst({

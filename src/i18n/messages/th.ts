@@ -55,6 +55,9 @@ export const th: Record<string, string> = {
   UNIT_EXISTS: 'มีหน่วยนี้แล้ว',
   UNIT_IN_USE: 'ยังมีสินค้าใช้หน่วยนี้อยู่ — เปลี่ยนสินค้าก่อน หรือปิดใช้แทน',
   LABEL_TEMPLATE_EXISTS: 'มีแม่แบบป้ายชื่อนี้แล้ว',
+  SERIAL_EXISTS:
+    'S/N นี้รับเข้าระบบแล้ว: {value} — ลบออกจากเอกสารนี้ หรือตรวจเลข S/N อีกครั้ง',
+  DOC_NOT_DRAFT: 'เอกสารนี้ไม่ใช่ร่างแล้ว — โหลดหน้าใหม่เพื่อดูสถานะล่าสุด',
   SERIAL_MATCHES_PRODUCT_CODE:
     'เลข serial ซ้ำกับบาร์โค้ดหรือ SKU ของสินค้า — เครื่องสแกนจะหาเครื่องนี้ไม่เจอ',
   PRODUCT_CODE_MATCHES_SERIAL:

@@ -58,6 +58,9 @@ export const lo: Record<string, string> = {
   UNIT_EXISTS: 'ມີຫົວໜ່ວຍນີ້ແລ້ວ',
   UNIT_IN_USE: 'ຍັງມີສິນຄ້າໃຊ້ຫົວໜ່ວຍນີ້ຢູ່ — ປ່ຽນສິນຄ້າກ່ອນ ຫຼື ປິດໃຊ້ແທນ',
   LABEL_TEMPLATE_EXISTS: 'ມີແມ່ແບບປ້າຍຊື່ນີ້ແລ້ວ',
+  SERIAL_EXISTS:
+    'S/N ນີ້ຮັບເຂົ້າລະບົບແລ້ວ: {value} — ລຶບອອກຈາກເອກະສານນີ້ ຫຼື ກວດເລກ S/N ອີກຄັ້ງ',
+  DOC_NOT_DRAFT: 'ເອກະສານນີ້ບໍ່ແມ່ນຮ່າງແລ້ວ — ໂຫຼດໜ້າໃໝ່ເພື່ອເບິ່ງສະຖານະລ່າສຸດ',
   SERIAL_MATCHES_PRODUCT_CODE:
     'ເລກ serial ຊ້ຳກັບບາໂຄດ ຫຼື SKU ຂອງສິນຄ້າ — ເຄື່ອງສະແກນຈະຫາເຄື່ອງນີ້ບໍ່ເຫັນ',
   PRODUCT_CODE_MATCHES_SERIAL:

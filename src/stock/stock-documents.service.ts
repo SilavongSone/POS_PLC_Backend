@@ -228,7 +228,10 @@ export class StockDocumentsService {
       where: { id },
     });
     if (doc.status !== 'DRAFT')
-      throw new ConflictException('Only drafts can be edited');
+      throw new ConflictException({
+        message: 'Only drafts can be edited',
+        code: 'DOC_NOT_DRAFT',
+      });
     if (doc.type !== input.type)
       throw new BadRequestException('The type cannot change');
     this.assertCan(user, doc.type);
@@ -272,7 +275,10 @@ export class StockDocumentsService {
           data: { status: 'POSTED', postedAt: new Date() },
         });
         if (claimed.count === 0)
-          throw new ConflictException('Only drafts can be posted');
+          throw new ConflictException({
+            message: 'Only drafts can be posted',
+            code: 'DOC_NOT_DRAFT',
+          });
 
         const ref: MoveRef = {
           refType: 'STOCK_DOC',
@@ -643,6 +649,27 @@ export class StockDocumentsService {
         throw new BadRequestException(`${at}: ${p.sku} needs an expiry date`);
       }
     });
+    // Units received earlier (or by another document) cannot come in twice; say so before the draft is saved.
+    const incoming = input.items.flatMap((item) =>
+      isInbound(input.type, item.quantity) &&
+      byId.get(item.productId)?.trackSerial
+        ? (item.serials ?? [])
+        : [],
+    );
+    if (incoming.length) {
+      const existing = await this.prisma.serialNumber.findMany({
+        where: { serial: { in: incoming } },
+        select: { serial: true },
+      });
+      if (existing.length) {
+        const value = existing.map((s) => s.serial).join(', ');
+        throw new ConflictException({
+          message: `Serial already exists: ${value}`,
+          code: 'SERIAL_EXISTS',
+          value,
+        });
+      }
+    }
   }
 
   private lineData(input: StockDocInput, lakPerUnit: Prisma.Decimal) {

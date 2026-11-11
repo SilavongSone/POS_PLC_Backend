@@ -58,6 +58,10 @@ export const en: Record<string, string> = {
   UNIT_IN_USE:
     'Products still use this unit; change them first or switch it off',
   LABEL_TEMPLATE_EXISTS: 'A label template with this name already exists',
+  SERIAL_EXISTS:
+    'These serial numbers were already received: {value}. Remove them from this document or check the numbers',
+  DOC_NOT_DRAFT:
+    'This document is no longer a draft; reload the page to see its status',
   SERIAL_MATCHES_PRODUCT_CODE:
     'A serial number equals the barcode or SKU of a product; the scanner could not find that unit',
   PRODUCT_CODE_MATCHES_SERIAL:
